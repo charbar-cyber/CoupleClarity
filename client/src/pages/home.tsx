@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 import WelcomeCard from "@/components/welcome-card";
 import EmotionExpressionForm from "@/components/emotion-expression-form";
 import TransformedMessageCard from "@/components/transformed-message-card";
 import SuggestedReading from "@/components/suggested-reading";
 import Homebase from "@/components/homebase";
+import MessageTimeline from "@/components/message-timeline";
 import { apiRequest } from "@/lib/queryClient";
 import { TransformationResponse } from "@shared/schema";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -16,6 +18,7 @@ import { useAuth } from "@/hooks/use-auth";
 export default function Home() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const [, navigate] = useLocation();
   const [showHistory, setShowHistory] = useState(false);
   const [transformedResponse, setTransformedResponse] = useState<TransformationResponse | null>(null);
   const [shareWithPartner, setShareWithPartner] = useState(false);
@@ -144,6 +147,16 @@ export default function Home() {
             
             <SuggestedReading />
           </>
+        )}
+        
+        {showHistory && (
+          <MessageTimeline 
+            limit={10} 
+            onViewThread={(messageId) => {
+              // Navigate to the message thread detail view using wouter
+              navigate(`/messages/${messageId}`);
+            }}
+          />
         )}
       </div>
     </main>

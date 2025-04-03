@@ -10,6 +10,7 @@ import History from "@/pages/history";
 import Dashboard from "@/pages/dashboard";
 import AuthPage from "@/pages/auth-page";
 import OnboardingPage from "@/pages/onboarding-page";
+import MessageThreadPage from "@/pages/message-thread-page";
 import Header from "./components/header";
 import Footer from "./components/footer";
 
@@ -64,6 +65,11 @@ function Router() {
         <Route path="/dashboard">
           <ProtectedRoute>
             <Dashboard />
+          </ProtectedRoute>
+        </Route>
+        <Route path="/messages/:id">
+          <ProtectedRoute>
+            <MessageThreadPage />
           </ProtectedRoute>
         </Route>
         <Route>

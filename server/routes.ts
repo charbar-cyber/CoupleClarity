@@ -106,9 +106,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Message not found" });
       }
       
+      // Get the user who created the message
+      const user = await storage.getUser(message.userId);
+      const { password, ...userData } = user || { password: '' };
+      
+      // Get responses to this message
+      const responses = await storage.getResponsesByMessageId(messageId);
+      
+      // Enrich responses with user data
+      const enrichedResponses = await Promise.all(
+        responses.map(async (response) => {
+          const responseUser = await storage.getUser(response.userId);
+          const { password, ...responseUserData } = responseUser || { password: '' };
+          
+          return {
+            ...response,
+            user: responseUserData
+          };
+        })
+      );
+      
       // Format message data for frontend
       const formattedMessage = {
         id: message.id,
+        userId: message.userId,
         emotion: message.emotion,
         rawMessage: message.rawMessage,
         context: message.context,
@@ -116,6 +137,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         communicationElements: JSON.parse(message.communicationElements),
         deliveryTips: JSON.parse(message.deliveryTips),
         createdAt: message.createdAt,
+        isShared: message.isShared,
+        user: userData,
+        responses: enrichedResponses
       };
       
       res.json(formattedMessage);
