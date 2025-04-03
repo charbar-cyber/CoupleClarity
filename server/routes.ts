@@ -318,6 +318,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  app.get("/api/users/:userId/preferences", isAuthenticated, async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+      
+      const preferences = await storage.getUserPreferences(userId);
+      
+      if (!preferences) {
+        return res.status(404).json({ message: "User preferences not found" });
+      }
+      
+      res.json(preferences);
+    } catch (error: unknown) {
+      console.error("Error fetching user preferences:", error);
+      res.status(500).json({ message: "Failed to fetch user preferences" });
+    }
+  });
+  
   // Create WebSocket server
   const httpServer = createServer(app);
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });

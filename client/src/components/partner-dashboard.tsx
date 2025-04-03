@@ -10,6 +10,10 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { z } from "zod";
+import { 
+  Heart, Sparkles, MessageSquare, Wrench, RefreshCw,
+  Clock, Gift, MessageCircleHeart, HandHeart
+} from "lucide-react";
 
 // Message and response interfaces
 interface Message {
@@ -30,6 +34,16 @@ interface Response {
   userId: number;
   content: string;
   aiSummary: string;
+  createdAt: Date;
+}
+
+interface UserPreferences {
+  id: number;
+  userId: number;
+  loveLanguage: string;
+  conflictStyle: string;
+  communicationStyle: string;
+  repairStyle: string;
   createdAt: Date;
 }
 
@@ -59,17 +73,24 @@ export default function PartnerDashboard({ userId, partnerId, partnerName = "Par
       return res.json();
     }
   });
+  
+  // Fetch partner's preferences
+  const { data: partnerPreferences } = useQuery({
+    queryKey: ['/api/users', partnerId, 'preferences'],
+    queryFn: async () => {
+      const res = await fetch(`/api/users/${partnerId}/preferences`);
+      if (!res.ok) {
+        if (res.status === 404) return null;
+        throw new Error('Failed to fetch partner preferences');
+      }
+      return res.json();
+    }
+  });
 
   // Mutation for creating a response
   const { mutate: createResponse, isPending } = useMutation({
     mutationFn: async ({ messageId, content }: { messageId: number, content: string }) => {
-      const response = await apiRequest(`/api/messages/${messageId}/responses?user_id=${userId}`, {
-        method: 'POST',
-        body: JSON.stringify({ content }),
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
+      const response = await apiRequest('POST', `/api/messages/${messageId}/responses?user_id=${userId}`, { content });
       return response.json();
     },
     onSuccess: (data) => {
@@ -167,6 +188,69 @@ export default function PartnerDashboard({ userId, partnerId, partnerName = "Par
 
     return emotionColors[emotion.toLowerCase()] || "bg-gray-100 text-gray-800";
   }
+  
+  // Format preference values to be more readable
+  function formatPreference(value: string): string {
+    if (!value) return "Not specified";
+    
+    return value
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  }
+  
+  // Get descriptions for each love language
+  function getLoveLanguageDescription(loveLanguage: string): string {
+    const descriptions: Record<string, string> = {
+      words_of_affirmation: "They value verbal acknowledgments of affection, including frequent 'I love you's, verbal compliments, and words of appreciation.",
+      quality_time: "They feel most loved when you spend meaningful time with them and give them your full, undivided attention.",
+      acts_of_service: "They appreciate when you do things to ease their burden or make their life easier. Actions speak louder than words.",
+      physical_touch: "They feel connected through physical closeness and touch, from holding hands to hugs and intimate moments.",
+      gifts: "They value thoughtful gifts that show you were thinking about them and understand what they like.",
+      not_sure: "They're still exploring which love language resonates most with them."
+    };
+    
+    return descriptions[loveLanguage] || "No description available.";
+  }
+  
+  // Get descriptions for each communication style
+  function getCommunicationStyleDescription(style: string): string {
+    const descriptions: Record<string, string> = {
+      gentle: "They prefer conversations that are calm, gentle, and non-confrontational. Be tactful and considerate.",
+      direct: "They appreciate straightforward, clear communication without sugarcoating. Be honest but respectful.",
+      structured: "They prefer organized conversations with clear points. Use structured discussions rather than rambling.",
+      supportive: "They communicate best in a supportive, encouraging environment. Focus on validation and understanding.",
+      light: "They prefer keeping conversations light and positive when possible, often using humor to diffuse tension."
+    };
+    
+    return descriptions[style] || "No description available.";
+  }
+  
+  // Get descriptions for each conflict style
+  function getConflictStyleDescription(style: string): string {
+    const descriptions: Record<string, string> = {
+      avoid: "They tend to withdraw during conflicts and may need space before discussing difficult topics.",
+      emotional: "They process conflicts emotionally and need to express feelings before moving to solutions.",
+      talk_calmly: "They prefer to discuss conflicts calmly and logically, focusing on finding solutions.",
+      need_space: "They need time alone to process their thoughts before discussing conflicts.",
+      not_sure: "They're still discovering their approach to handling relationship conflicts."
+    };
+    
+    return descriptions[style] || "No description available.";
+  }
+  
+  // Get descriptions for each repair style
+  function getRepairStyleDescription(style: string): string {
+    const descriptions: Record<string, string> = {
+      apology: "They value sincere apologies and verbal acknowledgment when repairing relationship ruptures.",
+      space_checkin: "They need space first, followed by a gentle check-in to repair after conflicts.",
+      physical_closeness: "They reconnect through physical closeness like hugs or sitting together after tension.",
+      caring_message: "They appreciate thoughtful messages or notes that express care and desire to reconnect.",
+      talking: "They repair relationships through honest conversations that address what happened."
+    };
+    
+    return descriptions[style] || "No description available.";
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -181,6 +265,7 @@ export default function PartnerDashboard({ userId, partnerId, partnerName = "Par
         <TabsList className="mb-4">
           <TabsTrigger value="shared">Shared Messages</TabsTrigger>
           <TabsTrigger value="responses">Responses</TabsTrigger>
+          <TabsTrigger value="preferences">Partner Preferences</TabsTrigger>
         </TabsList>
         
         <TabsContent value="shared">
@@ -295,6 +380,93 @@ export default function PartnerDashboard({ userId, partnerId, partnerName = "Par
                   </CardContent>
                 </Card>
               ))
+            )}
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="preferences">
+          <div className="grid grid-cols-1 gap-6">
+            {!partnerPreferences ? (
+              <Card>
+                <CardContent className="pt-6">
+                  <p className="text-center text-muted-foreground">
+                    {partnerName} hasn't completed their preferences yet.
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-xl">{partnerName}'s Communication Preferences</CardTitle>
+                  <CardDescription>
+                    Understanding your partner's preferences can help you communicate more effectively.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <div className="flex items-start gap-3">
+                        <Heart className="h-6 w-6 text-red-500 mt-1" />
+                        <div>
+                          <h3 className="font-semibold text-lg">Love Language</h3>
+                          <p className="text-sm">
+                            {formatPreference(partnerPreferences.loveLanguage)}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {getLoveLanguageDescription(partnerPreferences.loveLanguage)}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-start gap-3">
+                        <MessageSquare className="h-6 w-6 text-blue-500 mt-1" />
+                        <div>
+                          <h3 className="font-semibold text-lg">Communication Style</h3>
+                          <p className="text-sm">
+                            {formatPreference(partnerPreferences.communicationStyle)}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {getCommunicationStyleDescription(partnerPreferences.communicationStyle)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <div className="flex items-start gap-3">
+                        <Sparkles className="h-6 w-6 text-yellow-500 mt-1" />
+                        <div>
+                          <h3 className="font-semibold text-lg">Conflict Style</h3>
+                          <p className="text-sm">
+                            {formatPreference(partnerPreferences.conflictStyle)}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {getConflictStyleDescription(partnerPreferences.conflictStyle)}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-start gap-3">
+                        <RefreshCw className="h-6 w-6 text-green-500 mt-1" />
+                        <div>
+                          <h3 className="font-semibold text-lg">Repair Style</h3>
+                          <p className="text-sm">
+                            {formatPreference(partnerPreferences.repairStyle)}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {getRepairStyleDescription(partnerPreferences.repairStyle)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  <p className="text-sm text-muted-foreground">
+                    These preferences were collected during {partnerName}'s onboarding process.
+                  </p>
+                </CardFooter>
+              </Card>
             )}
           </div>
         </TabsContent>
