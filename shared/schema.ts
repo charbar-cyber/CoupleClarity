@@ -3,7 +3,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Preference option types
-export const loveLanguageOptions = ['words_of_affirmation', 'quality_time', 'acts_of_service', 'physical_touch', 'gifts'] as const;
+export const loveLanguageOptions = ['words_of_affirmation', 'quality_time', 'acts_of_service', 'physical_touch', 'gifts', 'not_sure'] as const;
 export const conflictStyleOptions = ['avoid', 'emotional', 'talk_calmly', 'need_space', 'not_sure'] as const;
 export const communicationStyleOptions = ['gentle', 'direct', 'structured', 'supportive', 'light'] as const;
 export const repairStyleOptions = ['apology', 'space_checkin', 'physical_closeness', 'caring_message', 'talking'] as const;

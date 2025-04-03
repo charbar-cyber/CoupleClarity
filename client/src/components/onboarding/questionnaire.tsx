@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -9,6 +9,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { LoveLanguageDiscovery } from "./love-language-discovery";
 import { 
   loveLanguageOptions, 
   conflictStyleOptions, 
@@ -23,7 +24,8 @@ const loveLanguageLabels: Record<string, string> = {
   quality_time: "Quality time",
   acts_of_service: "Acts of service",
   physical_touch: "Physical touch",
-  gifts: "Gifts or thoughtful gestures"
+  gifts: "Gifts or thoughtful gestures",
+  not_sure: "I'm not sure"
 };
 
 const conflictStyleLabels: Record<string, string> = {
@@ -58,7 +60,8 @@ type QuestionnaireFormValues = z.infer<typeof onboardingQuestionnaireSchema>;
 
 export function OnboardingQuestionnaire({ onComplete }: OnboardingQuestionnaireProps) {
   const { toast } = useToast();
-  const [currentStep, setCurrentStep] = React.useState(0);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [showLoveLanguageDiscovery, setShowLoveLanguageDiscovery] = useState(false);
   
   const form = useForm<QuestionnaireFormValues>({
     resolver: zodResolver(onboardingQuestionnaireSchema),
@@ -130,6 +133,12 @@ export function OnboardingQuestionnaire({ onComplete }: OnboardingQuestionnaireP
     const isValid = await form.trigger(field);
     
     if (isValid) {
+      // If on love language step and "not_sure" is selected, show the discovery flow
+      if (currentStep === 0 && form.getValues().loveLanguage === 'not_sure') {
+        setShowLoveLanguageDiscovery(true);
+        return;
+      }
+      
       if (currentStep < steps.length - 1) {
         setCurrentStep(prev => prev + 1);
       } else {
@@ -144,6 +153,39 @@ export function OnboardingQuestionnaire({ onComplete }: OnboardingQuestionnaireP
     if (currentStep > 0) {
       setCurrentStep(prev => prev - 1);
     }
+  }
+
+  // Handler for when love language discovery completes
+  const handleLoveLanguageDiscoveryComplete = (loveLanguage: string) => {
+    // Update the form with discovered love language
+    form.setValue('loveLanguage', loveLanguage as any);
+    setShowLoveLanguageDiscovery(false);
+    
+    // Proceed to next question
+    setCurrentStep(prev => prev + 1);
+    
+    // Show toast to inform user
+    toast({
+      title: "Love Language Discovered!",
+      description: `Based on your answers, your primary love language is: ${loveLanguageLabels[loveLanguage]}`,
+    });
+  };
+
+  // Handler to return from discovery flow to main question
+  const handleLoveLanguageDiscoveryBack = () => {
+    setShowLoveLanguageDiscovery(false);
+  };
+
+  // If love language discovery is being shown, render that instead
+  if (showLoveLanguageDiscovery) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-background to-muted p-4">
+        <LoveLanguageDiscovery 
+          onComplete={handleLoveLanguageDiscoveryComplete}
+          onBack={handleLoveLanguageDiscoveryBack} 
+        />
+      </div>
+    );
   }
 
   return (
