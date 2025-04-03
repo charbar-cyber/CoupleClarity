@@ -230,3 +230,20 @@ export const checkInSchema = z.object({
 });
 
 export type CheckInSubmission = z.infer<typeof checkInSchema>;
+
+// Appreciation log schema
+export const appreciations = pgTable("appreciations", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  partnerId: integer("partner_id").notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertAppreciationSchema = createInsertSchema(appreciations).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAppreciation = z.infer<typeof insertAppreciationSchema>;
+export type Appreciation = typeof appreciations.$inferSelect;

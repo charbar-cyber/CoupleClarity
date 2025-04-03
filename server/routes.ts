@@ -8,7 +8,8 @@ import {
   responseSchema, 
   transformationResponseSchema,
   onboardingQuestionnaireSchema,
-  checkInSchema
+  checkInSchema,
+  insertAppreciationSchema
 } from "@shared/schema";
 import { setupAuth } from "./auth";
 
@@ -569,6 +570,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: unknown) {
       console.error("Error fetching user preferences:", error);
       res.status(500).json({ message: "Failed to fetch user preferences" });
+    }
+  });
+  
+  // Appreciation log endpoints
+  app.post("/api/appreciations", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as Express.User).id;
+      const data = insertAppreciationSchema.parse({
+        ...req.body,
+        userId
+      });
+      
+      const appreciation = await storage.createAppreciation(data);
+      res.status(201).json(appreciation);
+    } catch (error: unknown) {
+      const err = error as Error;
+      if (err.name === "ZodError") {
+        return res.status(400).json({ message: "Validation error", errors: (err as any).errors });
+      }
+      console.error("Error creating appreciation:", err);
+      res.status(500).json({ message: "Failed to create appreciation" });
+    }
+  });
+  
+  app.get("/api/appreciations", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as Express.User).id;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 5;
+      
+      const appreciations = await storage.getAppreciationsByUserId(userId, limit);
+      res.json(appreciations);
+    } catch (error: unknown) {
+      console.error("Error fetching appreciations:", error);
+      res.status(500).json({ message: "Failed to fetch appreciations" });
     }
   });
   

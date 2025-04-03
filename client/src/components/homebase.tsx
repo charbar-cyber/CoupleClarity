@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Heart, Calendar, Activity } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { formatPreference } from "@/lib/utils";
+import AppreciationLog from "./appreciation-log";
 
 interface HomebaseProps {
   userId: number;
@@ -185,6 +186,14 @@ export default function Homebase({ userId, partnerId, userName, partnerName }: H
                   </p>
                 </div>
               </div>
+            </div>
+            
+            {/* Appreciation Log */}
+            <Separator className="my-6" />
+            <div className="mt-6">
+              {partnerId && (
+                <AppreciationLog userId={userId} partnerId={partnerId} />
+              )}
             </div>
           </>
         )}

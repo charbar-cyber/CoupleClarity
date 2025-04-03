@@ -6,7 +6,8 @@ import {
   inviteSchema, type Invite, type InsertInvite,
   userPreferences, type UserPreferences, type InsertUserPreferences,
   checkInPrompts, type CheckInPrompt, type InsertCheckInPrompt,
-  checkInResponses, type CheckInResponse, type InsertCheckInResponse
+  checkInResponses, type CheckInResponse, type InsertCheckInResponse,
+  appreciations, type Appreciation, type InsertAppreciation
 } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
@@ -57,6 +58,11 @@ export interface IStorage {
   getUserCheckInResponses(userId: number, weekOf?: Date): Promise<CheckInResponse[]>;
   getLatestCheckInWeek(userId: number): Promise<Date | undefined>;
   
+  // Appreciation log operations
+  createAppreciation(appreciation: InsertAppreciation): Promise<Appreciation>;
+  getAppreciationsByUserId(userId: number, limit?: number): Promise<Appreciation[]>;
+  getAppreciation(id: number): Promise<Appreciation | undefined>;
+  
   // Session store
   sessionStore: session.Store;
 }
@@ -95,6 +101,7 @@ export class MemStorage implements IStorage {
     this.preferences = new Map();
     this.checkInPrompts = new Map();
     this.checkInResponses = new Map();
+    this.appreciations = new Map();
     this.userIdCounter = 1;
     this.messageIdCounter = 1;
     this.partnershipIdCounter = 1;
@@ -103,6 +110,7 @@ export class MemStorage implements IStorage {
     this.preferencesIdCounter = 1;
     this.checkInPromptIdCounter = 1;
     this.checkInResponseIdCounter = 1;
+    this.appreciationIdCounter = 1;
     
     // Create default users
     const user1 = this.createUser({
@@ -507,6 +515,38 @@ export class MemStorage implements IStorage {
     result.setDate(result.getDate() - day); // Go to Sunday
     result.setHours(0, 0, 0, 0); // Set to beginning of day
     return result;
+  }
+  
+  // Appreciation log operations
+  private appreciations: Map<number, Appreciation> = new Map();
+  private appreciationIdCounter: number = 1;
+  
+  async createAppreciation(appreciation: InsertAppreciation): Promise<Appreciation> {
+    const id = this.appreciationIdCounter++;
+    const now = new Date();
+    
+    const newAppreciation: Appreciation = {
+      ...appreciation,
+      id,
+      createdAt: now
+    };
+    
+    this.appreciations.set(id, newAppreciation);
+    return newAppreciation;
+  }
+  
+  async getAppreciationsByUserId(userId: number, limit: number = 5): Promise<Appreciation[]> {
+    return Array.from(this.appreciations.values())
+      .filter(appreciation => appreciation.userId === userId)
+      .sort((a, b) => {
+        // Sort by createdAt in descending order (newest first)
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      })
+      .slice(0, limit);
+  }
+  
+  async getAppreciation(id: number): Promise<Appreciation | undefined> {
+    return this.appreciations.get(id);
   }
 }
 
