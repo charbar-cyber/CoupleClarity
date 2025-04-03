@@ -7,7 +7,8 @@ import {
   emotionSchema, 
   responseSchema, 
   transformationResponseSchema,
-  onboardingQuestionnaireSchema 
+  onboardingQuestionnaireSchema,
+  checkInSchema
 } from "@shared/schema";
 import { setupAuth } from "./auth";
 
@@ -399,6 +400,155 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: unknown) {
       console.error("Error fetching user preferences:", error);
       res.status(500).json({ message: "Failed to fetch user preferences" });
+    }
+  });
+  
+  // Weekly check-in endpoints
+  app.get("/api/check-in/prompts", isAuthenticated, async (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 3;
+      const prompts = await storage.getActiveCheckInPrompts(limit);
+      
+      // If no prompts exist, create some default ones
+      if (prompts.length === 0) {
+        const defaultPrompts = [
+          {
+            prompt: "What moments of connection did you experience with your partner this week?",
+            category: "connection",
+            isActive: true
+          },
+          {
+            prompt: "What is one thing your partner did this week that you appreciated?",
+            category: "appreciation",
+            isActive: true
+          },
+          {
+            prompt: "Is there anything specific you'd like to work on together next week?",
+            category: "growth",
+            isActive: true
+          }
+        ];
+        
+        const createdPrompts = await Promise.all(
+          defaultPrompts.map(prompt => storage.createCheckInPrompt(prompt))
+        );
+        
+        res.json(createdPrompts);
+      } else {
+        res.json(prompts);
+      }
+    } catch (error: unknown) {
+      console.error("Error fetching check-in prompts:", error);
+      res.status(500).json({ message: "Failed to fetch check-in prompts" });
+    }
+  });
+  
+  app.post("/api/check-in/prompts", isAuthenticated, async (req, res) => {
+    try {
+      const prompt = req.body;
+      const newPrompt = await storage.createCheckInPrompt(prompt);
+      res.status(201).json(newPrompt);
+    } catch (error: unknown) {
+      console.error("Error creating check-in prompt:", error);
+      res.status(500).json({ message: "Failed to create check-in prompt" });
+    }
+  });
+  
+  app.post("/api/check-in/responses", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as Express.User).id;
+      const validatedData = checkInSchema.parse(req.body);
+      
+      // Get the current date for the week
+      const today = new Date();
+      const weekOf = new Date(today.setHours(0, 0, 0, 0));
+      weekOf.setDate(weekOf.getDate() - weekOf.getDay()); // Set to beginning of week (Sunday)
+      
+      // Create responses for each prompt
+      const responses = await Promise.all(
+        validatedData.responses.map(async (responseData: { promptId: number; response: string }) => {
+          const response = await storage.createCheckInResponse({
+            userId,
+            promptId: responseData.promptId,
+            response: responseData.response,
+            weekOf,
+            isShared: validatedData.isShared
+          });
+          return response;
+        })
+      );
+      
+      res.status(201).json({ 
+        responses,
+        weekOf,
+        isShared: validatedData.isShared
+      });
+    } catch (error: unknown) {
+      const err = error as Error;
+      if (err.name === "ZodError") {
+        return res.status(400).json({ message: "Validation error", errors: (err as any).errors });
+      }
+      console.error("Error creating check-in responses:", err);
+      res.status(500).json({ message: "Failed to create check-in responses" });
+    }
+  });
+  
+  app.get("/api/check-in/responses", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as Express.User).id;
+      let weekOf: Date | undefined = undefined;
+      
+      if (req.query.weekOf) {
+        weekOf = new Date(req.query.weekOf as string);
+      }
+      
+      const responses = await storage.getUserCheckInResponses(userId, weekOf);
+      
+      // Get prompt details for each response
+      const responsesWithPrompts = await Promise.all(
+        responses.map(async (response) => {
+          const prompt = await storage.getCheckInPrompt(response.promptId);
+          return {
+            ...response,
+            prompt: prompt || { prompt: "Unknown prompt" }
+          };
+        })
+      );
+      
+      res.json(responsesWithPrompts);
+    } catch (error: unknown) {
+      console.error("Error fetching check-in responses:", error);
+      res.status(500).json({ message: "Failed to fetch check-in responses" });
+    }
+  });
+  
+  app.get("/api/check-in/latest", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as Express.User).id;
+      const latestWeek = await storage.getLatestCheckInWeek(userId);
+      
+      if (!latestWeek) {
+        return res.status(404).json({ message: "No check-in history found" });
+      }
+      
+      // Check if a new week has started since the last check-in
+      const today = new Date();
+      const currentWeekStart = new Date(today.setHours(0, 0, 0, 0));
+      currentWeekStart.setDate(currentWeekStart.getDate() - currentWeekStart.getDay());
+      
+      const lastWeekStart = new Date(latestWeek);
+      lastWeekStart.setHours(0, 0, 0, 0);
+      
+      const needsNewCheckIn = currentWeekStart.getTime() > lastWeekStart.getTime();
+      
+      res.json({
+        latestWeek,
+        needsNewCheckIn,
+        currentWeek: currentWeekStart
+      });
+    } catch (error: unknown) {
+      console.error("Error fetching latest check-in:", error);
+      res.status(500).json({ message: "Failed to fetch latest check-in" });
     }
   });
   

@@ -4,7 +4,9 @@ import {
   partnerships, type Partnership, type InsertPartnership,
   responses, type Response, type InsertResponse,
   inviteSchema, type Invite, type InsertInvite,
-  userPreferences, type UserPreferences, type InsertUserPreferences
+  userPreferences, type UserPreferences, type InsertUserPreferences,
+  checkInPrompts, type CheckInPrompt, type InsertCheckInPrompt,
+  checkInResponses, type CheckInResponse, type InsertCheckInResponse
 } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
@@ -47,6 +49,14 @@ export interface IStorage {
   getUserPreferences(userId: number): Promise<UserPreferences | undefined>;
   updateUserPreferences(userId: number, preferences: Partial<InsertUserPreferences>): Promise<UserPreferences>;
   
+  // Weekly check-in operations
+  createCheckInPrompt(prompt: InsertCheckInPrompt): Promise<CheckInPrompt>;
+  getActiveCheckInPrompts(limit?: number): Promise<CheckInPrompt[]>;
+  getCheckInPrompt(id: number): Promise<CheckInPrompt | undefined>;
+  createCheckInResponse(response: InsertCheckInResponse): Promise<CheckInResponse>;
+  getUserCheckInResponses(userId: number, weekOf?: Date): Promise<CheckInResponse[]>;
+  getLatestCheckInWeek(userId: number): Promise<Date | undefined>;
+  
   // Session store
   sessionStore: session.Store;
 }
@@ -58,12 +68,16 @@ export class MemStorage implements IStorage {
   private responses: Map<number, Response>;
   private invites: Map<number, Invite>;
   private preferences: Map<number, UserPreferences>;
+  private checkInPrompts: Map<number, CheckInPrompt>;
+  private checkInResponses: Map<number, CheckInResponse>;
   private userIdCounter: number;
   private messageIdCounter: number;
   private partnershipIdCounter: number;
   private responseIdCounter: number;
   private inviteIdCounter: number;
   private preferencesIdCounter: number;
+  private checkInPromptIdCounter: number;
+  private checkInResponseIdCounter: number;
   sessionStore: session.Store;
 
   constructor() {
@@ -79,12 +93,16 @@ export class MemStorage implements IStorage {
     this.responses = new Map();
     this.invites = new Map();
     this.preferences = new Map();
+    this.checkInPrompts = new Map();
+    this.checkInResponses = new Map();
     this.userIdCounter = 1;
     this.messageIdCounter = 1;
     this.partnershipIdCounter = 1;
     this.responseIdCounter = 1;
     this.inviteIdCounter = 1;
     this.preferencesIdCounter = 1;
+    this.checkInPromptIdCounter = 1;
+    this.checkInResponseIdCounter = 1;
     
     // Create default users
     const user1 = this.createUser({
@@ -115,6 +133,27 @@ export class MemStorage implements IStorage {
           this.updatePartnershipStatus(partnership.id, "active");
         });
       });
+    });
+    
+    // Create default check-in prompts
+    this.createCheckInPrompt({
+      prompt: "What's one thing your partner did this week that made you feel appreciated?",
+      category: "appreciation"
+    });
+    
+    this.createCheckInPrompt({
+      prompt: "Is there a conversation or topic you'd like to discuss with your partner this week?",
+      category: "communication"
+    });
+    
+    this.createCheckInPrompt({
+      prompt: "What's one challenge you faced together this week, and how do you feel about how you handled it?",
+      category: "challenges"
+    });
+    
+    this.createCheckInPrompt({
+      prompt: "What's one goal you have for your relationship in the coming week?",
+      category: "goals"
     });
   }
 
@@ -380,6 +419,94 @@ export class MemStorage implements IStorage {
     
     this.preferences.set(userPrefs.id, updatedPrefs);
     return updatedPrefs;
+  }
+  
+  // Weekly check-in operations
+  async createCheckInPrompt(prompt: InsertCheckInPrompt): Promise<CheckInPrompt> {
+    const id = this.checkInPromptIdCounter++;
+    const now = new Date();
+    
+    const checkInPrompt: CheckInPrompt = {
+      ...prompt,
+      id,
+      createdAt: now,
+      active: prompt.active ?? true
+    };
+    
+    this.checkInPrompts.set(id, checkInPrompt);
+    return checkInPrompt;
+  }
+  
+  async getActiveCheckInPrompts(limit: number = 3): Promise<CheckInPrompt[]> {
+    return Array.from(this.checkInPrompts.values())
+      .filter(prompt => prompt.active)
+      .sort(() => Math.random() - 0.5) // Randomly shuffle prompts
+      .slice(0, limit);
+  }
+  
+  async getCheckInPrompt(id: number): Promise<CheckInPrompt | undefined> {
+    return this.checkInPrompts.get(id);
+  }
+  
+  async createCheckInResponse(insertResponse: InsertCheckInResponse): Promise<CheckInResponse> {
+    const id = this.checkInResponseIdCounter++;
+    const now = new Date();
+    
+    const checkInResponse: CheckInResponse = {
+      ...insertResponse,
+      id,
+      createdAt: now,
+      isShared: insertResponse.isShared ?? false
+    };
+    
+    this.checkInResponses.set(id, checkInResponse);
+    return checkInResponse;
+  }
+  
+  async getUserCheckInResponses(userId: number, weekOf?: Date): Promise<CheckInResponse[]> {
+    const responses = Array.from(this.checkInResponses.values())
+      .filter(response => response.userId === userId);
+      
+    if (weekOf) {
+      // Filter by week
+      const weekStart = this.getWeekStart(weekOf);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 7);
+      
+      return responses.filter(response => {
+        const responseDate = new Date(response.weekOf);
+        return responseDate >= weekStart && responseDate < weekEnd;
+      });
+    }
+    
+    return responses.sort((a, b) => {
+      // Sort by createdAt in descending order (newest first)
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  }
+  
+  async getLatestCheckInWeek(userId: number): Promise<Date | undefined> {
+    const userResponses = Array.from(this.checkInResponses.values())
+      .filter(response => response.userId === userId)
+      .sort((a, b) => {
+        // Sort by weekOf in descending order (newest first)
+        return new Date(b.weekOf).getTime() - new Date(a.weekOf).getTime();
+      });
+    
+    if (userResponses.length === 0) {
+      return undefined;
+    }
+    
+    return new Date(userResponses[0].weekOf);
+  }
+  
+  // Helper method to get the start of a week (Sunday)
+  private getWeekStart(date: Date): Date {
+    const result = new Date(date);
+    const day = result.getDay();
+    result.setDate(result.getDate() - day); // Go to Sunday
+    result.setHours(0, 0, 0, 0); // Set to beginning of day
+    return result;
   }
 }
 

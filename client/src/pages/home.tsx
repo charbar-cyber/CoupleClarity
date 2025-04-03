@@ -8,6 +8,7 @@ import SuggestedReading from "@/components/suggested-reading";
 import Homebase from "@/components/homebase";
 import MessageTimeline from "@/components/message-timeline";
 import EmotionalInsights from "@/components/emotional-insights";
+import WeeklyCheckIn from "@/components/weekly-check-in";
 import { apiRequest } from "@/lib/queryClient";
 import { TransformationResponse } from "@shared/schema";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -110,6 +111,7 @@ export default function Home() {
           userName={userName}
           partnerName={partnerName}
         />
+        <WeeklyCheckIn userId={userId} />
         <WelcomeCard 
           activeTab={showHistory ? "history" : "express"} 
           onChangeTab={(tab) => setShowHistory(tab === "history")}

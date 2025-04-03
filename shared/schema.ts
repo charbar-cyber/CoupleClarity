@@ -185,3 +185,48 @@ export const onboardingQuestionnaireSchema = z.object({
 });
 
 export type OnboardingQuestionnaire = z.infer<typeof onboardingQuestionnaireSchema>;
+
+// Weekly check-in schemas
+export const checkInPrompts = pgTable("check_in_prompts", {
+  id: serial("id").primaryKey(),
+  prompt: text("prompt").notNull(),
+  category: text("category").notNull(),
+  active: boolean("active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertCheckInPromptSchema = createInsertSchema(checkInPrompts).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertCheckInPrompt = z.infer<typeof insertCheckInPromptSchema>;
+export type CheckInPrompt = typeof checkInPrompts.$inferSelect;
+
+export const checkInResponses = pgTable("check_in_responses", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  promptId: integer("prompt_id").notNull().references(() => checkInPrompts.id),
+  response: text("response").notNull(),
+  weekOf: timestamp("week_of").notNull(),
+  isShared: boolean("is_shared").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertCheckInResponseSchema = createInsertSchema(checkInResponses).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertCheckInResponse = z.infer<typeof insertCheckInResponseSchema>;
+export type CheckInResponse = typeof checkInResponses.$inferSelect;
+
+export const checkInSchema = z.object({
+  responses: z.array(z.object({
+    promptId: z.number(),
+    response: z.string().min(1, "Response cannot be empty"),
+  })),
+  isShared: z.boolean().default(false),
+});
+
+export type CheckInSubmission = z.infer<typeof checkInSchema>;
