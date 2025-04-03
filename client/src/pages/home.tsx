@@ -7,11 +7,20 @@ import SuggestedReading from "@/components/suggested-reading";
 import { apiRequest } from "@/lib/queryClient";
 import { TransformationResponse } from "@shared/schema";
 import { useMutation } from "@tanstack/react-query";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { useWebSocket } from "@/hooks/use-websocket";
 
 export default function Home() {
   const { toast } = useToast();
   const [showHistory, setShowHistory] = useState(false);
   const [transformedResponse, setTransformedResponse] = useState<TransformationResponse | null>(null);
+  const [shareWithPartner, setShareWithPartner] = useState(false);
+  const { connected, sendMessage } = useWebSocket();
+  
+  // For demo purposes, we'll use fixed user IDs (user 1 sending to partner 2)
+  const userId = 1;
+  const partnerId = 2;
 
   const transformMutation = useMutation({
     mutationFn: async (data: {
@@ -19,16 +28,41 @@ export default function Home() {
       rawMessage: string;
       context?: string;
       saveToHistory: boolean;
+      shareWithPartner?: boolean;
+      partnerId?: number;
     }) => {
-      const response = await apiRequest("POST", "/api/transform", data);
+      const response = await apiRequest(
+        "POST", 
+        `/api/transform?user_id=${userId}`, 
+        data
+      );
       return response.json();
     },
     onSuccess: (data: TransformationResponse) => {
       setTransformedResponse(data);
-      toast({
-        title: "Message transformed successfully",
-        description: "Your emotional message has been transformed into empathetic communication.",
-      });
+      
+      // If message was shared, notify partners via WebSocket
+      if (shareWithPartner && connected && data.messageId) {
+        sendMessage({
+          type: 'new_message',
+          data: {
+            id: data.messageId,
+            transformedMessage: data.transformedMessage,
+            communicationElements: data.communicationElements,
+            deliveryTips: data.deliveryTips
+          }
+        });
+        
+        toast({
+          title: "Message shared",
+          description: "Your message has been shared with your partner.",
+        });
+      } else {
+        toast({
+          title: "Message transformed successfully",
+          description: "Your emotional message has been transformed into empathetic communication.",
+        });
+      }
     },
     onError: (error) => {
       toast({
@@ -45,7 +79,14 @@ export default function Home() {
     context?: string;
     saveToHistory: boolean;
   }) => {
-    transformMutation.mutate(data);
+    // Add sharing options to the data
+    const enrichedData = {
+      ...data,
+      shareWithPartner,
+      partnerId: shareWithPartner ? partnerId : undefined
+    };
+    
+    transformMutation.mutate(enrichedData);
   };
 
   return (
@@ -58,6 +99,22 @@ export default function Home() {
         
         {!showHistory && (
           <>
+            <div className="mb-4 flex items-center space-x-2">
+              <Switch
+                id="share-partner"
+                checked={shareWithPartner}
+                onCheckedChange={setShareWithPartner}
+              />
+              <Label htmlFor="share-partner" className="text-sm font-medium">
+                Share with partner after transformation
+              </Label>
+              {!connected && shareWithPartner && (
+                <span className="text-xs text-destructive">
+                  WebSocket not connected. Share might not work.
+                </span>
+              )}
+            </div>
+            
             <EmotionExpressionForm 
               onSubmit={handleTransform} 
               isLoading={transformMutation.isPending}

@@ -6,15 +6,36 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
+  displayName: text("display_name"),
+  email: text("email"),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
+  displayName: true,
+  email: true,
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+
+export const partnerships = pgTable("partnerships", {
+  id: serial("id").primaryKey(),
+  user1Id: integer("user1_id").notNull(),
+  user2Id: integer("user2_id").notNull(),
+  status: text("status").notNull().default("pending"), // pending, active, inactive
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertPartnershipSchema = createInsertSchema(partnerships).omit({
+  id: true,
+  status: true,
+  createdAt: true,
+});
+
+export type InsertPartnership = z.infer<typeof insertPartnershipSchema>;
+export type Partnership = typeof partnerships.$inferSelect;
 
 export const messages = pgTable("messages", {
   id: serial("id").primaryKey(),
@@ -25,6 +46,8 @@ export const messages = pgTable("messages", {
   transformedMessage: text("transformed_message").notNull(),
   communicationElements: text("communication_elements").notNull(),
   deliveryTips: text("delivery_tips").notNull(),
+  isShared: boolean("is_shared").default(false).notNull(),
+  partnerId: integer("partner_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -36,11 +59,30 @@ export const insertMessageSchema = createInsertSchema(messages).omit({
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
 export type Message = typeof messages.$inferSelect;
 
+export const responses = pgTable("responses", {
+  id: serial("id").primaryKey(),
+  messageId: integer("message_id").notNull(),
+  userId: integer("user_id").notNull(),
+  content: text("content").notNull(),
+  aiSummary: text("ai_summary"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertResponseSchema = createInsertSchema(responses).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertResponse = z.infer<typeof insertResponseSchema>;
+export type Response = typeof responses.$inferSelect;
+
 export const emotionSchema = z.object({
   emotion: z.string().min(1, "Emotion is required"),
   rawMessage: z.string().min(1, "Message is required").max(500, "Message is too long"),
   context: z.string().optional(),
   saveToHistory: z.boolean().default(true),
+  shareWithPartner: z.boolean().default(false),
+  partnerId: z.number().optional(),
 });
 
 export type EmotionInput = z.infer<typeof emotionSchema>;
@@ -49,6 +91,14 @@ export const transformationResponseSchema = z.object({
   transformedMessage: z.string(),
   communicationElements: z.array(z.string()),
   deliveryTips: z.array(z.string()),
+  messageId: z.number().optional(),
 });
 
 export type TransformationResponse = z.infer<typeof transformationResponseSchema>;
+
+export const responseSchema = z.object({
+  messageId: z.number(),
+  content: z.string().min(1, "Response is required").max(500, "Response is too long"),
+});
+
+export type ResponseInput = z.infer<typeof responseSchema>;

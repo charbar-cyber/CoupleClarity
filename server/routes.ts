@@ -1,8 +1,9 @@
 import express, { type Express } from "express";
 import { createServer, type Server } from "http";
+import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { transformEmotionalMessage } from "./openai";
-import { emotionSchema, transformationResponseSchema } from "@shared/schema";
+import { transformEmotionalMessage, summarizeResponse } from "./openai";
+import { emotionSchema, responseSchema, transformationResponseSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // API Routes
@@ -17,12 +18,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         validatedData.context
       );
       
+      let messageId;
+      
       // Save to history if requested
       if (validatedData.saveToHistory) {
-        // For simplicity, use a dummy userId = 1 since we don't have auth
-        const userId = 1;
+        // For simplicity, use a dummy userId = 1 or 2 depending on route
+        const userId = req.query.user_id ? parseInt(req.query.user_id as string) : 1;
         
-        await storage.createMessage({
+        const message = await storage.createMessage({
           userId,
           emotion: validatedData.emotion,
           rawMessage: validatedData.rawMessage,
@@ -30,15 +33,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           transformedMessage: transformedResult.transformedMessage,
           communicationElements: JSON.stringify(transformedResult.communicationElements),
           deliveryTips: JSON.stringify(transformedResult.deliveryTips),
+          isShared: validatedData.shareWithPartner || false,
+          partnerId: validatedData.partnerId || null
         });
+        
+        messageId = message.id;
       }
       
-      res.json(transformedResult);
-    } catch (error) {
-      if (error.name === "ZodError") {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      res.json({
+        ...transformedResult,
+        messageId
+      });
+    } catch (error: unknown) {
+      const err = error as Error;
+      if (err.name === "ZodError") {
+        return res.status(400).json({ message: "Validation error", errors: (err as any).errors });
       }
-      console.error("Error transforming message:", error);
+      console.error("Error transforming message:", err);
       res.status(500).json({ message: "Failed to transform message" });
     }
   });
@@ -98,6 +109,207 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // User endpoints
+  app.get("/api/users/:id", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Don't send the password to the client
+      const { password, ...userData } = user;
+      res.json(userData);
+    } catch (error: unknown) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+  
+  // Partnership endpoints
+  app.get("/api/users/:userId/partnerships", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+      
+      const partnerships = await storage.getPartnershipsForUser(userId);
+      
+      // Populate partners information
+      const populatedPartnerships = await Promise.all(
+        partnerships.map(async (partnership) => {
+          const partnerId = partnership.user1Id === userId 
+            ? partnership.user2Id 
+            : partnership.user1Id;
+            
+          const partner = await storage.getUser(partnerId);
+          const { password, ...partnerData } = partner || { password: '' };
+          
+          return {
+            ...partnership,
+            partner: partnerData
+          };
+        })
+      );
+      
+      res.json(populatedPartnerships);
+    } catch (error: unknown) {
+      console.error("Error fetching partnerships:", error);
+      res.status(500).json({ message: "Failed to fetch partnerships" });
+    }
+  });
+  
+  // Shared messages endpoints
+  app.get("/api/partners/:partnerId/shared-messages", async (req, res) => {
+    try {
+      const partnerId = parseInt(req.params.partnerId);
+      if (isNaN(partnerId)) {
+        return res.status(400).json({ message: "Invalid partner ID" });
+      }
+      
+      const messages = await storage.getSharedMessagesForPartner(partnerId);
+      
+      // Format message data for frontend
+      const formattedMessages = messages.map(message => ({
+        id: message.id,
+        userId: message.userId,
+        emotion: message.emotion,
+        rawMessage: message.rawMessage,
+        transformedMessage: message.transformedMessage,
+        communicationElements: JSON.parse(message.communicationElements),
+        deliveryTips: JSON.parse(message.deliveryTips),
+        createdAt: message.createdAt,
+      }));
+      
+      res.json(formattedMessages);
+    } catch (error: unknown) {
+      console.error("Error fetching shared messages:", error);
+      res.status(500).json({ message: "Failed to fetch shared messages" });
+    }
+  });
+  
+  // Response endpoints
+  app.post("/api/messages/:messageId/responses", async (req, res) => {
+    try {
+      const messageId = parseInt(req.params.messageId);
+      if (isNaN(messageId)) {
+        return res.status(400).json({ message: "Invalid message ID" });
+      }
+      
+      const message = await storage.getMessage(messageId);
+      if (!message) {
+        return res.status(404).json({ message: "Message not found" });
+      }
+      
+      const validatedData = responseSchema.parse(req.body);
+      
+      // For simplicity, use the partner's ID as the userId
+      const userId = req.query.user_id ? parseInt(req.query.user_id as string) : 
+                    (message.partnerId || 2); // Default to user 2 if no partner ID
+      
+      // Use OpenAI to generate a summary of the response
+      const aiSummary = await summarizeResponse(
+        message.transformedMessage,
+        validatedData.content
+      );
+      
+      const response = await storage.createResponse({
+        messageId,
+        userId,
+        content: validatedData.content,
+        aiSummary
+      });
+      
+      res.json({
+        ...response,
+        aiSummary
+      });
+    } catch (error: unknown) {
+      const err = error as Error;
+      if (err.name === "ZodError") {
+        return res.status(400).json({ message: "Validation error", errors: (err as any).errors });
+      }
+      console.error("Error creating response:", err);
+      res.status(500).json({ message: "Failed to create response" });
+    }
+  });
+  
+  app.get("/api/messages/:messageId/responses", async (req, res) => {
+    try {
+      const messageId = parseInt(req.params.messageId);
+      if (isNaN(messageId)) {
+        return res.status(400).json({ message: "Invalid message ID" });
+      }
+      
+      const responses = await storage.getResponsesByMessageId(messageId);
+      res.json(responses);
+    } catch (error: unknown) {
+      console.error("Error fetching responses:", error);
+      res.status(500).json({ message: "Failed to fetch responses" });
+    }
+  });
+
+  // Create WebSocket server
   const httpServer = createServer(app);
+  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  
+  // Set up WebSocket connections
+  wss.on('connection', (ws) => {
+    console.log('WebSocket client connected');
+    
+    // Send a welcome message
+    ws.send(JSON.stringify({
+      type: 'connection',
+      message: 'Connected to CoupleClarity WebSocket server'
+    }));
+    
+    // Handle incoming messages
+    ws.on('message', async (message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        
+        // Handle different message types
+        if (data.type === 'new_message') {
+          // Broadcast to partners
+          console.log('Broadcasting new message to partners:', data.data);
+          wss.clients.forEach((client) => {
+            if (client !== ws && client.readyState === WebSocket.OPEN) {
+              client.send(JSON.stringify({
+                type: 'new_shared_message',
+                data: data.data
+              }));
+            }
+          });
+        }
+        
+        if (data.type === 'new_response') {
+          // Broadcast to partners
+          console.log('Broadcasting new response to partners:', data.data);
+          wss.clients.forEach((client) => {
+            if (client !== ws && client.readyState === WebSocket.OPEN) {
+              client.send(JSON.stringify({
+                type: 'new_response',
+                data: data.data
+              }));
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error handling WebSocket message:', error);
+      }
+    });
+    
+    // Handle disconnection
+    ws.on('close', () => {
+      console.log('WebSocket client disconnected');
+    });
+  });
+  
   return httpServer;
 }

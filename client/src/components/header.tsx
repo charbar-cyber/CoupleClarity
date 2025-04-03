@@ -24,6 +24,11 @@ export default function Header() {
               <i className="fas fa-history text-lg"></i>
             </button>
           </Link>
+          <Link href="/dashboard">
+            <button className="text-neutral-700 hover:text-primary transition-colors">
+              <i className="fas fa-columns text-lg"></i>
+            </button>
+          </Link>
           <button className="text-neutral-700 hover:text-primary transition-colors">
             <i className="fas fa-cog text-lg"></i>
           </button>
