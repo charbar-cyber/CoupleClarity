@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { FormItem, FormLabel, FormControl } from "@/components/ui/form";
+import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 
 type LoveLanguageDiscoveryProps = {
@@ -127,17 +127,15 @@ export function LoveLanguageDiscovery({ onComplete, onBack }: LoveLanguageDiscov
             className="space-y-3"
           >
             {currentQuestion.options.map((option) => (
-              <FormItem
+              <div
                 key={option.value}
                 className="flex items-center space-x-3 space-y-0 border rounded-lg p-4 shadow-sm"
               >
-                <FormControl>
-                  <RadioGroupItem value={option.value} />
-                </FormControl>
-                <FormLabel className="font-normal cursor-pointer w-full">
+                <RadioGroupItem value={option.value} id={option.value} />
+                <Label htmlFor={option.value} className="font-normal cursor-pointer w-full">
                   {option.text}
-                </FormLabel>
-              </FormItem>
+                </Label>
+              </div>
             ))}
           </RadioGroup>
         </div>
