@@ -7,6 +7,7 @@ import TransformedMessageCard from "@/components/transformed-message-card";
 import SuggestedReading from "@/components/suggested-reading";
 import Homebase from "@/components/homebase";
 import MessageTimeline from "@/components/message-timeline";
+import EmotionalInsights from "@/components/emotional-insights";
 import { apiRequest } from "@/lib/queryClient";
 import { TransformationResponse } from "@shared/schema";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -102,7 +103,7 @@ export default function Home() {
 
   return (
     <main className="flex-grow py-6 px-4 md:px-0">
-      <div className="container mx-auto max-w-4xl">
+      <div className="container mx-auto max-w-5xl">
         <Homebase
           userId={userId}
           partnerId={partnerId}
@@ -114,50 +115,64 @@ export default function Home() {
           onChangeTab={(tab) => setShowHistory(tab === "history")}
         />
         
-        {!showHistory && (
-          <>
-            <div className="mb-4 flex items-center space-x-2">
-              <Switch
-                id="share-partner"
-                checked={shareWithPartner}
-                onCheckedChange={setShareWithPartner}
-              />
-              <Label htmlFor="share-partner" className="text-sm font-medium">
-                Share with partner after transformation
-              </Label>
-              {!connected && shareWithPartner && (
-                <span className="text-xs text-destructive">
-                  WebSocket not connected. Share might not work.
-                </span>
-              )}
-            </div>
-            
-            <EmotionExpressionForm 
-              onSubmit={handleTransform} 
-              isLoading={transformMutation.isPending}
-            />
-            
-            {transformedResponse && (
-              <TransformedMessageCard 
-                transformedMessage={transformedResponse.transformedMessage}
-                communicationElements={transformedResponse.communicationElements}
-                deliveryTips={transformedResponse.deliveryTips}
-              />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+          <div className="lg:col-span-2">
+            {!showHistory && (
+              <>
+                <div className="mb-4 flex items-center space-x-2">
+                  <Switch
+                    id="share-partner"
+                    checked={shareWithPartner}
+                    onCheckedChange={setShareWithPartner}
+                  />
+                  <Label htmlFor="share-partner" className="text-sm font-medium">
+                    Share with partner after transformation
+                  </Label>
+                  {!connected && shareWithPartner && (
+                    <span className="text-xs text-destructive">
+                      WebSocket not connected. Share might not work.
+                    </span>
+                  )}
+                </div>
+                
+                <EmotionExpressionForm 
+                  onSubmit={handleTransform} 
+                  isLoading={transformMutation.isPending}
+                />
+                
+                {transformedResponse && (
+                  <TransformedMessageCard 
+                    transformedMessage={transformedResponse.transformedMessage}
+                    communicationElements={transformedResponse.communicationElements}
+                    deliveryTips={transformedResponse.deliveryTips}
+                  />
+                )}
+                
+                <div className="mt-6 lg:hidden">
+                  <EmotionalInsights userId={userId} />
+                </div>
+                
+                <div className="mt-6">
+                  <SuggestedReading />
+                </div>
+              </>
             )}
             
-            <SuggestedReading />
-          </>
-        )}
-        
-        {showHistory && (
-          <MessageTimeline 
-            limit={10} 
-            onViewThread={(messageId) => {
-              // Navigate to the message thread detail view using wouter
-              navigate(`/messages/${messageId}`);
-            }}
-          />
-        )}
+            {showHistory && (
+              <MessageTimeline 
+                limit={10} 
+                onViewThread={(messageId) => {
+                  // Navigate to the message thread detail view using wouter
+                  navigate(`/messages/${messageId}`);
+                }}
+              />
+            )}
+          </div>
+          
+          <div className="hidden lg:block">
+            <EmotionalInsights userId={userId} />
+          </div>
+        </div>
       </div>
     </main>
   );

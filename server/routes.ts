@@ -79,18 +79,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Format message data for frontend
       const formattedMessages = messages.map(message => ({
         id: message.id,
+        userId: message.userId,
         emotion: message.emotion,
         rawMessage: message.rawMessage,
         transformedMessage: message.transformedMessage,
         communicationElements: JSON.parse(message.communicationElements),
         deliveryTips: JSON.parse(message.deliveryTips),
         createdAt: message.createdAt,
+        isShared: message.isShared
       }));
       
       res.json(formattedMessages);
     } catch (error: unknown) {
       console.error("Error fetching messages:", error);
       res.status(500).json({ message: "Failed to fetch messages" });
+    }
+  });
+  
+  // Endpoint for getting emotion analytics
+  app.get("/api/emotions/analytics", isAuthenticated, async (req, res) => {
+    try {
+      // Get user ID
+      const userId = (req.user as Express.User).id;
+      
+      // Fetch user's messages
+      const messages = await storage.getMessagesByUserId(userId);
+      
+      // Analysis results
+      const emotionCounts: Record<string, number> = {};
+      const monthlyTrends: Record<string, Record<string, number>> = {};
+      
+      // Analyze emotions from messages
+      messages.forEach(message => {
+        const emotion = message.emotion.toLowerCase();
+        const date = new Date(message.createdAt);
+        const monthYear = `${date.getMonth() + 1}/${date.getFullYear()}`;
+        
+        // Count emotions overall
+        emotionCounts[emotion] = (emotionCounts[emotion] || 0) + 1;
+        
+        // Group by month for timeline
+        if (!monthlyTrends[monthYear]) {
+          monthlyTrends[monthYear] = {};
+        }
+        
+        monthlyTrends[monthYear][emotion] = (monthlyTrends[monthYear][emotion] || 0) + 1;
+      });
+      
+      // Format the results
+      const emotionData = Object.entries(emotionCounts)
+        .map(([emotion, count]) => ({ emotion, count }))
+        .sort((a, b) => b.count - a.count);
+      
+      const timelineData = Object.entries(monthlyTrends)
+        .map(([date, emotions]) => ({
+          date,
+          ...emotions
+        }))
+        .sort((a, b) => {
+          const [aMonth, aYear] = a.date.split('/').map(Number);
+          const [bMonth, bYear] = b.date.split('/').map(Number);
+          return aYear === bYear ? aMonth - bMonth : aYear - bYear;
+        });
+      
+      // Return the analytics data
+      res.json({
+        emotionData,
+        timelineData,
+        totalExpressions: messages.length
+      });
+    } catch (error: unknown) {
+      console.error("Error generating emotion analytics:", error);
+      res.status(500).json({ message: "Failed to generate emotion analytics" });
     }
   });
 
