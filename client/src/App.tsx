@@ -9,6 +9,7 @@ import Home from "@/pages/home";
 import History from "@/pages/history";
 import Dashboard from "@/pages/dashboard";
 import AuthPage from "@/pages/auth-page";
+import OnboardingPage from "@/pages/onboarding-page";
 import Header from "./components/header";
 import Footer from "./components/footer";
 
@@ -44,6 +45,11 @@ function Router() {
       <Switch>
         <Route path="/auth">
           <AuthPage />
+        </Route>
+        <Route path="/onboarding">
+          <ProtectedRoute>
+            <OnboardingPage />
+          </ProtectedRoute>
         </Route>
         <Route path="/">
           <ProtectedRoute>

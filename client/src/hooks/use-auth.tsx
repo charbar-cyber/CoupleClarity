@@ -93,6 +93,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         title: "Registration successful",
         description: `Welcome to CoupleClarity, ${user.firstName}!`,
       });
+      // Redirect to onboarding page for new registrations
+      window.location.href = "/onboarding";
     },
     onError: (error: Error) => {
       toast({
