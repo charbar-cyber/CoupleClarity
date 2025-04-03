@@ -1,13 +1,24 @@
-import express, { type Express } from "express";
+import express, { type Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { transformEmotionalMessage, summarizeResponse } from "./openai";
 import { emotionSchema, responseSchema, transformationResponseSchema } from "@shared/schema";
+import { setupAuth } from "./auth";
+
+// Authentication middleware to protect routes
+function isAuthenticated(req: Request, res: Response, next: NextFunction) {
+  if (req.isAuthenticated()) {
+    return next();
+  }
+  res.status(401).json({ error: "Authentication required" });
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Set up authentication
+  setupAuth(app);
   // API Routes
-  app.post("/api/transform", async (req, res) => {
+  app.post("/api/transform", isAuthenticated, async (req, res) => {
     try {
       const validatedData = emotionSchema.parse(req.body);
       
@@ -22,8 +33,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Save to history if requested
       if (validatedData.saveToHistory) {
-        // For simplicity, use a dummy userId = 1 or 2 depending on route
-        const userId = req.query.user_id ? parseInt(req.query.user_id as string) : 1;
+        // Use the authenticated user's ID
+        const userId = (req.user as Express.User).id;
         
         const message = await storage.createMessage({
           userId,
@@ -54,10 +65,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/messages", async (req, res) => {
+  app.get("/api/messages", isAuthenticated, async (req, res) => {
     try {
-      // For simplicity, use a dummy userId = 1 since we don't have auth
-      const userId = 1;
+      // Get messages for authenticated user
+      const userId = (req.user as Express.User).id;
       const messages = await storage.getMessagesByUserId(userId);
       
       // Format message data for frontend
@@ -72,13 +83,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }));
       
       res.json(formattedMessages);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error fetching messages:", error);
       res.status(500).json({ message: "Failed to fetch messages" });
     }
   });
 
-  app.get("/api/messages/:id", async (req, res) => {
+  app.get("/api/messages/:id", isAuthenticated, async (req, res) => {
     try {
       const messageId = parseInt(req.params.id);
       if (isNaN(messageId)) {
@@ -103,14 +114,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       res.json(formattedMessage);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error fetching message:", error);
       res.status(500).json({ message: "Failed to fetch message" });
     }
   });
 
   // User endpoints
-  app.get("/api/users/:id", async (req, res) => {
+  app.get("/api/users/:id", isAuthenticated, async (req, res) => {
     try {
       const userId = parseInt(req.params.id);
       if (isNaN(userId)) {
@@ -132,7 +143,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Partnership endpoints
-  app.get("/api/users/:userId/partnerships", async (req, res) => {
+  app.get("/api/users/:userId/partnerships", isAuthenticated, async (req, res) => {
     try {
       const userId = parseInt(req.params.userId);
       if (isNaN(userId)) {
@@ -166,7 +177,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Shared messages endpoints
-  app.get("/api/partners/:partnerId/shared-messages", async (req, res) => {
+  app.get("/api/partners/:partnerId/shared-messages", isAuthenticated, async (req, res) => {
     try {
       const partnerId = parseInt(req.params.partnerId);
       if (isNaN(partnerId)) {
@@ -195,7 +206,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Response endpoints
-  app.post("/api/messages/:messageId/responses", async (req, res) => {
+  app.post("/api/messages/:messageId/responses", isAuthenticated, async (req, res) => {
     try {
       const messageId = parseInt(req.params.messageId);
       if (isNaN(messageId)) {
@@ -209,9 +220,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const validatedData = responseSchema.parse(req.body);
       
-      // For simplicity, use the partner's ID as the userId
-      const userId = req.query.user_id ? parseInt(req.query.user_id as string) : 
-                    (message.partnerId || 2); // Default to user 2 if no partner ID
+      // Use the authenticated user's ID
+      const userId = (req.user as Express.User).id;
       
       // Use OpenAI to generate a summary of the response
       const aiSummary = await summarizeResponse(
@@ -240,7 +250,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.get("/api/messages/:messageId/responses", async (req, res) => {
+  app.get("/api/messages/:messageId/responses", isAuthenticated, async (req, res) => {
     try {
       const messageId = parseInt(req.params.messageId);
       if (isNaN(messageId)) {
@@ -300,7 +310,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           });
         }
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('Error handling WebSocket message:', error);
       }
     });

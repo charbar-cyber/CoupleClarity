@@ -2,14 +2,18 @@ import {
   messages, type Message, type InsertMessage, 
   users, type User, type InsertUser,
   partnerships, type Partnership, type InsertPartnership,
-  responses, type Response, type InsertResponse
+  responses, type Response, type InsertResponse,
+  inviteSchema, type Invite, type InsertInvite
 } from "@shared/schema";
+import session from "express-session";
+import createMemoryStore from "memorystore";
 
 // Storage interface with CRUD methods
 export interface IStorage {
   // User operations
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   
   // Partnership operations
@@ -30,6 +34,15 @@ export interface IStorage {
   createResponse(response: InsertResponse): Promise<Response>;
   getResponse(id: number): Promise<Response | undefined>;
   getResponsesByMessageId(messageId: number): Promise<Response[]>;
+  
+  // Invite operations
+  createInvite(invite: InsertInvite, token: string): Promise<Invite>;
+  getInviteByToken(token: string): Promise<Invite | undefined>;
+  getInvitesByEmail(email: string): Promise<Invite[]>;
+  updateInviteAccepted(id: number): Promise<Invite>;
+  
+  // Session store
+  sessionStore: session.Store;
 }
 
 export class MemStorage implements IStorage {
@@ -37,34 +50,49 @@ export class MemStorage implements IStorage {
   private messages: Map<number, Message>;
   private partnerships: Map<number, Partnership>;
   private responses: Map<number, Response>;
+  private invites: Map<number, Invite>;
   private userIdCounter: number;
   private messageIdCounter: number;
   private partnershipIdCounter: number;
   private responseIdCounter: number;
+  private inviteIdCounter: number;
+  sessionStore: session.Store;
 
   constructor() {
+    // Initialize memory session store
+    const MemoryStore = createMemoryStore(session);
+    this.sessionStore = new MemoryStore({
+      checkPeriod: 86400000 // prune expired entries every 24h
+    });
+    
     this.users = new Map();
     this.messages = new Map();
     this.partnerships = new Map();
     this.responses = new Map();
+    this.invites = new Map();
     this.userIdCounter = 1;
     this.messageIdCounter = 1;
     this.partnershipIdCounter = 1;
     this.responseIdCounter = 1;
+    this.inviteIdCounter = 1;
     
     // Create default users
     const user1 = this.createUser({
       username: "partner1",
       password: "password",
-      displayName: "Partner One",
-      email: "partner1@example.com"
+      firstName: "Alex",
+      lastName: "Smith",
+      email: "partner1@example.com",
+      displayName: "Partner One"
     });
     
     const user2 = this.createUser({
       username: "partner2",
       password: "password",
-      displayName: "Partner Two",
-      email: "partner2@example.com"
+      firstName: "Jordan",
+      lastName: "Taylor",
+      email: "partner2@example.com",
+      displayName: "Partner Two"
     });
     
     // Create a partnership between the two users
@@ -95,8 +123,7 @@ export class MemStorage implements IStorage {
     const user: User = { 
       ...insertUser, 
       id,
-      displayName: insertUser.displayName || null,
-      email: insertUser.email || null
+      displayName: insertUser.displayName || `${insertUser.firstName} ${insertUser.lastName}`
     };
     this.users.set(id, user);
     return user;
@@ -241,6 +268,60 @@ export class MemStorage implements IStorage {
         // Sort by createdAt in ascending order (oldest first for conversation flow)
         return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
       });
+  }
+  
+  // User operations
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(
+      (user) => user.email === email
+    );
+  }
+  
+  // Invite operations
+  async createInvite(invite: InsertInvite, token: string): Promise<Invite> {
+    const id = this.inviteIdCounter++;
+    const now = new Date();
+    
+    const newInvite: Invite = {
+      ...invite,
+      id,
+      inviteToken: token,
+      invitedAt: now,
+      acceptedAt: null
+    };
+    
+    this.invites.set(id, newInvite);
+    return newInvite;
+  }
+  
+  async getInviteByToken(token: string): Promise<Invite | undefined> {
+    return Array.from(this.invites.values()).find(
+      (invite) => invite.inviteToken === token
+    );
+  }
+  
+  async getInvitesByEmail(email: string): Promise<Invite[]> {
+    return Array.from(this.invites.values())
+      .filter(invite => invite.partnerEmail === email)
+      .sort((a, b) => {
+        // Sort by invitedAt in descending order (newest first)
+        return new Date(b.invitedAt).getTime() - new Date(a.invitedAt).getTime();
+      });
+  }
+  
+  async updateInviteAccepted(id: number): Promise<Invite> {
+    const invite = this.invites.get(id);
+    if (!invite) {
+      throw new Error(`Invite with id ${id} not found`);
+    }
+    
+    const updatedInvite = {
+      ...invite,
+      acceptedAt: new Date()
+    };
+    
+    this.invites.set(id, updatedInvite);
+    return updatedInvite;
   }
 }
 
