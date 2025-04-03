@@ -2,6 +2,12 @@ import { pgTable, text, serial, integer, boolean, timestamp } from "drizzle-orm/
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Preference option types
+export const loveLanguageOptions = ['words_of_affirmation', 'quality_time', 'acts_of_service', 'physical_touch', 'gifts'] as const;
+export const conflictStyleOptions = ['avoid', 'emotional', 'talk_calmly', 'need_space', 'not_sure'] as const;
+export const communicationStyleOptions = ['gentle', 'direct', 'structured', 'supportive', 'light'] as const;
+export const repairStyleOptions = ['apology', 'space_checkin', 'physical_closeness', 'caring_message', 'talking'] as const;
+
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
@@ -148,3 +154,34 @@ export const registrationSchema = z.object({
 });
 
 export type RegistrationInput = z.infer<typeof registrationSchema>;
+
+// User preferences schema
+export const userPreferences = pgTable("user_preferences", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().unique(),
+  loveLanguage: text("love_language").notNull(),
+  conflictStyle: text("conflict_style").notNull(),
+  communicationStyle: text("communication_style").notNull(),
+  repairStyle: text("repair_style").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertUserPreferencesSchema = createInsertSchema(userPreferences).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertUserPreferences = z.infer<typeof insertUserPreferencesSchema>;
+export type UserPreferences = typeof userPreferences.$inferSelect;
+
+// Questionnaire schema for onboarding
+export const onboardingQuestionnaireSchema = z.object({
+  loveLanguage: z.enum(loveLanguageOptions),
+  conflictStyle: z.enum(conflictStyleOptions),
+  communicationStyle: z.enum(communicationStyleOptions),
+  repairStyle: z.enum(repairStyleOptions),
+});
+
+export type OnboardingQuestionnaire = z.infer<typeof onboardingQuestionnaireSchema>;

@@ -3,7 +3,12 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { transformEmotionalMessage, summarizeResponse } from "./openai";
-import { emotionSchema, responseSchema, transformationResponseSchema } from "@shared/schema";
+import { 
+  emotionSchema, 
+  responseSchema, 
+  transformationResponseSchema,
+  onboardingQuestionnaireSchema 
+} from "@shared/schema";
 import { setupAuth } from "./auth";
 
 // Authentication middleware to protect routes
@@ -265,6 +270,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // User preferences endpoints
+  app.post("/api/user/preferences", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as Express.User).id;
+      const validatedData = onboardingQuestionnaireSchema.parse(req.body);
+      
+      // Check if the user already has preferences
+      const existingPreferences = await storage.getUserPreferences(userId);
+      
+      let preferences;
+      if (existingPreferences) {
+        // Update existing preferences
+        preferences = await storage.updateUserPreferences(userId, validatedData);
+      } else {
+        // Create new preferences
+        preferences = await storage.createUserPreferences({
+          userId,
+          ...validatedData
+        });
+      }
+      
+      res.json(preferences);
+    } catch (error: unknown) {
+      const err = error as Error;
+      if (err.name === "ZodError") {
+        return res.status(400).json({ message: "Validation error", errors: (err as any).errors });
+      }
+      console.error("Error saving user preferences:", err);
+      res.status(500).json({ message: "Failed to save user preferences" });
+    }
+  });
+  
+  app.get("/api/user/preferences", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as Express.User).id;
+      const preferences = await storage.getUserPreferences(userId);
+      
+      if (!preferences) {
+        return res.status(404).json({ message: "User preferences not found" });
+      }
+      
+      res.json(preferences);
+    } catch (error: unknown) {
+      console.error("Error fetching user preferences:", error);
+      res.status(500).json({ message: "Failed to fetch user preferences" });
+    }
+  });
+  
   // Create WebSocket server
   const httpServer = createServer(app);
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });

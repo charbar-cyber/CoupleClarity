@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { WelcomeScreen } from "@/components/onboarding/welcome-screen";
+import { OnboardingQuestionnaire } from "@/components/onboarding/questionnaire"; 
 import { useAuth } from "@/hooks/use-auth";
 
 export default function OnboardingPage() {
-  const [step, setStep] = useState<"welcome" | "complete">("welcome");
+  const [step, setStep] = useState<"welcome" | "questionnaire" | "complete">("welcome");
   const [, setLocation] = useLocation();
   const { user } = useAuth();
 
@@ -26,15 +27,19 @@ export default function OnboardingPage() {
   }, [setLocation]);
 
   const handleStart = () => {
-    // For now, we'll just redirect to home after clicking start
-    // In the future, we could add additional onboarding steps here
+    // Move to the questionnaire step
+    setStep("questionnaire");
+  };
+  
+  const handleComplete = () => {
+    // Redirect to home after completing the questionnaire
     setLocation("/");
   };
 
   return (
     <div>
       {step === "welcome" && <WelcomeScreen onStart={handleStart} />}
-      {/* Add more steps here in the future */}
+      {step === "questionnaire" && <OnboardingQuestionnaire onComplete={handleComplete} />}
     </div>
   );
 }

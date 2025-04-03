@@ -3,7 +3,8 @@ import {
   users, type User, type InsertUser,
   partnerships, type Partnership, type InsertPartnership,
   responses, type Response, type InsertResponse,
-  inviteSchema, type Invite, type InsertInvite
+  inviteSchema, type Invite, type InsertInvite,
+  userPreferences, type UserPreferences, type InsertUserPreferences
 } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
@@ -41,6 +42,11 @@ export interface IStorage {
   getInvitesByEmail(email: string): Promise<Invite[]>;
   updateInviteAccepted(id: number): Promise<Invite>;
   
+  // User preferences operations
+  createUserPreferences(preferences: InsertUserPreferences): Promise<UserPreferences>;
+  getUserPreferences(userId: number): Promise<UserPreferences | undefined>;
+  updateUserPreferences(userId: number, preferences: Partial<InsertUserPreferences>): Promise<UserPreferences>;
+  
   // Session store
   sessionStore: session.Store;
 }
@@ -51,11 +57,13 @@ export class MemStorage implements IStorage {
   private partnerships: Map<number, Partnership>;
   private responses: Map<number, Response>;
   private invites: Map<number, Invite>;
+  private preferences: Map<number, UserPreferences>;
   private userIdCounter: number;
   private messageIdCounter: number;
   private partnershipIdCounter: number;
   private responseIdCounter: number;
   private inviteIdCounter: number;
+  private preferencesIdCounter: number;
   sessionStore: session.Store;
 
   constructor() {
@@ -70,11 +78,13 @@ export class MemStorage implements IStorage {
     this.partnerships = new Map();
     this.responses = new Map();
     this.invites = new Map();
+    this.preferences = new Map();
     this.userIdCounter = 1;
     this.messageIdCounter = 1;
     this.partnershipIdCounter = 1;
     this.responseIdCounter = 1;
     this.inviteIdCounter = 1;
+    this.preferencesIdCounter = 1;
     
     // Create default users
     const user1 = this.createUser({
@@ -322,6 +332,54 @@ export class MemStorage implements IStorage {
     
     this.invites.set(id, updatedInvite);
     return updatedInvite;
+  }
+  
+  // User preferences operations
+  async createUserPreferences(insertPreferences: InsertUserPreferences): Promise<UserPreferences> {
+    const id = this.preferencesIdCounter++;
+    const now = new Date();
+    
+    // Check if preferences already exist for this user
+    const existingPrefs = Array.from(this.preferences.values()).find(
+      pref => pref.userId === insertPreferences.userId
+    );
+    
+    if (existingPrefs) {
+      throw new Error(`Preferences for user with id ${insertPreferences.userId} already exist`);
+    }
+    
+    const preferences: UserPreferences = {
+      ...insertPreferences,
+      id,
+      createdAt: now,
+      updatedAt: now
+    };
+    
+    this.preferences.set(id, preferences);
+    return preferences;
+  }
+  
+  async getUserPreferences(userId: number): Promise<UserPreferences | undefined> {
+    return Array.from(this.preferences.values()).find(
+      pref => pref.userId === userId
+    );
+  }
+  
+  async updateUserPreferences(userId: number, updatedPreferences: Partial<InsertUserPreferences>): Promise<UserPreferences> {
+    const userPrefs = await this.getUserPreferences(userId);
+    if (!userPrefs) {
+      throw new Error(`Preferences for user with id ${userId} not found`);
+    }
+    
+    const now = new Date();
+    const updatedPrefs: UserPreferences = {
+      ...userPrefs,
+      ...updatedPreferences,
+      updatedAt: now
+    };
+    
+    this.preferences.set(userPrefs.id, updatedPrefs);
+    return updatedPrefs;
   }
 }
 
