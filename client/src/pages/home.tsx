@@ -4,23 +4,31 @@ import WelcomeCard from "@/components/welcome-card";
 import EmotionExpressionForm from "@/components/emotion-expression-form";
 import TransformedMessageCard from "@/components/transformed-message-card";
 import SuggestedReading from "@/components/suggested-reading";
+import Homebase from "@/components/homebase";
 import { apiRequest } from "@/lib/queryClient";
 import { TransformationResponse } from "@shared/schema";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useWebSocket } from "@/hooks/use-websocket";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function Home() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [showHistory, setShowHistory] = useState(false);
   const [transformedResponse, setTransformedResponse] = useState<TransformationResponse | null>(null);
   const [shareWithPartner, setShareWithPartner] = useState(false);
   const { connected, sendMessage } = useWebSocket();
   
-  // For demo purposes, we'll use fixed user IDs (user 1 sending to partner 2)
-  const userId = 1;
-  const partnerId = 2;
+  // Get user info
+  const userId = user?.id || 1;
+  const userName = user?.displayName || user?.firstName || "You";
+  
+  // For demonstration purposes
+  // In a real app, this would be fetched from the API
+  const partnerId = 2; // Temporary partner ID
+  const partnerName = "Partner";
 
   const transformMutation = useMutation({
     mutationFn: async (data: {
@@ -92,6 +100,12 @@ export default function Home() {
   return (
     <main className="flex-grow py-6 px-4 md:px-0">
       <div className="container mx-auto max-w-4xl">
+        <Homebase
+          userId={userId}
+          partnerId={partnerId}
+          userName={userName}
+          partnerName={partnerName}
+        />
         <WelcomeCard 
           activeTab={showHistory ? "history" : "express"} 
           onChangeTab={(tab) => setShowHistory(tab === "history")}
