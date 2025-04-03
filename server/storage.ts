@@ -112,10 +112,13 @@ export class MemStorage implements IStorage {
     this.checkInResponseIdCounter = 1;
     this.appreciationIdCounter = 1;
     
-    // Create default users
+    // Create default users with hashed passwords
+    // The hash of 'password' using our algorithm
+    const hashedPassword = "1b5db04ba4332b716198835c09f9d07d5f3fe242aeee8f324c2bbc506fa1975c5ff25f3787650275c7b808b4fdce36cb48db9fdaff523bc6b75676ffc94dd906.2fa1a8cf45c71b32c2627a9eba6c24be";
+    
     const user1 = this.createUser({
       username: "partner1",
-      password: "password",
+      password: hashedPassword,
       firstName: "Alex",
       lastName: "Smith",
       email: "partner1@example.com",
@@ -124,7 +127,7 @@ export class MemStorage implements IStorage {
     
     const user2 = this.createUser({
       username: "partner2",
-      password: "password",
+      password: hashedPassword,
       firstName: "Jordan",
       lastName: "Taylor",
       email: "partner2@example.com",
