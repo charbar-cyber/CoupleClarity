@@ -115,7 +115,6 @@ export default function Home() {
           activeTab={showHistory ? "history" : "express"} 
           onChangeTab={(tab) => setShowHistory(tab === "history")}
         />
-        <WeeklyCheckIn userId={userId} />
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
           <div className="lg:col-span-2">
@@ -149,6 +148,10 @@ export default function Home() {
                     deliveryTips={transformedResponse.deliveryTips}
                   />
                 )}
+                
+                <div className="mt-6">
+                  <WeeklyCheckIn userId={userId} />
+                </div>
                 
                 <div className="mt-6 lg:hidden">
                   <EmotionalInsights userId={userId} />
