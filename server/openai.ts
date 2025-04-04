@@ -9,6 +9,13 @@ interface ResponseSummary {
   suggestionsForImprovement: string[];
 }
 
+// Interface for conflict transformation response
+export interface ConflictTransformationResponse {
+  transformedMessage: string;
+  communicationElements: string[];
+  deliveryTips: string[];
+}
+
 // Initialize OpenAI client
 const openai = new OpenAI({ 
   apiKey: process.env.OPENAI_API_KEY || "sk-demo-key-for-development" 
@@ -135,5 +142,73 @@ ${(result.suggestionsForImprovement || ["Could use more validation of feelings"]
     
     // Provide a fallback summary in case of an error
     return "The response shows some understanding of the message. It could be improved by acknowledging the feelings more directly and offering specific ways to address the concerns.";
+  }
+}
+
+/**
+ * Transforms a structured conflict message into empathetic communication
+ * using the structured components (topic, situation, feelings, impact, request)
+ */
+export async function transformConflictMessage(
+  topic: string,
+  situation: string,
+  feelings: string,
+  impact: string,
+  request: string
+): Promise<ConflictTransformationResponse> {
+  try {
+    // Construct the prompt for the OpenAI API
+    const systemPrompt = `You are an expert in relationship communication and conflict resolution.
+Your task is to help transform a structured conflict description into empathetic, constructive communication.
+Focus on using "I" statements, non-blaming language, expressing needs clearly, and suggesting solutions.
+Given the structured information below, transform it into a cohesive, empathetic message that promotes understanding and resolution.
+
+Topic of Conflict: ${topic}
+Situation Description: ${situation}
+Feelings About It: ${feelings}
+Impact on Me/Us: ${impact}
+What I'd Like to Happen: ${request}
+
+Respond with a JSON object containing:
+1. "transformedMessage": A transformed cohesive message that effectively communicates all components in an empathetic, constructive way
+2. "communicationElements": An array of communication techniques used in the transformation (e.g., "I statements", "Expressing needs", "Non-blaming language")
+3. "deliveryTips": An array of 3 practical tips for delivering this message effectively`;
+
+    // Call the OpenAI API
+    // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: "Please transform this structured conflict information into empathetic communication." }
+      ],
+      response_format: { type: "json_object" }
+    });
+
+    // Parse the response
+    const result = JSON.parse(response.choices[0].message.content || "{}");
+    
+    return {
+      transformedMessage: result.transformedMessage || `I'd like to talk about ${topic}. When ${situation}, I feel ${feelings}. This has affected me by ${impact}. I'm hoping that we can ${request}.`,
+      communicationElements: result.communicationElements || ["Structured approach", "Clear request", "Expressing feelings"],
+      deliveryTips: result.deliveryTips || [
+        "Choose a calm moment for this conversation",
+        "Listen actively to your partner's response",
+        "Be open to compromise and finding solutions together"
+      ]
+    };
+  } catch (error) {
+    console.error("Error calling OpenAI API:", error);
+    
+    // Provide a fallback response in case of an error
+    return {
+      transformedMessage: `I'd like to talk about ${topic}. When ${situation}, I feel ${feelings}. This has affected me by ${impact}. I'm hoping that we can ${request}.`,
+      communicationElements: ["Structured approach", "Clear request", "Expressing feelings"],
+      deliveryTips: [
+        "Choose a calm moment for this conversation",
+        "Listen actively to your partner's response",
+        "Be open to compromise and finding solutions together"
+      ]
+    };
   }
 }

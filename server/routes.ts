@@ -2,7 +2,7 @@ import express, { type Express, Request, Response, NextFunction } from "express"
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { transformEmotionalMessage, summarizeResponse } from "./openai";
+import { transformEmotionalMessage, summarizeResponse, transformConflictMessage } from "./openai";
 import { 
   emotionSchema, 
   responseSchema, 
@@ -12,7 +12,8 @@ import {
   insertAppreciationSchema,
   insertConflictThreadSchema,
   insertConflictMessageSchema,
-  resolveConflictSchema
+  resolveConflictSchema,
+  conflictInitiationSchema
 } from "@shared/schema";
 import { setupAuth } from "./auth";
 
@@ -708,6 +709,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error creating conflict message:", err);
       res.status(500).json({ message: "Failed to create conflict message" });
+    }
+  });
+
+  app.get("/api/conflict-messages/:threadId", isAuthenticated, async (req, res) => {
+    try {
+      const threadId = parseInt(req.params.threadId);
+      if (isNaN(threadId)) {
+        return res.status(400).json({ message: "Invalid thread ID" });
+      }
+      
+      const thread = await storage.getConflictThread(threadId);
+      if (!thread) {
+        return res.status(404).json({ message: "Conflict thread not found" });
+      }
+      
+      const messages = await storage.getConflictMessagesByThreadId(threadId);
+      res.json(messages);
+    } catch (error: unknown) {
+      console.error("Error fetching conflict messages:", error);
+      res.status(500).json({ message: "Failed to fetch conflict messages" });
+    }
+  });
+  
+  app.post("/api/transform-conflict", isAuthenticated, async (req, res) => {
+    try {
+      const validatedData = conflictInitiationSchema.parse(req.body);
+      
+      // Call OpenAI API to transform the conflict message
+      const transformedResult = await transformConflictMessage(
+        validatedData.topic,
+        validatedData.situation,
+        validatedData.feelings,
+        validatedData.impact,
+        validatedData.request
+      );
+      
+      res.json(transformedResult);
+    } catch (error: unknown) {
+      const err = error as Error;
+      if (err.name === "ZodError") {
+        return res.status(400).json({ message: "Validation error", errors: (err as any).errors });
+      }
+      console.error("Error transforming conflict message:", err);
+      res.status(500).json({ message: "Failed to transform conflict message" });
     }
   });
   

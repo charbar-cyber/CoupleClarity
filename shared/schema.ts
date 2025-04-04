@@ -302,3 +302,15 @@ export const resolveConflictSchema = z.object({
 });
 
 export type ResolveConflictInput = z.infer<typeof resolveConflictSchema>;
+
+// Schema for detailed conflict initiation form
+export const conflictInitiationSchema = z.object({
+  topic: z.string().min(1, "Please provide a topic for this conflict"),
+  situation: z.string().min(1, "Please describe the situation"),
+  feelings: z.string().min(1, "Please describe your feelings"),
+  impact: z.string().min(1, "Please describe the impact"),
+  request: z.string().min(1, "Please describe what you'd like to happen"),
+  partnerId: z.number(),
+});
+
+export type ConflictInitiationInput = z.infer<typeof conflictInitiationSchema>;

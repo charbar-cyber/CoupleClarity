@@ -80,7 +80,7 @@ export default function ConflictThreadCreateForm({
         title: "Thread created",
         description: "Your conflict thread has been created successfully.",
       });
-      navigate(`/conflict/${thread.id}`);
+      navigate(`/conflict-threads/${thread.id}`);
     },
     onError: (error: Error) => {
       toast({
@@ -163,7 +163,7 @@ export default function ConflictThreadCreateForm({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => navigate('/conflict')}
+                onClick={() => navigate('/conflict-threads')}
                 disabled={isLoading}
               >
                 Cancel

@@ -2,75 +2,33 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Redirect, useLocation, Link } from "wouter";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
-import { z } from "zod";
-import { Loader2, ArrowLeft } from "lucide-react";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { useQuery } from "@tanstack/react-query";
+import { Loader2, ArrowLeft, FileEdit, MessageSquarePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Partnership, insertConflictThreadSchema } from "@shared/schema";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import DetailedConflictCreationForm from "@/components/detailed-conflict-creation-form";
+import ConflictThreadCreateForm from "@/components/conflict-thread-create-form";
+import { Partnership, User } from "@shared/schema";
+
+// Extended Partnership type that includes populated partner data
+interface ExtendedPartnership extends Partnership {
+  partner?: User;
+}
 
 export default function NewConflictThreadPage() {
   const { user, isLoading: authLoading } = useAuth();
-  const { toast } = useToast();
   const [, navigate] = useLocation();
+  const [activeTab, setActiveTab] = useState<string>("basic");
   
-  const [topic, setTopic] = useState("");
-  const [description, setDescription] = useState("");
-  const [desiredOutcome, setDesiredOutcome] = useState("");
-  
-  const { data: partnerships, isLoading: partnershipsLoading } = useQuery<Partnership[]>({
-    queryKey: ['/api/partnerships'],
+  const { data: partnerships, isLoading: partnershipsLoading } = useQuery<ExtendedPartnership[]>({
+    queryKey: ['/api/users', user?.id, 'partnerships'],
     enabled: !!user,
   });
   
-  const createThreadMutation = useMutation({
-    mutationFn: async (data: { 
-      partnerId: number;
-      topic: string;
-      description?: string;
-      desiredOutcome?: string;
-    }) => {
-      if (!user) throw new Error("You must be logged in to create a conflict thread");
-      
-      const validationSchema = insertConflictThreadSchema.extend({
-        topic: z.string().min(1, "Topic is required"),
-        description: z.string().optional(),
-        desiredOutcome: z.string().optional(),
-      });
-      
-      const threadData = validationSchema.parse({
-        userId: user.id,
-        partnerId: data.partnerId,
-        topic: data.topic,
-      });
-      
-      const res = await apiRequest("POST", "/api/conflict-threads", threadData);
-      return await res.json();
-    },
-    onSuccess: (thread) => {
-      toast({
-        title: "Conflict thread created",
-        description: "You can now start discussing this conflict with your partner.",
-      });
-      navigate(`/conflict/${thread.id}`);
-    },
-    onError: (error: Error) => {
-      toast({
-        variant: "destructive",
-        title: "Failed to create conflict thread",
-        description: error.message,
-      });
-    },
-  });
-  
-  // If there's only one partnership, pre-select it
   useEffect(() => {
+    // If this is the first render, set the active tab
     if (partnerships && partnerships.length === 1) {
-      // Logic would go here if we needed to do anything with a single partnership
+      // If we have a partner, we can use the detailed form
     }
   }, [partnerships]);
   
@@ -101,102 +59,63 @@ export default function NewConflictThreadPage() {
   }
   
   // In our simplified version, we're assuming the user has only one partner
-  const partnership = partnerships[0];
+  // Cast to our extended type that includes partner data
+  const partnership = partnerships[0] as ExtendedPartnership;
+  
+  // Determine the partner's ID and name
   const partnerId = user.id === partnership.user1Id ? partnership.user2Id : partnership.user1Id;
   
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!topic.trim()) {
-      toast({
-        variant: "destructive",
-        title: "Topic is required",
-        description: "Please provide a topic for this conflict thread.",
-      });
-      return;
-    }
-    
-    createThreadMutation.mutate({
-      partnerId,
-      topic: topic.trim(),
-      description: description.trim() || undefined,
-      desiredOutcome: desiredOutcome.trim() || undefined,
-    });
-  };
+  // Access partner data - this was populated in the API route
+  const partnerData = partnership.partner;
+  const partnerName = partnerData?.displayName || "Partner";
   
   return (
-    <div className="container py-8 max-w-2xl mx-auto">
+    <div className="container py-8 max-w-3xl mx-auto">
       <div className="mb-6 flex items-center">
         <Button variant="ghost" size="icon" asChild className="mr-2">
-          <Link to="/conflict">
+          <Link to="/conflict-threads">
             <ArrowLeft className="h-5 w-5" />
           </Link>
         </Button>
         <h1 className="text-2xl font-bold">Start a Conflict Thread</h1>
       </div>
       
-      <form onSubmit={handleSubmit}>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-xl">What's the conflict about?</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="topic">Topic</Label>
-              <Input
-                id="topic"
-                placeholder="E.g., Household chores, Communication issues, etc."
-                value={topic}
-                onChange={(e) => setTopic(e.target.value)}
-                required
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="description">Description (Optional)</Label>
-              <Textarea
-                id="description"
-                placeholder="Provide more details about this conflict..."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="min-h-[100px]"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="desiredOutcome">Desired Outcome (Optional)</Label>
-              <Textarea
-                id="desiredOutcome"
-                placeholder="What would you like to achieve from resolving this conflict?"
-                value={desiredOutcome}
-                onChange={(e) => setDesiredOutcome(e.target.value)}
-              />
-            </div>
-          </CardContent>
-          <CardFooter className="flex justify-end space-x-2">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => navigate('/conflict')}
-            >
-              Cancel
-            </Button>
-            <Button 
-              type="submit"
-              disabled={!topic.trim() || createThreadMutation.isPending}
-            >
-              {createThreadMutation.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                "Create Thread"
-              )}
-            </Button>
-          </CardFooter>
-        </Card>
-      </form>
+      <Tabs defaultValue="basic" value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="basic" className="space-x-2">
+            <MessageSquarePlus className="h-4 w-4" />
+            <span>Basic</span>
+          </TabsTrigger>
+          <TabsTrigger value="detailed" className="space-x-2">
+            <FileEdit className="h-4 w-4" />
+            <span>Detailed with AI Assistance</span>
+          </TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="basic" className="space-y-4">
+          <div className="text-sm text-muted-foreground mb-4">
+            Create a simple conflict thread with just a topic and description.
+          </div>
+          
+          {/* We're reusing the existing component */}
+          <ConflictThreadCreateForm
+            userId={user.id}
+            partnerId={partnerId}
+            partnerName={partnerName}
+          />
+        </TabsContent>
+        
+        <TabsContent value="detailed" className="space-y-4">
+          <div className="text-sm text-muted-foreground mb-4">
+            Use the structured format and AI assistance to craft an empathetic message.
+          </div>
+          
+          <DetailedConflictCreationForm
+            partnerId={partnerId}
+            partnerName={partnerName}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
