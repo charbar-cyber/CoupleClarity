@@ -3,6 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
+import { ThemeProvider } from "@/hooks/use-theme";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import History from "@/pages/history";
@@ -14,6 +15,7 @@ import ConflictThreadsPage from "@/pages/conflict-threads-page";
 import NewConflictThreadPage from "@/pages/new-conflict-thread-page";
 import ConflictThreadDetailPage from "@/pages/conflict-thread-detail-page";
 import ConflictResolutionPage from "@/pages/conflict-resolution-page";
+import SettingsPage from "@/pages/settings-page";
 import Header from "./components/header";
 import Footer from "./components/footer";
 import { ProtectedRoute } from "@/components/protected-route";
@@ -37,6 +39,7 @@ function Router() {
         <ProtectedRoute path="/conflict/new" component={NewConflictThreadPage} />
         <ProtectedRoute path="/conflict/:id/resolve" component={ConflictResolutionPage} />
         <ProtectedRoute path="/conflict/:id" component={ConflictThreadDetailPage} />
+        <ProtectedRoute path="/settings" component={SettingsPage} />
         <Route>
           <NotFound />
         </Route>
@@ -49,10 +52,12 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <Router />
-        <Toaster />
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <Router />
+          <Toaster />
+        </AuthProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }
