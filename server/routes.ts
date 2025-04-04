@@ -9,7 +9,10 @@ import {
   transformationResponseSchema,
   onboardingQuestionnaireSchema,
   checkInSchema,
-  insertAppreciationSchema
+  insertAppreciationSchema,
+  insertConflictThreadSchema,
+  insertConflictMessageSchema,
+  resolveConflictSchema
 } from "@shared/schema";
 import { setupAuth } from "./auth";
 
@@ -607,6 +610,192 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Conflict Thread endpoints
+  app.post("/api/conflict-threads", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as Express.User).id;
+      const validatedData = insertConflictThreadSchema.parse({
+        ...req.body,
+        userId
+      });
+      
+      const conflictThread = await storage.createConflictThread(validatedData);
+      res.status(201).json(conflictThread);
+    } catch (error: unknown) {
+      const err = error as Error;
+      if (err.name === "ZodError") {
+        return res.status(400).json({ message: "Validation error", errors: (err as any).errors });
+      }
+      console.error("Error creating conflict thread:", err);
+      res.status(500).json({ message: "Failed to create conflict thread" });
+    }
+  });
+  
+  app.get("/api/conflict-threads", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as Express.User).id;
+      const status = req.query.status as string;
+      
+      let threads;
+      if (status === 'active') {
+        threads = await storage.getActiveConflictThreads(userId);
+      } else {
+        threads = await storage.getConflictThreadsByUserId(userId);
+      }
+      
+      res.json(threads);
+    } catch (error: unknown) {
+      console.error("Error fetching conflict threads:", error);
+      res.status(500).json({ message: "Failed to fetch conflict threads" });
+    }
+  });
+  
+  app.get("/api/conflict-threads/:id", isAuthenticated, async (req, res) => {
+    try {
+      const threadId = parseInt(req.params.id);
+      if (isNaN(threadId)) {
+        return res.status(400).json({ message: "Invalid thread ID" });
+      }
+      
+      const thread = await storage.getConflictThread(threadId);
+      if (!thread) {
+        return res.status(404).json({ message: "Conflict thread not found" });
+      }
+      
+      // Get messages for this thread
+      const messages = await storage.getConflictMessagesByThreadId(threadId);
+      
+      res.json({
+        ...thread,
+        messages
+      });
+    } catch (error: unknown) {
+      console.error("Error fetching conflict thread:", error);
+      res.status(500).json({ message: "Failed to fetch conflict thread" });
+    }
+  });
+  
+  app.post("/api/conflict-threads/:id/messages", isAuthenticated, async (req, res) => {
+    try {
+      const threadId = parseInt(req.params.id);
+      if (isNaN(threadId)) {
+        return res.status(400).json({ message: "Invalid thread ID" });
+      }
+      
+      const thread = await storage.getConflictThread(threadId);
+      if (!thread) {
+        return res.status(404).json({ message: "Conflict thread not found" });
+      }
+      
+      // Check if thread is still active
+      if (thread.status !== "active") {
+        return res.status(400).json({ message: "Cannot add message to a resolved or abandoned thread" });
+      }
+      
+      const userId = (req.user as Express.User).id;
+      const validatedData = insertConflictMessageSchema.parse({
+        ...req.body,
+        threadId,
+        userId
+      });
+      
+      const message = await storage.createConflictMessage(validatedData);
+      res.status(201).json(message);
+    } catch (error: unknown) {
+      const err = error as Error;
+      if (err.name === "ZodError") {
+        return res.status(400).json({ message: "Validation error", errors: (err as any).errors });
+      }
+      console.error("Error creating conflict message:", err);
+      res.status(500).json({ message: "Failed to create conflict message" });
+    }
+  });
+  
+  app.patch("/api/conflict-threads/:id/resolve", isAuthenticated, async (req, res) => {
+    try {
+      const threadId = parseInt(req.params.id);
+      if (isNaN(threadId)) {
+        return res.status(400).json({ message: "Invalid thread ID" });
+      }
+      
+      const thread = await storage.getConflictThread(threadId);
+      if (!thread) {
+        return res.status(404).json({ message: "Conflict thread not found" });
+      }
+      
+      // Check if thread is still active
+      if (thread.status !== "active") {
+        return res.status(400).json({ message: "Thread is already resolved or abandoned" });
+      }
+      
+      const userId = (req.user as Express.User).id;
+      
+      // Check if the user is a participant in this thread
+      if (thread.userId !== userId && thread.partnerId !== userId) {
+        return res.status(403).json({ message: "You are not a participant in this conflict thread" });
+      }
+      
+      const validatedData = resolveConflictSchema.parse({
+        ...req.body,
+        threadId
+      });
+      
+      // Update the thread status
+      const updatedThread = await storage.updateConflictThreadStatus(
+        threadId, 
+        "resolved", 
+        validatedData.summary
+      );
+      
+      // Add the insights if they were provided
+      if (validatedData.insights) {
+        await storage.updateConflictResolutionInsights(threadId, validatedData.insights);
+      }
+      
+      res.json(updatedThread);
+    } catch (error: unknown) {
+      const err = error as Error;
+      if (err.name === "ZodError") {
+        return res.status(400).json({ message: "Validation error", errors: (err as any).errors });
+      }
+      console.error("Error resolving conflict thread:", err);
+      res.status(500).json({ message: "Failed to resolve conflict thread" });
+    }
+  });
+  
+  app.patch("/api/conflict-threads/:id/abandon", isAuthenticated, async (req, res) => {
+    try {
+      const threadId = parseInt(req.params.id);
+      if (isNaN(threadId)) {
+        return res.status(400).json({ message: "Invalid thread ID" });
+      }
+      
+      const thread = await storage.getConflictThread(threadId);
+      if (!thread) {
+        return res.status(404).json({ message: "Conflict thread not found" });
+      }
+      
+      // Check if thread is still active
+      if (thread.status !== "active") {
+        return res.status(400).json({ message: "Thread is already resolved or abandoned" });
+      }
+      
+      const userId = (req.user as Express.User).id;
+      
+      // Check if the user is a participant in this thread
+      if (thread.userId !== userId && thread.partnerId !== userId) {
+        return res.status(403).json({ message: "You are not a participant in this conflict thread" });
+      }
+      
+      // Update the thread status
+      const updatedThread = await storage.updateConflictThreadStatus(threadId, "abandoned");
+      res.json(updatedThread);
+    } catch (error: unknown) {
+      console.error("Error abandoning conflict thread:", error);
+      res.status(500).json({ message: "Failed to abandon conflict thread" });
+    }
+  });
+  
   // Create WebSocket server
   const httpServer = createServer(app);
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
@@ -647,6 +836,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (client !== ws && client.readyState === WebSocket.OPEN) {
               client.send(JSON.stringify({
                 type: 'new_response',
+                data: data.data
+              }));
+            }
+          });
+        }
+        
+        if (data.type === 'new_conflict_thread') {
+          // Broadcast new conflict thread to partners
+          console.log('Broadcasting new conflict thread to partners:', data.data);
+          wss.clients.forEach((client) => {
+            if (client !== ws && client.readyState === WebSocket.OPEN) {
+              client.send(JSON.stringify({
+                type: 'new_conflict_thread',
+                data: data.data
+              }));
+            }
+          });
+        }
+        
+        if (data.type === 'new_conflict_message') {
+          // Broadcast new conflict message to partners
+          console.log('Broadcasting new conflict message to partners:', data.data);
+          wss.clients.forEach((client) => {
+            if (client !== ws && client.readyState === WebSocket.OPEN) {
+              client.send(JSON.stringify({
+                type: 'new_conflict_message',
+                data: data.data
+              }));
+            }
+          });
+        }
+        
+        if (data.type === 'conflict_thread_updated') {
+          // Broadcast thread status updates to partners
+          console.log('Broadcasting conflict thread update to partners:', data.data);
+          wss.clients.forEach((client) => {
+            if (client !== ws && client.readyState === WebSocket.OPEN) {
+              client.send(JSON.stringify({
+                type: 'conflict_thread_updated',
                 data: data.data
               }));
             }

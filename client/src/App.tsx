@@ -10,6 +10,10 @@ import Dashboard from "@/pages/dashboard";
 import AuthPage from "@/pages/auth-page";
 import OnboardingPage from "@/pages/onboarding-page";
 import MessageThreadPage from "@/pages/message-thread-page";
+import ConflictThreadsPage from "@/pages/conflict-threads-page";
+import NewConflictThreadPage from "@/pages/new-conflict-thread-page";
+import ConflictThreadDetailPage from "@/pages/conflict-thread-detail-page";
+import ConflictResolutionPage from "@/pages/conflict-resolution-page";
 import Header from "./components/header";
 import Footer from "./components/footer";
 import { ProtectedRoute } from "@/components/protected-route";
@@ -29,6 +33,10 @@ function Router() {
         <ProtectedRoute path="/history" component={History} />
         <ProtectedRoute path="/dashboard" component={Dashboard} />
         <ProtectedRoute path="/messages/:id" component={MessageThreadPage} />
+        <ProtectedRoute path="/conflict" component={ConflictThreadsPage} />
+        <ProtectedRoute path="/conflict/new" component={NewConflictThreadPage} />
+        <ProtectedRoute path="/conflict/:id/resolve" component={ConflictResolutionPage} />
+        <ProtectedRoute path="/conflict/:id" component={ConflictThreadDetailPage} />
         <Route>
           <NotFound />
         </Route>

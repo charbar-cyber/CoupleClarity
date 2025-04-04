@@ -247,3 +247,58 @@ export const insertAppreciationSchema = createInsertSchema(appreciations).omit({
 
 export type InsertAppreciation = z.infer<typeof insertAppreciationSchema>;
 export type Appreciation = typeof appreciations.$inferSelect;
+
+// Conflict thread statuses
+export const conflictStatusOptions = ['active', 'resolved', 'abandoned'] as const;
+
+// Conflict threads table
+export const conflictThreads = pgTable("conflict_threads", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  partnerId: integer("partner_id").notNull().references(() => users.id),
+  topic: text("topic").notNull(),
+  status: text("status", { enum: conflictStatusOptions }).default("active").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  resolvedAt: timestamp("resolved_at"),
+  resolutionSummary: text("resolution_summary"),
+  resolutionInsights: text("resolution_insights"),
+});
+
+export const insertConflictThreadSchema = createInsertSchema(conflictThreads).omit({
+  id: true,
+  status: true,
+  createdAt: true,
+  resolvedAt: true,
+  resolutionSummary: true,
+  resolutionInsights: true,
+});
+
+export type InsertConflictThread = z.infer<typeof insertConflictThreadSchema>;
+export type ConflictThread = typeof conflictThreads.$inferSelect;
+
+// Conflict thread messages
+export const conflictMessages = pgTable("conflict_messages", {
+  id: serial("id").primaryKey(),
+  threadId: integer("thread_id").notNull().references(() => conflictThreads.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  content: text("content").notNull(),
+  emotionalTone: text("emotional_tone"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertConflictMessageSchema = createInsertSchema(conflictMessages).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertConflictMessage = z.infer<typeof insertConflictMessageSchema>;
+export type ConflictMessage = typeof conflictMessages.$inferSelect;
+
+// Schema for conflict resolution form
+export const resolveConflictSchema = z.object({
+  threadId: z.number(),
+  summary: z.string().min(1, "Please provide a brief summary of how this conflict was resolved"),
+  insights: z.string().optional(),
+});
+
+export type ResolveConflictInput = z.infer<typeof resolveConflictSchema>;

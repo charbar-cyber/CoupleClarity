@@ -7,7 +7,10 @@ import {
   userPreferences, type UserPreferences, type InsertUserPreferences,
   checkInPrompts, type CheckInPrompt, type InsertCheckInPrompt,
   checkInResponses, type CheckInResponse, type InsertCheckInResponse,
-  appreciations, type Appreciation, type InsertAppreciation
+  appreciations, type Appreciation, type InsertAppreciation,
+  conflictThreads, type ConflictThread, type InsertConflictThread,
+  conflictMessages, type ConflictMessage, type InsertConflictMessage,
+  conflictStatusOptions
 } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
@@ -63,6 +66,18 @@ export interface IStorage {
   getAppreciationsByUserId(userId: number, limit?: number): Promise<Appreciation[]>;
   getAppreciation(id: number): Promise<Appreciation | undefined>;
   
+  // Conflict thread operations
+  createConflictThread(thread: InsertConflictThread): Promise<ConflictThread>;
+  getConflictThread(id: number): Promise<ConflictThread | undefined>;
+  getConflictThreadsByUserId(userId: number): Promise<ConflictThread[]>;
+  getActiveConflictThreads(userId: number): Promise<ConflictThread[]>;
+  updateConflictThreadStatus(id: number, status: string, summary?: string): Promise<ConflictThread>;
+  updateConflictResolutionInsights(id: number, insights: string): Promise<ConflictThread>;
+  
+  // Conflict message operations
+  createConflictMessage(message: InsertConflictMessage): Promise<ConflictMessage>;
+  getConflictMessagesByThreadId(threadId: number): Promise<ConflictMessage[]>;
+  
   // Session store
   sessionStore: session.Store;
 }
@@ -102,6 +117,8 @@ export class MemStorage implements IStorage {
     this.checkInPrompts = new Map();
     this.checkInResponses = new Map();
     this.appreciations = new Map();
+    this.conflictThreads = new Map();
+    this.conflictMessages = new Map();
     this.userIdCounter = 1;
     this.messageIdCounter = 1;
     this.partnershipIdCounter = 1;
@@ -111,6 +128,8 @@ export class MemStorage implements IStorage {
     this.checkInPromptIdCounter = 1;
     this.checkInResponseIdCounter = 1;
     this.appreciationIdCounter = 1;
+    this.conflictThreadIdCounter = 1;
+    this.conflictMessageIdCounter = 1;
     
     // Create default users with hashed passwords
     // The hash of 'password' using our algorithm
@@ -550,6 +569,112 @@ export class MemStorage implements IStorage {
   
   async getAppreciation(id: number): Promise<Appreciation | undefined> {
     return this.appreciations.get(id);
+  }
+  
+  // Conflict thread operations
+  private conflictThreads: Map<number, ConflictThread> = new Map();
+  private conflictMessages: Map<number, ConflictMessage> = new Map();
+  private conflictThreadIdCounter: number = 1;
+  private conflictMessageIdCounter: number = 1;
+  
+  async createConflictThread(thread: InsertConflictThread): Promise<ConflictThread> {
+    const id = this.conflictThreadIdCounter++;
+    const now = new Date();
+    
+    const conflictThread: ConflictThread = {
+      ...thread,
+      id,
+      status: "active",
+      createdAt: now,
+      resolvedAt: null,
+      resolutionSummary: null,
+      resolutionInsights: null
+    };
+    
+    this.conflictThreads.set(id, conflictThread);
+    return conflictThread;
+  }
+  
+  async getConflictThread(id: number): Promise<ConflictThread | undefined> {
+    return this.conflictThreads.get(id);
+  }
+  
+  async getConflictThreadsByUserId(userId: number): Promise<ConflictThread[]> {
+    return Array.from(this.conflictThreads.values())
+      .filter(thread => thread.userId === userId || thread.partnerId === userId)
+      .sort((a, b) => {
+        // Sort by createdAt in descending order (newest first)
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+  }
+  
+  async getActiveConflictThreads(userId: number): Promise<ConflictThread[]> {
+    return Array.from(this.conflictThreads.values())
+      .filter(thread => 
+        (thread.userId === userId || thread.partnerId === userId) && 
+        thread.status === "active"
+      )
+      .sort((a, b) => {
+        // Sort by createdAt in descending order (newest first)
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+  }
+  
+  async updateConflictThreadStatus(id: number, status: string, summary?: string): Promise<ConflictThread> {
+    const thread = await this.getConflictThread(id);
+    if (!thread) {
+      throw new Error(`Conflict thread with id ${id} not found`);
+    }
+    
+    const now = new Date();
+    const updatedThread: ConflictThread = {
+      ...thread,
+      status: status as typeof conflictStatusOptions[number],
+      resolvedAt: status === "resolved" ? now : thread.resolvedAt,
+      resolutionSummary: summary ? summary : thread.resolutionSummary
+    };
+    
+    this.conflictThreads.set(id, updatedThread);
+    return updatedThread;
+  }
+  
+  async updateConflictResolutionInsights(id: number, insights: string): Promise<ConflictThread> {
+    const thread = await this.getConflictThread(id);
+    if (!thread) {
+      throw new Error(`Conflict thread with id ${id} not found`);
+    }
+    
+    const updatedThread = {
+      ...thread,
+      resolutionInsights: insights
+    };
+    
+    this.conflictThreads.set(id, updatedThread);
+    return updatedThread;
+  }
+  
+  async createConflictMessage(message: InsertConflictMessage): Promise<ConflictMessage> {
+    const id = this.conflictMessageIdCounter++;
+    const now = new Date();
+    
+    const conflictMessage: ConflictMessage = {
+      ...message,
+      id,
+      createdAt: now,
+      emotionalTone: message.emotionalTone || null
+    };
+    
+    this.conflictMessages.set(id, conflictMessage);
+    return conflictMessage;
+  }
+  
+  async getConflictMessagesByThreadId(threadId: number): Promise<ConflictMessage[]> {
+    return Array.from(this.conflictMessages.values())
+      .filter(message => message.threadId === threadId)
+      .sort((a, b) => {
+        // Sort by createdAt in ascending order (oldest first for conversation flow)
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      });
   }
 }
 
