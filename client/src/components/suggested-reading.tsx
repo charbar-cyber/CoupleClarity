@@ -38,31 +38,31 @@ export default function SuggestedReading() {
     <div className="mt-6">
       <h3 className="font-heading font-medium text-lg text-neutral-700 dark:text-neutral-200 mb-3">Suggested Reading</h3>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {books.map((book) => (
           <a 
             key={book.id}
             href={book.link} 
             target="_blank" 
             rel="noopener noreferrer"
-            className="group bg-white dark:bg-gray-800 rounded-lg shadow-card overflow-hidden hover:shadow-card-hover transition-all duration-300"
+            className="group bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-all duration-300 flex"
           >
-            <div className="relative">
-              <AspectRatio ratio={2/3} className="bg-gray-100 dark:bg-gray-700">
+            <div className="relative w-1/3 flex-shrink-0">
+              <AspectRatio ratio={2/3} className="h-full">
                 <img 
                   src={book.coverImage}
                   alt={`Cover of ${book.title}`}
                   className="object-cover w-full h-full"
                 />
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100">
-                  <ExternalLink className="text-white w-8 h-8" />
+                  <ExternalLink className="text-white w-4 h-4" />
                 </div>
               </AspectRatio>
             </div>
-            <div className="p-4">
-              <h4 className="font-medium text-neutral-900 dark:text-white mb-1">{book.title}</h4>
-              <div className="text-xs text-neutral-500 dark:text-neutral-400 mb-2">By {book.author}</div>
-              <p className="text-sm text-neutral-700 dark:text-neutral-300">{book.description}</p>
+            <div className="p-2 w-2/3">
+              <h4 className="font-medium text-neutral-900 dark:text-white text-xs">{book.title}</h4>
+              <div className="text-xs text-neutral-500 dark:text-neutral-400 my-0.5">By {book.author}</div>
+              <p className="text-xs text-neutral-700 dark:text-neutral-300 line-clamp-2">{book.description}</p>
             </div>
           </a>
         ))}
