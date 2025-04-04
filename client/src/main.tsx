@@ -2,18 +2,19 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
 
-// Initialize theme from localStorage or system preference
+// Initialize theme from localStorage or use light as default
 function initializeTheme() {
   const storedTheme = localStorage.getItem('theme');
   
   if (storedTheme === 'dark') {
     document.documentElement.classList.add('dark');
-  } else if (storedTheme === 'light') {
-    document.documentElement.classList.remove('dark');
-  } else {
-    // Use system preference as default
+  } else if (storedTheme === 'system') {
+    // Use system preference
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     document.documentElement.classList.toggle('dark', prefersDark);
+  } else {
+    // Use light theme as default
+    document.documentElement.classList.remove('dark');
   }
 }
 
