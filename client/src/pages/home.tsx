@@ -111,11 +111,11 @@ export default function Home() {
           userName={userName}
           partnerName={partnerName}
         />
-        <WeeklyCheckIn userId={userId} />
         <WelcomeCard 
           activeTab={showHistory ? "history" : "express"} 
           onChangeTab={(tab) => setShowHistory(tab === "history")}
         />
+        <WeeklyCheckIn userId={userId} />
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
           <div className="lg:col-span-2">
