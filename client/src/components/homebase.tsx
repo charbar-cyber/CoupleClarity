@@ -92,10 +92,10 @@ export default function Homebase({ userId, partnerId, userName, partnerName }: H
         <CardTitle className="text-2xl">Homebase</CardTitle>
       </CardHeader>
       <CardContent className="pt-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="mb-4">
           {/* Couple Information */}
-          <div className="flex flex-col items-center justify-center md:items-start space-y-2">
-            <div className="flex items-center gap-4 w-full">
+          <div className="mb-4">
+            <div className="flex items-center gap-4">
               <div className="flex space-x-2">
                 <Calendar className="h-5 w-5 text-primary" />
                 <span className="text-sm text-muted-foreground">Together since:</span>
@@ -104,8 +104,8 @@ export default function Homebase({ userId, partnerId, userName, partnerName }: H
             </div>
           </div>
 
-          {/* User and Partner Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* User and Partner Cards side by side */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* User Card */}
             <div className="flex flex-col items-center p-4 bg-card rounded-lg border shadow-sm">
               <Avatar className="h-16 w-16 mb-2">
