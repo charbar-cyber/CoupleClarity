@@ -28,6 +28,8 @@ import {
   insertAppreciationSchema,
   insertConflictThreadSchema,
   insertConflictMessageSchema,
+  insertMemorySchema,
+  memoryTypes,
   resolveConflictSchema,
   conflictInitiationSchema
 } from "@shared/schema";
@@ -1055,6 +1057,190 @@ export async function registerRoutes(app: Express): Promise<Server> {
         error: 'Failed to transcribe audio',
         message: error instanceof Error ? error.message : 'Unknown error'
       });
+    }
+  });
+
+  // Memory API Routes
+  // Get all memories for a partnership
+  app.get("/api/partnerships/:partnershipId/memories", isAuthenticated, async (req, res) => {
+    try {
+      const partnershipId = parseInt(req.params.partnershipId);
+      if (isNaN(partnershipId)) {
+        return res.status(400).json({ message: "Invalid partnership ID" });
+      }
+      
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      const memories = await storage.getMemoriesByPartnershipId(partnershipId, limit);
+      
+      res.json(memories);
+    } catch (error) {
+      console.error("Error fetching memories:", error);
+      res.status(500).json({ message: "Failed to fetch memories" });
+    }
+  });
+  
+  // Get significant memories for a partnership
+  app.get("/api/partnerships/:partnershipId/memories/significant", isAuthenticated, async (req, res) => {
+    try {
+      const partnershipId = parseInt(req.params.partnershipId);
+      if (isNaN(partnershipId)) {
+        return res.status(400).json({ message: "Invalid partnership ID" });
+      }
+      
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      const memories = await storage.getSignificantMemories(partnershipId, limit);
+      
+      res.json(memories);
+    } catch (error) {
+      console.error("Error fetching significant memories:", error);
+      res.status(500).json({ message: "Failed to fetch significant memories" });
+    }
+  });
+  
+  // Get memories by type
+  app.get("/api/partnerships/:partnershipId/memories/type/:type", isAuthenticated, async (req, res) => {
+    try {
+      const partnershipId = parseInt(req.params.partnershipId);
+      if (isNaN(partnershipId)) {
+        return res.status(400).json({ message: "Invalid partnership ID" });
+      }
+      
+      const type = req.params.type;
+      if (!memoryTypes.includes(type as any)) {
+        return res.status(400).json({ message: "Invalid memory type" });
+      }
+      
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      const memories = await storage.getMemoriesByType(partnershipId, type, limit);
+      
+      res.json(memories);
+    } catch (error) {
+      console.error("Error fetching memories by type:", error);
+      res.status(500).json({ message: "Failed to fetch memories by type" });
+    }
+  });
+  
+  // Search memories
+  app.get("/api/partnerships/:partnershipId/memories/search", isAuthenticated, async (req, res) => {
+    try {
+      const partnershipId = parseInt(req.params.partnershipId);
+      if (isNaN(partnershipId)) {
+        return res.status(400).json({ message: "Invalid partnership ID" });
+      }
+      
+      const query = req.query.q as string;
+      if (!query || query.trim() === "") {
+        return res.status(400).json({ message: "Search query is required" });
+      }
+      
+      const memories = await storage.searchMemories(partnershipId, query);
+      
+      res.json(memories);
+    } catch (error) {
+      console.error("Error searching memories:", error);
+      res.status(500).json({ message: "Failed to search memories" });
+    }
+  });
+  
+  // Get a specific memory
+  app.get("/api/memories/:id", isAuthenticated, async (req, res) => {
+    try {
+      const memoryId = parseInt(req.params.id);
+      if (isNaN(memoryId)) {
+        return res.status(400).json({ message: "Invalid memory ID" });
+      }
+      
+      const memory = await storage.getMemory(memoryId);
+      if (!memory) {
+        return res.status(404).json({ message: "Memory not found" });
+      }
+      
+      res.json(memory);
+    } catch (error) {
+      console.error("Error fetching memory:", error);
+      res.status(500).json({ message: "Failed to fetch memory" });
+    }
+  });
+  
+  // Create a new memory
+  app.post("/api/memories", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as Express.User).id;
+      const validatedData = insertMemorySchema.parse({
+        ...req.body,
+        userId
+      });
+      
+      const memory = await storage.createMemory(validatedData);
+      
+      res.status(201).json(memory);
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      console.error("Error creating memory:", error);
+      res.status(500).json({ message: "Failed to create memory" });
+    }
+  });
+  
+  // Update a memory
+  app.patch("/api/memories/:id", isAuthenticated, async (req, res) => {
+    try {
+      const memoryId = parseInt(req.params.id);
+      if (isNaN(memoryId)) {
+        return res.status(400).json({ message: "Invalid memory ID" });
+      }
+      
+      const memory = await storage.getMemory(memoryId);
+      if (!memory) {
+        return res.status(404).json({ message: "Memory not found" });
+      }
+      
+      // Ensure user owns the memory
+      const userId = (req.user as Express.User).id;
+      if (memory.userId !== userId) {
+        return res.status(403).json({ message: "Not authorized to update this memory" });
+      }
+      
+      // Validate update data
+      const updateData = req.body;
+      const updatedMemory = await storage.updateMemory(memoryId, updateData);
+      
+      res.json(updatedMemory);
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      console.error("Error updating memory:", error);
+      res.status(500).json({ message: "Failed to update memory" });
+    }
+  });
+  
+  // Delete a memory
+  app.delete("/api/memories/:id", isAuthenticated, async (req, res) => {
+    try {
+      const memoryId = parseInt(req.params.id);
+      if (isNaN(memoryId)) {
+        return res.status(400).json({ message: "Invalid memory ID" });
+      }
+      
+      const memory = await storage.getMemory(memoryId);
+      if (!memory) {
+        return res.status(404).json({ message: "Memory not found" });
+      }
+      
+      // Ensure user owns the memory
+      const userId = (req.user as Express.User).id;
+      if (memory.userId !== userId) {
+        return res.status(403).json({ message: "Not authorized to delete this memory" });
+      }
+      
+      await storage.deleteMemory(memoryId);
+      
+      res.status(204).end();
+    } catch (error) {
+      console.error("Error deleting memory:", error);
+      res.status(500).json({ message: "Failed to delete memory" });
     }
   });
 

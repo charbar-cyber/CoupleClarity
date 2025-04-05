@@ -11,7 +11,9 @@ import {
   conflictThreads, type ConflictThread, type InsertConflictThread,
   conflictMessages, type ConflictMessage, type InsertConflictMessage,
   directMessages, type DirectMessage, type InsertDirectMessage,
-  conflictStatusOptions
+  memories, type Memory, type InsertMemory,
+  conflictStatusOptions,
+  memoryTypes
 } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
@@ -92,6 +94,17 @@ export interface IStorage {
   markDirectMessageAsRead(id: number): Promise<DirectMessage>;
   getUnreadDirectMessageCount(userId: number): Promise<number>;
   
+  // Memory operations
+  createMemory(memory: InsertMemory): Promise<Memory>;
+  getMemory(id: number): Promise<Memory | undefined>;
+  getMemoriesByUserId(userId: number, limit?: number): Promise<Memory[]>;
+  getMemoriesByPartnershipId(partnershipId: number, limit?: number): Promise<Memory[]>;
+  getSignificantMemories(partnershipId: number, limit?: number): Promise<Memory[]>;
+  getMemoriesByType(partnershipId: number, type: string, limit?: number): Promise<Memory[]>;
+  searchMemories(partnershipId: number, query: string): Promise<Memory[]>;
+  updateMemory(id: number, memory: Partial<InsertMemory>): Promise<Memory>;
+  deleteMemory(id: number): Promise<void>;
+  
   // Session store
   sessionStore: SessionStore;
 }
@@ -109,6 +122,7 @@ export class MemStorage implements IStorage {
   private conflictThreads: Map<number, ConflictThread>;
   private conflictMessages: Map<number, ConflictMessage>;
   private directMessages: Map<number, DirectMessage>;
+  private memories: Map<number, Memory>;
   private userIdCounter: number;
   private messageIdCounter: number;
   private partnershipIdCounter: number;
@@ -121,6 +135,7 @@ export class MemStorage implements IStorage {
   private conflictThreadIdCounter: number;
   private conflictMessageIdCounter: number;
   private directMessageIdCounter: number;
+  private memoryIdCounter: number;
   sessionStore: session.Store;
 
   constructor() {
@@ -142,6 +157,7 @@ export class MemStorage implements IStorage {
     this.conflictThreads = new Map();
     this.conflictMessages = new Map();
     this.directMessages = new Map();
+    this.memories = new Map();
     this.userIdCounter = 1;
     this.messageIdCounter = 1;
     this.partnershipIdCounter = 1;
@@ -154,6 +170,7 @@ export class MemStorage implements IStorage {
     this.conflictThreadIdCounter = 1;
     this.conflictMessageIdCounter = 1;
     this.directMessageIdCounter = 1;
+    this.memoryIdCounter = 1;
     
     // Create default users with hashed passwords
     // The hash of 'password' using our algorithm
@@ -757,6 +774,129 @@ export class MemStorage implements IStorage {
     return Array.from(this.directMessages.values())
       .filter(message => message.recipientId === userId && !message.isRead)
       .length;
+  }
+  
+  // Memory operations
+  async createMemory(memory: InsertMemory): Promise<Memory> {
+    const id = this.memoryIdCounter++;
+    const now = new Date();
+    
+    const newMemory: Memory = {
+      id,
+      title: memory.title,
+      description: memory.description,
+      type: memory.type as typeof memoryTypes[number],
+      userId: memory.userId,
+      partnershipId: memory.partnershipId,
+      date: memory.date || now,
+      createdAt: now,
+      isSignificant: memory.isSignificant || false,
+      linkedItemId: memory.linkedItemId || null,
+      linkedItemType: memory.linkedItemType || null,
+      imageUrl: memory.imageUrl || null,
+      tags: memory.tags || []
+    };
+    
+    this.memories.set(id, newMemory);
+    return newMemory;
+  }
+  
+  async getMemory(id: number): Promise<Memory | undefined> {
+    return this.memories.get(id);
+  }
+  
+  async getMemoriesByUserId(userId: number, limit: number = 20): Promise<Memory[]> {
+    return Array.from(this.memories.values())
+      .filter(memory => memory.userId === userId)
+      .sort((a, b) => {
+        // Sort by date in descending order (newest first)
+        return new Date(b.date).getTime() - new Date(a.date).getTime();
+      })
+      .slice(0, limit);
+  }
+  
+  async getMemoriesByPartnershipId(partnershipId: number, limit: number = 20): Promise<Memory[]> {
+    return Array.from(this.memories.values())
+      .filter(memory => memory.partnershipId === partnershipId)
+      .sort((a, b) => {
+        // Sort by date in descending order (newest first)
+        return new Date(b.date).getTime() - new Date(a.date).getTime();
+      })
+      .slice(0, limit);
+  }
+  
+  async getSignificantMemories(partnershipId: number, limit: number = 10): Promise<Memory[]> {
+    return Array.from(this.memories.values())
+      .filter(memory => memory.partnershipId === partnershipId && memory.isSignificant)
+      .sort((a, b) => {
+        // Sort by date in descending order (newest first)
+        return new Date(b.date).getTime() - new Date(a.date).getTime();
+      })
+      .slice(0, limit);
+  }
+  
+  async getMemoriesByType(partnershipId: number, type: string, limit: number = 10): Promise<Memory[]> {
+    if (!memoryTypes.includes(type as any)) {
+      throw new Error(`Invalid memory type: ${type}`);
+    }
+    
+    return Array.from(this.memories.values())
+      .filter(memory => memory.partnershipId === partnershipId && memory.type === type)
+      .sort((a, b) => {
+        // Sort by date in descending order (newest first)
+        return new Date(b.date).getTime() - new Date(a.date).getTime();
+      })
+      .slice(0, limit);
+  }
+  
+  async searchMemories(partnershipId: number, query: string): Promise<Memory[]> {
+    const lowercaseQuery = query.toLowerCase();
+    
+    return Array.from(this.memories.values())
+      .filter(memory => 
+        memory.partnershipId === partnershipId && 
+        (memory.title.toLowerCase().includes(lowercaseQuery) ||
+         memory.description.toLowerCase().includes(lowercaseQuery) ||
+         (memory.tags && memory.tags.some(tag => tag.toLowerCase().includes(lowercaseQuery))))
+      )
+      .sort((a, b) => {
+        // Sort by date in descending order (newest first)
+        return new Date(b.date).getTime() - new Date(a.date).getTime();
+      });
+  }
+  
+  async updateMemory(id: number, memoryUpdate: Partial<InsertMemory>): Promise<Memory> {
+    const memory = await this.getMemory(id);
+    if (!memory) {
+      throw new Error(`Memory with id ${id} not found`);
+    }
+    
+    const updatedMemory: Memory = {
+      id,
+      title: memoryUpdate.title || memory.title,
+      description: memoryUpdate.description || memory.description,
+      type: (memoryUpdate.type || memory.type) as typeof memoryTypes[number],
+      userId: memory.userId,
+      partnershipId: memory.partnershipId,
+      date: memoryUpdate.date || memory.date,
+      createdAt: memory.createdAt,
+      isSignificant: memoryUpdate.isSignificant !== undefined ? memoryUpdate.isSignificant : memory.isSignificant,
+      linkedItemId: memoryUpdate.linkedItemId !== undefined ? memoryUpdate.linkedItemId : memory.linkedItemId,
+      linkedItemType: memoryUpdate.linkedItemType !== undefined ? memoryUpdate.linkedItemType : memory.linkedItemType,
+      imageUrl: memoryUpdate.imageUrl !== undefined ? memoryUpdate.imageUrl : memory.imageUrl,
+      tags: memoryUpdate.tags || memory.tags
+    };
+    
+    this.memories.set(id, updatedMemory);
+    return updatedMemory;
+  }
+  
+  async deleteMemory(id: number): Promise<void> {
+    if (!this.memories.has(id)) {
+      throw new Error(`Memory with id ${id} not found`);
+    }
+    
+    this.memories.delete(id);
   }
 }
 

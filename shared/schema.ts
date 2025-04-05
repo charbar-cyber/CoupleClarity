@@ -333,3 +333,33 @@ export const conflictInitiationSchema = z.object({
 });
 
 export type ConflictInitiationInput = z.infer<typeof conflictInitiationSchema>;
+
+// Memory types
+export const memoryTypes = ['conflict_resolution', 'milestone', 'appreciation', 'check_in', 'custom'] as const;
+
+// Memories table
+export const memories = pgTable("memories", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  type: text("type").notNull().$type<typeof memoryTypes[number]>(),
+  date: timestamp("date").notNull().defaultNow(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  partnershipId: integer("partnership_id").notNull().references(() => partnerships.id),
+  // Can be null if the memory is not linked to a specific item
+  linkedItemId: integer("linked_item_id"),
+  linkedItemType: text("linked_item_type"),
+  isSignificant: boolean("is_significant").default(false).notNull(),
+  imageUrl: text("image_url"),
+  tags: text("tags").array(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertMemorySchema = createInsertSchema(memories)
+  .omit({ id: true, createdAt: true })
+  .extend({
+    tags: z.array(z.string()).optional(),
+  });
+
+export type InsertMemory = z.infer<typeof insertMemorySchema>;
+export type Memory = typeof memories.$inferSelect;
