@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'wouter';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
-import { Home, History, LayoutDashboard, LogOut, Settings, Menu } from 'lucide-react';
+import { Home, History, LayoutDashboard, LogOut, Settings, Menu, MessageSquare } from 'lucide-react';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -92,6 +92,13 @@ export default function Header() {
                   </div>
                 </Link>
               </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/conflict">
+                  <div className="flex w-full items-center">
+                    <MessageSquare className="mr-2 h-4 w-4" /> Conflict Threads
+                  </div>
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
                 <Link href="/settings">
@@ -124,6 +131,12 @@ export default function Header() {
                 <div className={getNavItemClass('/dashboard')}>
                   <LayoutDashboard className="h-4 w-4 mr-1" />
                   <span>Dashboard</span>
+                </div>
+              </Link>
+              <Link href="/conflict">
+                <div className={getNavItemClass('/conflict')}>
+                  <MessageSquare className="h-4 w-4 mr-1" />
+                  <span>Conflicts</span>
                 </div>
               </Link>
             </nav>

@@ -3,7 +3,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Heart, Calendar, Activity, UserPlus, Copy, Mail, Link as LinkIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Heart, Calendar, Activity, UserPlus, Copy, Mail, Link as LinkIcon, MessageSquare } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { 
   Tooltip, 
@@ -12,7 +13,6 @@ import {
   TooltipTrigger 
 } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -190,6 +190,36 @@ export default function Homebase({ userId, partnerId, userName, partnerName }: H
                   </div>
                   <p className="text-sm text-muted-foreground mt-2">
                     {getLoveLanguageDescription(partnerPreferences.loveLanguage, 'they')}
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Conflict Threads Section */}
+            <Separator className="my-6" />
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold">Conflict Threads</h3>
+                <Button variant="ghost" size="sm" asChild>
+                  <a href="/conflict">
+                    <MessageSquare className="h-4 w-4 mr-1" />
+                    View All
+                  </a>
+                </Button>
+              </div>
+              <div className="p-4 bg-primary/5 rounded-lg">
+                <div className="flex flex-col space-y-2">
+                  <div className="flex justify-between">
+                    <div className="flex items-center">
+                      <MessageSquare className="h-5 w-5 text-primary mr-2" />
+                      <span>Active Conflicts</span>
+                    </div>
+                    <Button variant="outline" size="sm" asChild>
+                      <a href="/conflict/new">New Thread</a>
+                    </Button>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Create and manage conflict resolution threads with your partner in a safe, guided environment.
                   </p>
                 </div>
               </div>
