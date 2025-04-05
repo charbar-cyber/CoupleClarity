@@ -36,7 +36,7 @@ export default function ConflictResolutionForm({ threadId }: ConflictResolutionF
       );
       
       const validatedData = validationSchema.parse(data);
-      const res = await apiRequest("POST", "/api/resolve-conflict", validatedData);
+      const res = await apiRequest("PATCH", `/api/conflict-threads/${data.threadId}/resolve`, validatedData);
       return await res.json();
     },
     onSuccess: () => {
@@ -44,7 +44,7 @@ export default function ConflictResolutionForm({ threadId }: ConflictResolutionF
         title: "Conflict Resolved",
         description: "Thank you for documenting your resolution process.",
       });
-      navigate("/conflict");
+      navigate("/conflict-threads");
     },
     onError: (error: Error) => {
       toast({
@@ -101,7 +101,7 @@ export default function ConflictResolutionForm({ threadId }: ConflictResolutionF
           <Button 
             type="button" 
             variant="outline" 
-            onClick={() => navigate(`/conflict/${threadId}`)}
+            onClick={() => navigate(`/conflict-threads/${threadId}`)}
           >
             Cancel
           </Button>
