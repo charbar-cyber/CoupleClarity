@@ -10,12 +10,18 @@ import {
   appreciations, type Appreciation, type InsertAppreciation,
   conflictThreads, type ConflictThread, type InsertConflictThread,
   conflictMessages, type ConflictMessage, type InsertConflictMessage,
+  directMessages, type DirectMessage, type InsertDirectMessage,
   conflictStatusOptions
 } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
 
 // Storage interface with CRUD methods
+// Extend the SessionStore interface to include the get method
+interface SessionStore extends session.Store {
+  get: (sessionId: string, callback: (err: any, session?: any) => void) => void;
+}
+
 export interface IStorage {
   // User operations
   getUser(id: number): Promise<User | undefined>;
@@ -78,8 +84,16 @@ export interface IStorage {
   createConflictMessage(message: InsertConflictMessage): Promise<ConflictMessage>;
   getConflictMessagesByThreadId(threadId: number): Promise<ConflictMessage[]>;
   
+  // Direct message operations
+  createDirectMessage(message: InsertDirectMessage): Promise<DirectMessage>;
+  getDirectMessage(id: number): Promise<DirectMessage | undefined>;
+  getUserDirectMessages(userId: number): Promise<DirectMessage[]>;
+  getDirectMessageConversation(user1Id: number, user2Id: number, limit?: number): Promise<DirectMessage[]>;
+  markDirectMessageAsRead(id: number): Promise<DirectMessage>;
+  getUnreadDirectMessageCount(userId: number): Promise<number>;
+  
   // Session store
-  sessionStore: session.Store;
+  sessionStore: SessionStore;
 }
 
 export class MemStorage implements IStorage {
@@ -91,6 +105,10 @@ export class MemStorage implements IStorage {
   private preferences: Map<number, UserPreferences>;
   private checkInPrompts: Map<number, CheckInPrompt>;
   private checkInResponses: Map<number, CheckInResponse>;
+  private appreciations: Map<number, Appreciation>;
+  private conflictThreads: Map<number, ConflictThread>;
+  private conflictMessages: Map<number, ConflictMessage>;
+  private directMessages: Map<number, DirectMessage>;
   private userIdCounter: number;
   private messageIdCounter: number;
   private partnershipIdCounter: number;
@@ -99,6 +117,10 @@ export class MemStorage implements IStorage {
   private preferencesIdCounter: number;
   private checkInPromptIdCounter: number;
   private checkInResponseIdCounter: number;
+  private appreciationIdCounter: number;
+  private conflictThreadIdCounter: number;
+  private conflictMessageIdCounter: number;
+  private directMessageIdCounter: number;
   sessionStore: session.Store;
 
   constructor() {
@@ -119,6 +141,7 @@ export class MemStorage implements IStorage {
     this.appreciations = new Map();
     this.conflictThreads = new Map();
     this.conflictMessages = new Map();
+    this.directMessages = new Map();
     this.userIdCounter = 1;
     this.messageIdCounter = 1;
     this.partnershipIdCounter = 1;
@@ -130,6 +153,7 @@ export class MemStorage implements IStorage {
     this.appreciationIdCounter = 1;
     this.conflictThreadIdCounter = 1;
     this.conflictMessageIdCounter = 1;
+    this.directMessageIdCounter = 1;
     
     // Create default users with hashed passwords
     // The hash of 'password' using our algorithm
@@ -540,8 +564,6 @@ export class MemStorage implements IStorage {
   }
   
   // Appreciation log operations
-  private appreciations: Map<number, Appreciation> = new Map();
-  private appreciationIdCounter: number = 1;
   
   async createAppreciation(appreciation: InsertAppreciation): Promise<Appreciation> {
     const id = this.appreciationIdCounter++;
@@ -572,10 +594,6 @@ export class MemStorage implements IStorage {
   }
   
   // Conflict thread operations
-  private conflictThreads: Map<number, ConflictThread> = new Map();
-  private conflictMessages: Map<number, ConflictMessage> = new Map();
-  private conflictThreadIdCounter: number = 1;
-  private conflictMessageIdCounter: number = 1;
   
   async createConflictThread(thread: InsertConflictThread): Promise<ConflictThread> {
     const id = this.conflictThreadIdCounter++;
@@ -675,6 +693,70 @@ export class MemStorage implements IStorage {
         // Sort by createdAt in ascending order (oldest first for conversation flow)
         return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
       });
+  }
+  
+  // Direct message operations
+  
+  async createDirectMessage(message: InsertDirectMessage): Promise<DirectMessage> {
+    const id = this.directMessageIdCounter++;
+    const now = new Date();
+    
+    const directMessage: DirectMessage = {
+      ...message,
+      id,
+      isRead: false,
+      createdAt: now
+    };
+    
+    this.directMessages.set(id, directMessage);
+    return directMessage;
+  }
+  
+  async getDirectMessage(id: number): Promise<DirectMessage | undefined> {
+    return this.directMessages.get(id);
+  }
+  
+  async getUserDirectMessages(userId: number): Promise<DirectMessage[]> {
+    return Array.from(this.directMessages.values())
+      .filter(message => message.recipientId === userId || message.senderId === userId)
+      .sort((a, b) => {
+        // Sort by createdAt in descending order (newest first)
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+  }
+  
+  async getDirectMessageConversation(user1Id: number, user2Id: number, limit: number = 50): Promise<DirectMessage[]> {
+    return Array.from(this.directMessages.values())
+      .filter(message => 
+        (message.senderId === user1Id && message.recipientId === user2Id) ||
+        (message.senderId === user2Id && message.recipientId === user1Id)
+      )
+      .sort((a, b) => {
+        // Sort by createdAt in ascending order (oldest first for conversation flow)
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      })
+      .slice(-limit); // Get the most recent messages up to the limit
+  }
+  
+  async markDirectMessageAsRead(id: number): Promise<DirectMessage> {
+    const message = await this.getDirectMessage(id);
+    if (!message) {
+      throw new Error(`Direct message with id ${id} not found`);
+    }
+    
+    const updatedMessage = {
+      ...message,
+      isRead: true
+    };
+    
+    this.directMessages.set(id, updatedMessage);
+    return updatedMessage;
+  }
+  
+  async getUnreadDirectMessageCount(userId: number): Promise<number> {
+    return Array.from(this.directMessages.values())
+      .filter(message => message.recipientId === userId && !message.isRead)
+      .length;
   }
 }
 

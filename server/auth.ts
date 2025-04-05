@@ -240,12 +240,16 @@ export function setupAuth(app: Express) {
   });
 
   // Create a new partner invite
-  app.post("/api/invites", isAuthenticated, async (req, res, next) => {
+  app.post("/api/invites", isAuthenticated, async (req: Request & { user?: User }, res, next) => {
     try {
       const { partnerFirstName, partnerLastName, partnerEmail, fromUserId } = req.body;
       
       if (!partnerFirstName || !partnerLastName || !partnerEmail) {
         return res.status(400).json({ error: "Missing required fields" });
+      }
+      
+      if (!req.user) {
+        return res.status(401).json({ error: "User not authenticated" });
       }
       
       // Generate a unique token for the invite

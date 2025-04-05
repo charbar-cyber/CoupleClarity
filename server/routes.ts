@@ -1,6 +1,18 @@
 import express, { type Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
+
+// Extended WebSocket interface with userId
+interface AuthenticatedWebSocket extends WebSocket {
+  userId?: number;
+}
+
+// Extended session interface with passport support
+interface SessionWithPassport {
+  passport?: {
+    user: number;
+  };
+}
 import { storage } from "./storage";
 import { transformEmotionalMessage, summarizeResponse, transformConflictMessage } from "./openai";
 import { 
@@ -841,13 +853,199 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // =========== Direct Message Routes ===========
+  
+  // Get all direct messages in a conversation between two users
+  app.get("/api/direct-messages/:partnerId", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as Express.User).id;
+      const partnerId = parseInt(req.params.partnerId);
+      
+      if (isNaN(partnerId)) {
+        return res.status(400).json({ message: "Invalid partner ID" });
+      }
+      
+      // Optional limit parameter
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      
+      // Get the messages
+      const messages = await storage.getDirectMessageConversation(userId, partnerId, limit);
+      
+      // Mark all messages as read where user is recipient
+      await Promise.all(
+        messages
+          .filter(msg => msg.recipientId === userId && !msg.isRead)
+          .map(msg => storage.markDirectMessageAsRead(msg.id))
+      );
+      
+      res.json(messages);
+    } catch (error: unknown) {
+      console.error("Error fetching direct messages:", error);
+      res.status(500).json({ message: "Failed to fetch direct messages" });
+    }
+  });
+  
+  // Get unread message count
+  app.get("/api/direct-messages/unread/count", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as Express.User).id;
+      
+      const count = await storage.getUnreadDirectMessageCount(userId);
+      
+      res.json({ count });
+    } catch (error: unknown) {
+      console.error("Error getting unread message count:", error);
+      res.status(500).json({ message: "Failed to get unread message count" });
+    }
+  });
+  
+  // Get a user by ID
+  app.get("/api/users/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+      
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Remove sensitive information
+      const { password, ...userWithoutPassword } = user;
+      
+      // Check if the requesting user has a partnership with this user
+      const currentUserId = (req.user as Express.User).id;
+      const partnership = await storage.getPartnershipByUsers(currentUserId, userId);
+      
+      if (!partnership) {
+        return res.status(403).json({ message: "You don't have permission to view this user" });
+      }
+      
+      res.json(userWithoutPassword);
+    } catch (error: unknown) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+  
+  // Create a new direct message
+  app.post("/api/direct-messages", isAuthenticated, async (req, res) => {
+    try {
+      const { recipientId, content } = req.body;
+      
+      if (!recipientId || !content) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+      
+      const senderId = (req.user as Express.User).id;
+      
+      // Make sure the recipient exists
+      const recipient = await storage.getUser(recipientId);
+      if (!recipient) {
+        return res.status(404).json({ message: "Recipient not found" });
+      }
+      
+      // Make sure there's a partnership between the sender and recipient
+      const partnership = await storage.getPartnershipByUsers(senderId, recipientId);
+      if (!partnership) {
+        return res.status(403).json({ message: "No partnership exists with this user" });
+      }
+      
+      // Create the message
+      const message = await storage.createDirectMessage({
+        senderId,
+        recipientId,
+        content
+      });
+      
+      // Notify via WebSocket if recipient is connected
+      const clients = Array.from(wss.clients);
+      for (const client of clients) {
+        if (client.readyState === WebSocket.OPEN && (client as any).userId === recipientId) {
+          client.send(JSON.stringify({
+            type: 'new_direct_message',
+            data: message
+          }));
+        }
+      }
+      
+      res.status(201).json(message);
+    } catch (error: unknown) {
+      console.error("Error creating direct message:", error);
+      res.status(500).json({ message: "Failed to create direct message" });
+    }
+  });
+  
+  // Mark a direct message as read
+  app.patch("/api/direct-messages/:id/read", isAuthenticated, async (req, res) => {
+    try {
+      const messageId = parseInt(req.params.id);
+      
+      if (isNaN(messageId)) {
+        return res.status(400).json({ message: "Invalid message ID" });
+      }
+      
+      const userId = (req.user as Express.User).id;
+      const message = await storage.getDirectMessage(messageId);
+      
+      if (!message) {
+        return res.status(404).json({ message: "Message not found" });
+      }
+      
+      // Check that the user is the recipient
+      if (message.recipientId !== userId) {
+        return res.status(403).json({ message: "You can only mark messages sent to you as read" });
+      }
+      
+      // Mark as read
+      const updatedMessage = await storage.markDirectMessageAsRead(messageId);
+      res.json(updatedMessage);
+    } catch (error: unknown) {
+      console.error("Error marking message as read:", error);
+      res.status(500).json({ message: "Failed to mark message as read" });
+    }
+  });
+  
   // Create WebSocket server
   const httpServer = createServer(app);
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
   
   // Set up WebSocket connections
-  wss.on('connection', (ws) => {
+  wss.on('connection', (ws: AuthenticatedWebSocket, req) => {
     console.log('WebSocket client connected');
+    
+    // Extract session ID from cookies
+    if (req.headers.cookie) {
+      const cookies = req.headers.cookie.split(';').map(c => c.trim());
+      const sessionCookie = cookies.find(c => c.startsWith('connect.sid='));
+      
+      if (sessionCookie) {
+        const sessionId = sessionCookie.split('=')[1].split('.')[0].slice(2);
+        
+        // Look up the session in the session store
+        storage.sessionStore.get(sessionId, (err, session) => {
+          if (err || !session) {
+            console.log('No valid session found for WebSocket connection');
+            return;
+          }
+          
+          const sessionWithPassport = session as unknown as SessionWithPassport;
+          
+          if (!sessionWithPassport.passport || !sessionWithPassport.passport.user) {
+            console.log('No authenticated user found in session');
+            return;
+          }
+          
+          // Attach the user ID to the WebSocket connection
+          ws.userId = sessionWithPassport.passport.user;
+          console.log(`WebSocket client authenticated as user ID: ${sessionWithPassport.passport.user}`);
+        });
+      }
+    }
     
     // Send a welcome message
     ws.send(JSON.stringify({
@@ -924,6 +1122,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }));
             }
           });
+        }
+        
+        if (data.type === 'new_direct_message') {
+          // Only send direct message to the specific recipient
+          console.log('Sending direct message to recipient:', data.data?.recipientId);
+          
+          // Get the recipient's WebSocket connection
+          const recipientId = data.data?.recipientId;
+          if (recipientId) {
+            wss.clients.forEach((client: AuthenticatedWebSocket) => {
+              if (client.userId === recipientId && client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify({
+                  type: 'new_direct_message',
+                  data: data.data
+                }));
+              }
+            });
+          }
         }
       } catch (error: unknown) {
         console.error('Error handling WebSocket message:', error);

@@ -303,6 +303,25 @@ export const resolveConflictSchema = z.object({
 
 export type ResolveConflictInput = z.infer<typeof resolveConflictSchema>;
 
+// Direct messages schema
+export const directMessages = pgTable("direct_messages", {
+  id: serial("id").primaryKey(),
+  senderId: integer("sender_id").notNull(),
+  recipientId: integer("recipient_id").notNull(),
+  content: text("content").notNull(),
+  isRead: boolean("is_read").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertDirectMessageSchema = createInsertSchema(directMessages).omit({
+  id: true,
+  isRead: true,
+  createdAt: true,
+});
+
+export type InsertDirectMessage = z.infer<typeof insertDirectMessageSchema>;
+export type DirectMessage = typeof directMessages.$inferSelect;
+
 // Schema for detailed conflict initiation form
 export const conflictInitiationSchema = z.object({
   topic: z.string().min(1, "Please provide a topic for this conflict"),

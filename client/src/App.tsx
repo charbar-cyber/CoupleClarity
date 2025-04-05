@@ -16,6 +16,7 @@ import NewConflictThreadPage from "@/pages/new-conflict-thread-page";
 import ConflictThreadDetailPage from "@/pages/conflict-thread-detail-page";
 import ConflictResolutionPage from "@/pages/conflict-resolution-page";
 import SettingsPage from "@/pages/settings-page";
+import DirectMessagePage from "@/pages/direct-message-page";
 import Header from "./components/header";
 import Footer from "./components/footer";
 import { ProtectedRoute } from "@/components/protected-route";
@@ -40,6 +41,7 @@ function Router() {
         <ProtectedRoute path="/conflict/:id/resolve" component={ConflictResolutionPage} />
         <ProtectedRoute path="/conflict/:id" component={ConflictThreadDetailPage} />
         <ProtectedRoute path="/settings" component={SettingsPage} />
+        <ProtectedRoute path="/messages/direct/:partnerId" component={DirectMessagePage} />
         <Route>
           <NotFound />
         </Route>
