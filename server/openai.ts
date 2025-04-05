@@ -1,5 +1,8 @@
 import OpenAI from "openai";
 import { TransformationResponse } from "@shared/schema";
+import fs from "fs";
+import path from "path";
+import { promisify } from "util";
 
 // Interface for response summary
 interface ResponseSummary {
@@ -14,6 +17,11 @@ export interface ConflictTransformationResponse {
   transformedMessage: string;
   communicationElements: string[];
   deliveryTips: string[];
+}
+
+// Interface for audio transcription response
+export interface AudioTranscriptionResponse {
+  text: string;
 }
 
 // Initialize OpenAI client
@@ -210,5 +218,47 @@ Respond with a JSON object containing:
         "Be open to compromise and finding solutions together"
       ]
     };
+  }
+}
+
+/**
+ * Transcribes audio to text using OpenAI's Whisper API
+ * @param audioFile Path to the temporary audio file
+ * @returns Transcription text and duration
+ */
+export async function transcribeAudio(audioFilePath: string): Promise<AudioTranscriptionResponse> {
+  try {
+    // Check if file exists
+    if (!fs.existsSync(audioFilePath)) {
+      throw new Error(`Audio file not found at path: ${audioFilePath}`);
+    }
+
+    // Create a read stream for the audio file
+    const audioReadStream = fs.createReadStream(audioFilePath);
+
+    // Call OpenAI Whisper API to transcribe audio
+    const transcription = await openai.audio.transcriptions.create({
+      file: audioReadStream,
+      model: "whisper-1", // Using the Whisper model for transcription
+    });
+
+    // Return the transcribed text (duration is not available in the response)
+    return {
+      text: transcription.text,
+    };
+  } catch (error) {
+    console.error("Error transcribing audio:", error);
+    
+    // Return a default response to prevent app from crashing
+    return {
+      text: "Sorry, we couldn't transcribe your audio. Please try again or type your message.",
+    };
+  } finally {
+    // Clean up the temporary file
+    try {
+      fs.unlinkSync(audioFilePath);
+    } catch (err) {
+      console.error("Error deleting temporary audio file:", err);
+    }
   }
 }

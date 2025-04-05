@@ -12,8 +12,6 @@ export function Heading({
   className,
   ...props
 }: HeadingProps) {
-  const Component = `h${level}` as keyof JSX.IntrinsicElements;
-
   const styles = {
     h1: "text-3xl font-bold tracking-tight mb-6",
     h2: "text-2xl font-semibold tracking-tight mb-4",
@@ -23,9 +21,20 @@ export function Heading({
     h6: "text-sm font-medium mb-2",
   }[`h${level}`];
 
-  return (
-    <Component className={cn(styles, className)} {...props}>
-      {children}
-    </Component>
-  );
+  switch (level) {
+    case 1:
+      return <h1 className={cn(styles, className)} {...props}>{children}</h1>;
+    case 2:
+      return <h2 className={cn(styles, className)} {...props}>{children}</h2>;
+    case 3:
+      return <h3 className={cn(styles, className)} {...props}>{children}</h3>;
+    case 4:
+      return <h4 className={cn(styles, className)} {...props}>{children}</h4>;
+    case 5:
+      return <h5 className={cn(styles, className)} {...props}>{children}</h5>;
+    case 6:
+      return <h6 className={cn(styles, className)} {...props}>{children}</h6>;
+    default:
+      return <h2 className={cn(styles, className)} {...props}>{children}</h2>;
+  }
 }

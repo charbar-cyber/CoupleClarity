@@ -14,7 +14,11 @@ interface SessionWithPassport {
   };
 }
 import { storage } from "./storage";
-import { transformEmotionalMessage, summarizeResponse, transformConflictMessage } from "./openai";
+import { transformEmotionalMessage, summarizeResponse, transformConflictMessage, transcribeAudio } from "./openai";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+import { promisify } from "util";
 import { 
   emotionSchema, 
   responseSchema, 
@@ -1011,6 +1015,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Create WebSocket server
+  // Configure multer to store files temporarily
+  const uploadDir = path.join(process.cwd(), 'tmp');
+  // Create the upload directory if it doesn't exist
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+
+  const multerStorage = multer.diskStorage({
+    destination: (_req, _file, cb) => {
+      cb(null, uploadDir);
+    },
+    filename: (_req, file, cb) => {
+      const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
+      cb(null, `${uniqueSuffix}-${file.originalname}`);
+    }
+  });
+
+  const upload = multer({ storage: multerStorage });
+
+  // Audio transcription endpoint
+  app.post('/api/transcribe', isAuthenticated, upload.single('audio'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'No audio file provided' });
+      }
+
+      // Get the path to the uploaded audio file
+      const audioFilePath = req.file.path;
+
+      // Call OpenAI API to transcribe the audio
+      const transcription = await transcribeAudio(audioFilePath);
+
+      // Return the transcription result
+      res.json(transcription);
+    } catch (error) {
+      console.error('Error transcribing audio:', error);
+      res.status(500).json({ 
+        error: 'Failed to transcribe audio',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
   
