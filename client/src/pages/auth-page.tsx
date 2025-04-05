@@ -156,9 +156,37 @@ export default function AuthPage() {
     registerMutation.mutate(registrationData);
   };
   
-  const onInviteSubmit = (data: InviteRegistrationValues) => {
+  const onInviteSubmit = async (data: InviteRegistrationValues) => {
     const { confirmPassword, ...registrationData } = data;
-    registerMutation.mutate(registrationData);
+    
+    try {
+      // Use the dedicated invite acceptance endpoint
+      const response = await fetch('/api/invites/accept', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(registrationData),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Update the auth context with the new user
+        if (data.user) {
+          loginMutation.mutate({
+            username: registrationData.username,
+            password: registrationData.password
+          });
+        }
+      } else {
+        const errorData = await response.json();
+        console.error('Failed to accept invitation:', errorData.error);
+        // You could add toast notification here
+      }
+    } catch (error) {
+      console.error('Error accepting invitation:', error);
+    }
   };
 
   return (

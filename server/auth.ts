@@ -16,7 +16,7 @@ declare global {
 
 const scryptAsync = promisify(scrypt);
 
-async function hashPassword(password: string) {
+export async function hashPassword(password: string) {
   const salt = randomBytes(16).toString("hex");
   const buf = (await scryptAsync(password, salt, 64)) as Buffer;
   return `${buf.toString("hex")}.${salt}`;
@@ -301,6 +301,42 @@ export function setupAuth(app: Express) {
         partnerFirstName: inviter.firstName,
         partnerLastName: inviter.lastName,
         partnerEmail: invite.partnerEmail,
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  // Generate an invitation link without requiring email
+  app.post("/api/invites/generate-link", isAuthenticated, async (req: Request & { user?: User }, res, next) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+      
+      // Get user data to provide context for the invite
+      const user = await storage.getUser(req.user.id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Generate a unique token for the invite
+      const token = uuidv4();
+      
+      // Create a minimal invite record
+      const invite = await storage.createInvite({
+        fromUserId: req.user.id,
+        partnerFirstName: "",
+        partnerLastName: "",
+        partnerEmail: "", // No email for link-based invites
+      }, token);
+      
+      // Return just the token and basic info
+      res.status(201).json({
+        id: invite.id,
+        token,
+        inviterName: `${user.firstName} ${user.lastName}`.trim(),
+        message: "Invitation link generated successfully"
       });
     } catch (error) {
       next(error);

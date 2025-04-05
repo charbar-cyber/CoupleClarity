@@ -15,6 +15,7 @@ interface SessionWithPassport {
 }
 import { storage } from "./storage";
 import { transformEmotionalMessage, summarizeResponse, transformConflictMessage, transcribeAudio } from "./openai";
+import { hashPassword } from "./auth"; // Import hashPassword for user creation
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -1241,6 +1242,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting memory:", error);
       res.status(500).json({ message: "Failed to delete memory" });
+    }
+  });
+  
+  // Handle invitation acceptance from link
+  app.post("/api/invites/accept", async (req, res) => {
+    try {
+      const { token, username, password, firstName, lastName, email } = req.body;
+      
+      if (!token || !username || !password || !firstName || !lastName || !email) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+      
+      // Verify the invitation token is valid
+      const invite = await storage.getInviteByToken(token);
+      if (!invite) {
+        return res.status(404).json({ error: "Invalid invitation token" });
+      }
+      
+      if (invite.acceptedAt) {
+        return res.status(400).json({ error: "This invitation has already been used" });
+      }
+      
+      // Get the inviter's information
+      const inviter = await storage.getUser(invite.fromUserId);
+      if (!inviter) {
+        return res.status(404).json({ error: "Inviter not found" });
+      }
+      
+      // Create a new user account for the partner
+      const hashedPassword = await hashPassword(password);
+      
+      const newUser = await storage.createUser({
+        username,
+        password: hashedPassword,
+        firstName,
+        lastName,
+        email,
+        displayName: `${firstName} ${lastName}`.trim()
+      });
+      
+      // Mark the invitation as accepted
+      await storage.updateInviteAccepted(invite.id);
+      
+      // Create a partnership between the users
+      await storage.createPartnership({
+        user1Id: invite.fromUserId,
+        user2Id: newUser.id,
+        startDate: new Date(),
+        status: "active"
+      });
+      
+      // Log the user in
+      req.login(newUser, (err: Error) => {
+        if (err) {
+          return res.status(500).json({ error: "Failed to authenticate after registration" });
+        }
+        
+        return res.status(201).json({
+          user: {
+            id: newUser.id,
+            username: newUser.username,
+            firstName: newUser.firstName,
+            lastName: newUser.lastName,
+            email: newUser.email,
+            displayName: newUser.displayName
+          },
+          partnerName: `${inviter.firstName} ${inviter.lastName}`.trim(),
+          message: "Account created and partnership established successfully"
+        });
+      });
+    } catch (error: any) {
+      console.error("Error accepting invitation:", error);
+      res.status(500).json({ error: error.message || "An error occurred while accepting the invitation" });
     }
   });
 

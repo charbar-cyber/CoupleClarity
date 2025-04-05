@@ -35,12 +35,12 @@ export const partnerships = pgTable("partnerships", {
   user1Id: integer("user1_id").notNull(),
   user2Id: integer("user2_id").notNull(),
   status: text("status").notNull().default("pending"), // pending, active, inactive
+  startDate: timestamp("start_date"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const insertPartnershipSchema = createInsertSchema(partnerships).omit({
   id: true,
-  status: true,
   createdAt: true,
 });
 

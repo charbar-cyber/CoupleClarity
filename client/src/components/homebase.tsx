@@ -1,9 +1,22 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Heart, Calendar, Activity } from "lucide-react";
+import { Heart, Calendar, Activity, UserPlus, Copy, Mail, Link as LinkIcon } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { 
+  Tooltip, 
+  TooltipContent, 
+  TooltipProvider, 
+  TooltipTrigger 
+} from "@/components/ui/tooltip";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatPreference } from "@/lib/utils";
 import AppreciationLog from "./appreciation-log";
 
@@ -147,13 +160,7 @@ export default function Homebase({ userId, partnerId, userName, partnerName }: H
                 </Badge>
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center p-4 bg-card rounded-lg border shadow-sm">
-                <Avatar className="h-16 w-16 mb-2 opacity-50">
-                  <AvatarFallback className="bg-muted">?</AvatarFallback>
-                </Avatar>
-                <h3 className="font-semibold text-lg text-muted-foreground">Partner</h3>
-                <span className="text-sm text-muted-foreground mt-2">Not connected yet</span>
-              </div>
+              <InvitePartnerCard />
             )}
           </div>
         </div>
@@ -199,6 +206,287 @@ export default function Homebase({ userId, partnerId, userName, partnerName }: H
         )}
       </CardContent>
     </Card>
+  );
+}
+
+// Partner invitation card component
+function InvitePartnerCard() {
+  const { toast } = useToast();
+  const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
+  const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
+  const [partnerForm, setPartnerForm] = useState({
+    partnerFirstName: '',
+    partnerLastName: '',
+    partnerEmail: ''
+  });
+  const [inviteLink, setInviteLink] = useState('');
+  
+  // Get and create an invitation link
+  const generateInviteLinkMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/invites/generate-link", {});
+      return res.json();
+    },
+    onSuccess: (data) => {
+      // Construct the full invitation link with the invitation token
+      const baseUrl = window.location.origin;
+      setInviteLink(`${baseUrl}/auth?token=${data.token}`);
+      setIsLinkDialogOpen(true);
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Failed to generate invitation link",
+        description: error.message || "Please try again later.",
+      });
+    }
+  });
+
+  // Invite partner by email
+  const invitePartnerMutation = useMutation({
+    mutationFn: async (data: { partnerFirstName: string; partnerLastName: string; partnerEmail: string }) => {
+      const res = await apiRequest("POST", "/api/invites", {
+        partnerFirstName: data.partnerFirstName,
+        partnerLastName: data.partnerLastName,
+        partnerEmail: data.partnerEmail,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Invitation sent successfully!",
+        description: "Your partner will receive an email with instructions to join.",
+      });
+      setIsEmailDialogOpen(false);
+      setPartnerForm({
+        partnerFirstName: '',
+        partnerLastName: '',
+        partnerEmail: ''
+      });
+      // Refresh partnership data
+      queryClient.invalidateQueries({ queryKey: ['/api/partnerships'] });
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Failed to send invitation",
+        description: error.message || "Please check the email address and try again.",
+      });
+    }
+  });
+
+  // Handle email form submission
+  const handleEmailSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    invitePartnerMutation.mutate(partnerForm);
+  };
+
+  // Copy invitation link to clipboard
+  const copyLinkToClipboard = () => {
+    if (inviteLink) {
+      navigator.clipboard.writeText(inviteLink)
+        .then(() => {
+          toast({
+            title: "Link copied to clipboard!",
+            description: "Share this link with your partner to invite them to join.",
+          });
+        })
+        .catch(() => {
+          toast({
+            variant: "destructive",
+            title: "Failed to copy link",
+            description: "Please try again or manually select and copy the link.",
+          });
+        });
+    }
+  };
+
+  // Generate a new invitation link
+  const handleGenerateLink = () => {
+    generateInviteLinkMutation.mutate();
+  };
+
+  return (
+    <div className="flex flex-col items-center justify-center p-4 bg-card rounded-lg border shadow-sm relative h-full">
+      <div className="absolute top-0 right-0 p-1.5">
+        <Badge variant="outline" className="bg-primary/10 text-primary font-medium">
+          Connect
+        </Badge>
+      </div>
+      
+      <Avatar className="h-16 w-16 mb-2 opacity-80">
+        <AvatarFallback className="bg-muted-foreground/20 text-muted-foreground">
+          <UserPlus className="h-8 w-8" />
+        </AvatarFallback>
+      </Avatar>
+      
+      <h3 className="font-semibold text-lg mb-2">Add Your Partner</h3>
+      <p className="text-sm text-muted-foreground text-center mb-4">
+        Connect with your partner to unlock all features of CoupleClarity
+      </p>
+      
+      <div className="flex flex-col gap-3 w-full">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="default" 
+                className="w-full" 
+                onClick={() => setIsEmailDialogOpen(true)}
+              >
+                <Mail className="mr-2 h-4 w-4" />
+                Invite via Email
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Send an invitation email to your partner</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="outline" 
+                className="w-full" 
+                onClick={handleGenerateLink}
+                disabled={generateInviteLinkMutation.isPending}
+              >
+                {generateInviteLinkMutation.isPending ? (
+                  <>
+                    <Activity className="mr-2 h-4 w-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <LinkIcon className="mr-2 h-4 w-4" />
+                    Create Invitation Link
+                  </>
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Create a link you can share directly with your partner</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+      
+      {/* Email Invitation Dialog */}
+      <Dialog open={isEmailDialogOpen} onOpenChange={setIsEmailDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Invite Your Partner via Email</DialogTitle>
+            <DialogDescription>
+              We'll send your partner an email with instructions to join CoupleClarity and connect with you.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <form onSubmit={handleEmailSubmit} className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="partnerFirstName">First Name</Label>
+                <Input 
+                  id="partnerFirstName" 
+                  value={partnerForm.partnerFirstName}
+                  onChange={(e) => setPartnerForm({...partnerForm, partnerFirstName: e.target.value})}
+                  placeholder="Partner's first name"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="partnerLastName">Last Name</Label>
+                <Input 
+                  id="partnerLastName" 
+                  value={partnerForm.partnerLastName}
+                  onChange={(e) => setPartnerForm({...partnerForm, partnerLastName: e.target.value})}
+                  placeholder="Partner's last name"
+                  required
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="partnerEmail">Email Address</Label>
+              <Input 
+                id="partnerEmail" 
+                type="email"
+                value={partnerForm.partnerEmail}
+                onChange={(e) => setPartnerForm({...partnerForm, partnerEmail: e.target.value})}
+                placeholder="partner@example.com"
+                required
+              />
+            </div>
+            
+            <DialogFooter className="sm:justify-between">
+              <DialogClose asChild>
+                <Button type="button" variant="outline">Cancel</Button>
+              </DialogClose>
+              <Button 
+                type="submit" 
+                disabled={invitePartnerMutation.isPending}
+              >
+                {invitePartnerMutation.isPending ? (
+                  <>
+                    <Activity className="mr-2 h-4 w-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="mr-2 h-4 w-4" />
+                    Send Invitation
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Link Invitation Dialog */}
+      <Dialog open={isLinkDialogOpen} onOpenChange={setIsLinkDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Share this Invitation Link</DialogTitle>
+            <DialogDescription>
+              Your partner can use this link to join CoupleClarity and connect with you automatically.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex items-center space-x-2 mt-4">
+            <div className="grid flex-1 gap-2">
+              <Label htmlFor="inviteLink" className="sr-only">Invitation Link</Label>
+              <Input
+                id="inviteLink"
+                value={inviteLink}
+                readOnly
+                className="font-mono text-xs sm:text-sm"
+              />
+            </div>
+            <Button 
+              type="button" 
+              size="icon" 
+              onClick={copyLinkToClipboard}
+            >
+              <Copy className="h-4 w-4" />
+              <span className="sr-only">Copy</span>
+            </Button>
+          </div>
+          
+          <DialogFooter className="mt-4">
+            <DialogClose asChild>
+              <Button 
+                className="w-full sm:w-auto"
+                onClick={() => setIsLinkDialogOpen(false)}
+              >
+                Done
+              </Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
 
