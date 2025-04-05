@@ -33,7 +33,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, Sun, Moon, Bell, User, MessageSquare, PaintBucket, UserCog, LogOut } from "lucide-react";
+import { Loader2, Sun, Moon, Bell, User, MessageSquare, PaintBucket, UserCog, LogOut, Users, Mail, Send } from "lucide-react";
 import { UserPreferences } from "@shared/schema";
 
 // Theme options
@@ -57,6 +57,20 @@ export default function SettingsPage() {
   const [notificationSettings, setNotificationSettings] = useState({
     dailyReminders: true,
     messageAlerts: true,
+  });
+  
+  // Partner invite form state
+  const [partnerInviteForm, setPartnerInviteForm] = useState({
+    partnerFirstName: "",
+    partnerLastName: "",
+    partnerEmail: "",
+  });
+
+  // Get partnerships
+  const { data: partnerships = [], isLoading: partnershipsLoading } = useQuery({
+    queryKey: ["/api/users", user?.id, "partnerships"],
+    queryFn: () => fetch(`/api/users/${user?.id}/partnerships`).then(res => res.json()),
+    enabled: !!user?.id,
   });
   
   // Initialize form state for user profile
@@ -115,6 +129,46 @@ export default function SettingsPage() {
     updateProfileMutation.mutate(profileForm);
   };
   
+  // Partner invite mutation
+  const invitePartnerMutation = useMutation({
+    mutationFn: async (data: { partnerFirstName: string; partnerLastName: string; partnerEmail: string }) => {
+      const res = await apiRequest("POST", "/api/invites", {
+        fromUserId: user?.id,
+        partnerFirstName: data.partnerFirstName,
+        partnerLastName: data.partnerLastName,
+        partnerEmail: data.partnerEmail,
+      });
+      return await res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Invitation sent!",
+        description: "Your partner has been invited to join CoupleClarity.",
+      });
+      // Reset form
+      setPartnerInviteForm({
+        partnerFirstName: "",
+        partnerLastName: "",
+        partnerEmail: "",
+      });
+      // Refresh partnerships
+      queryClient.invalidateQueries({ queryKey: ["/api/users", user?.id, "partnerships"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Failed to send invitation",
+        description: error.message,
+      });
+    },
+  });
+  
+  // Handle partner invite form submission
+  const handlePartnerInviteSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    invitePartnerMutation.mutate(partnerInviteForm);
+  };
+
   // Handle logout
   const handleLogout = () => {
     logoutMutation.mutate();
@@ -137,7 +191,7 @@ export default function SettingsPage() {
       <h1 className="text-3xl font-bold mb-6">Settings</h1>
       
       <Tabs defaultValue="appearance" className="space-y-6">
-        <TabsList className="grid grid-cols-5 w-full">
+        <TabsList className="grid grid-cols-6 w-full">
           <TabsTrigger value="appearance" className="flex items-center gap-2">
             <PaintBucket className="h-4 w-4" />
             <span className="hidden sm:inline">Appearance</span>
@@ -145,6 +199,10 @@ export default function SettingsPage() {
           <TabsTrigger value="profile" className="flex items-center gap-2">
             <User className="h-4 w-4" />
             <span className="hidden sm:inline">Profile</span>
+          </TabsTrigger>
+          <TabsTrigger value="partner" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            <span className="hidden sm:inline">Partner</span>
           </TabsTrigger>
           <TabsTrigger value="communication" className="flex items-center gap-2">
             <MessageSquare className="h-4 w-4" />
@@ -271,6 +329,125 @@ export default function SettingsPage() {
                   )}
                 </Button>
               </form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        {/* Partner Settings */}
+        <TabsContent value="partner">
+          <Card>
+            <CardHeader>
+              <CardTitle>Partner Management</CardTitle>
+              <CardDescription>
+                Invite your partner to join CoupleClarity
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {partnershipsLoading ? (
+                <div className="flex justify-center py-4">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : partnerships.length > 0 ? (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium">Your Partner</h3>
+                  {partnerships.map((partnership: any) => (
+                    <div key={partnership.id} className="border rounded-md p-4">
+                      <div className="flex items-start gap-4">
+                        <Avatar>
+                          <AvatarFallback className="bg-primary text-primary-foreground">
+                            {partnership.partner?.firstName?.[0]}{partnership.partner?.lastName?.[0]}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="space-y-1">
+                          <h4 className="font-medium">{partnership.partner?.firstName} {partnership.partner?.lastName}</h4>
+                          <p className="text-sm text-muted-foreground">
+                            Status: {partnership.status === 'active' ? 
+                              <span className="text-green-600 font-medium">Active</span> : 
+                              <span className="text-amber-600 font-medium">Pending</span>
+                            }
+                          </p>
+                          {partnership.status !== 'active' && (
+                            <p className="text-xs text-muted-foreground">
+                              Partner has been invited but hasn't accepted yet.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="text-center p-6 border border-dashed rounded-lg">
+                    <Users className="mx-auto h-10 w-10 text-muted-foreground mb-4" />
+                    <h3 className="font-medium mb-2">No Partner Connected</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Invite your partner to join CoupleClarity to get the most out of the platform.
+                    </p>
+                  </div>
+                  
+                  <Separator />
+                  
+                  <form onSubmit={handlePartnerInviteSubmit}>
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-medium">Invite Your Partner</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Fill in your partner's details below to send them an invitation to join CoupleClarity.
+                      </p>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="partnerFirstName">First Name</Label>
+                          <Input
+                            id="partnerFirstName"
+                            placeholder="Your partner's first name"
+                            value={partnerInviteForm.partnerFirstName}
+                            onChange={(e) => setPartnerInviteForm(prev => ({ ...prev, partnerFirstName: e.target.value }))}
+                            required
+                          />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="partnerLastName">Last Name</Label>
+                          <Input
+                            id="partnerLastName"
+                            placeholder="Your partner's last name"
+                            value={partnerInviteForm.partnerLastName}
+                            onChange={(e) => setPartnerInviteForm(prev => ({ ...prev, partnerLastName: e.target.value }))}
+                            required
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="partnerEmail">Email Address</Label>
+                        <Input
+                          id="partnerEmail"
+                          type="email"
+                          placeholder="partner@example.com"
+                          value={partnerInviteForm.partnerEmail}
+                          onChange={(e) => setPartnerInviteForm(prev => ({ ...prev, partnerEmail: e.target.value }))}
+                          required
+                        />
+                      </div>
+                      
+                      <Button type="submit" className="w-full" disabled={invitePartnerMutation.isPending}>
+                        {invitePartnerMutation.isPending ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Sending Invitation...
+                          </>
+                        ) : (
+                          <>
+                            <Send className="mr-2 h-4 w-4" />
+                            Send Invitation
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </form>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

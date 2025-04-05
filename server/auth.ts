@@ -239,6 +239,41 @@ export function setupAuth(app: Express) {
     }
   });
 
+  // Create a new partner invite
+  app.post("/api/invites", isAuthenticated, async (req, res, next) => {
+    try {
+      const { partnerFirstName, partnerLastName, partnerEmail, fromUserId } = req.body;
+      
+      if (!partnerFirstName || !partnerLastName || !partnerEmail) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+      
+      // Generate a unique token for the invite
+      const inviteToken = uuidv4();
+      
+      // Create the invite in the database
+      const invite = await storage.createInvite({
+        fromUserId: fromUserId || req.user.id,  // Use the authenticated user's ID if not explicitly provided
+        partnerFirstName,
+        partnerLastName,
+        partnerEmail,
+      }, inviteToken);
+      
+      // In a real production app, we would send an email to the partner with the invite link
+      // For now, we'll just return the invite details with the token
+      console.log(`Invitation link: ${process.env.HOST || 'http://localhost:3000'}/auth?token=${inviteToken}`);
+      
+      res.status(201).json({
+        id: invite.id,
+        inviteToken,
+        partnerEmail: invite.partnerEmail,
+        message: "Invitation created successfully"
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+  
   // Get invite details by token
   app.get("/api/invites/:token", async (req, res, next) => {
     try {
