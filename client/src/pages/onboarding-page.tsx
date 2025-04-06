@@ -2,12 +2,15 @@ import React, { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { WelcomeScreen } from "@/components/onboarding/welcome-screen";
 import { OnboardingQuestionnaire } from "@/components/onboarding/questionnaire"; 
+import { EnhancedOnboardingQuestionnaire } from "@/components/onboarding/enhanced-questionnaire";
 import { useAuth } from "@/hooks/use-auth";
+import { type OnboardingQuestionnaire as QuestionnaireType } from "@shared/schema";
 
 export default function OnboardingPage() {
-  const [step, setStep] = useState<"welcome" | "questionnaire" | "complete">("welcome");
+  const [step, setStep] = useState<"welcome" | "preferences" | "enhanced" | "complete">("welcome");
   const [, setLocation] = useLocation();
   const { user } = useAuth();
+  const [preferencesData, setPreferencesData] = useState<Partial<QuestionnaireType>>({});
 
   // If the user is not logged in, redirect to auth page
   if (!user) {
@@ -15,31 +18,44 @@ export default function OnboardingPage() {
     return null;
   }
 
-  // Check if the user has a registration date older than 5 minutes
-  // This is a simple check to determine if this is not a new registration
-  // We'll just redirect them to the home page
+  // Check if the user already completed onboarding
   useEffect(() => {
-    // If we had a real user.registeredAt field, we'd use it here
-    // For now, we'll assume all users coming to this page are new users
-    
-    // Add any logic here to detect returning users if needed
-    // and redirect them to home if they shouldn't see the onboarding
-  }, [setLocation]);
+    if (user.onboardingCompleted) {
+      setLocation("/");
+    }
+  }, [user, setLocation]);
 
   const handleStart = () => {
-    // Move to the questionnaire step
-    setStep("questionnaire");
+    // Move to the preferences step
+    setStep("preferences");
   };
   
-  const handleComplete = () => {
-    // Redirect to home after completing the questionnaire
+  const handlePreferencesComplete = (data: Partial<QuestionnaireType>) => {
+    // Save the preferences data and move to the enhanced questionnaire
+    setPreferencesData(data);
+    setStep("enhanced");
+  };
+  
+  const handleEnhancedComplete = () => {
+    // Redirect to home after completing the entire questionnaire
     setLocation("/");
   };
 
   return (
     <div>
       {step === "welcome" && <WelcomeScreen onStart={handleStart} />}
-      {step === "questionnaire" && <OnboardingQuestionnaire onComplete={handleComplete} />}
+      {step === "preferences" && (
+        <OnboardingQuestionnaire 
+          onComplete={handlePreferencesComplete} 
+          isEnhancedFlow={true}
+        />
+      )}
+      {step === "enhanced" && (
+        <EnhancedOnboardingQuestionnaire 
+          onComplete={handleEnhancedComplete}
+          initialPreferences={preferencesData}
+        />
+      )}
     </div>
   );
 }

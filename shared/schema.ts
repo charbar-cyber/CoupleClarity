@@ -17,6 +17,10 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   displayName: text("display_name").notNull(),
   avatarUrl: text("avatar_url"),
+  relationshipGoals: text("relationship_goals"),
+  challengeAreas: text("challenge_areas"),
+  communicationFrequency: text("communication_frequency"),
+  onboardingCompleted: boolean("onboarding_completed").default(false),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
@@ -27,6 +31,10 @@ export const insertUserSchema = createInsertSchema(users).pick({
   email: true,
   displayName: true,
   avatarUrl: true,
+  relationshipGoals: true,
+  challengeAreas: true,
+  communicationFrequency: true,
+  onboardingCompleted: true,
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -178,7 +186,10 @@ export const insertUserPreferencesSchema = createInsertSchema(userPreferences).o
 export type InsertUserPreferences = z.infer<typeof insertUserPreferencesSchema>;
 export type UserPreferences = typeof userPreferences.$inferSelect;
 
-// Questionnaire schema for onboarding
+// Frequency options for communication
+export const communicationFrequencyOptions = ['daily', 'few_times_week', 'weekly', 'few_times_month', 'monthly_or_less'] as const;
+
+// Questionnaire schema for onboarding (personal preferences part)
 export const onboardingQuestionnaireSchema = z.object({
   loveLanguage: z.enum(loveLanguageOptions),
   conflictStyle: z.enum(conflictStyleOptions),
@@ -186,7 +197,22 @@ export const onboardingQuestionnaireSchema = z.object({
   repairStyle: z.enum(repairStyleOptions),
 });
 
+// Enhanced questionnaire schema that includes relationship goals and challenges
+export const enhancedOnboardingSchema = z.object({
+  // Personal preferences
+  loveLanguage: z.enum(loveLanguageOptions),
+  conflictStyle: z.enum(conflictStyleOptions),
+  communicationStyle: z.enum(communicationStyleOptions),
+  repairStyle: z.enum(repairStyleOptions),
+  
+  // Relationship-specific questions
+  relationshipGoals: z.string().min(5, "Please share at least a brief description of your goals"),
+  challengeAreas: z.string().min(5, "Please share at least a brief description of challenges"),
+  communicationFrequency: z.enum(communicationFrequencyOptions),
+});
+
 export type OnboardingQuestionnaire = z.infer<typeof onboardingQuestionnaireSchema>;
+export type EnhancedOnboardingQuestionnaire = z.infer<typeof enhancedOnboardingSchema>;
 
 // Weekly check-in schemas
 export const checkInPrompts = pgTable("check_in_prompts", {

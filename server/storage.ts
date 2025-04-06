@@ -34,6 +34,7 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(userId: number, userData: Partial<User>): Promise<User>;
   updateUserPassword(userId: number, newPassword: string): Promise<User>;
   updateUserAvatar(userId: number, avatarUrl: string): Promise<User>;
   createPasswordResetToken(email: string): Promise<{token: string, userId: number} | null>;
@@ -339,7 +340,11 @@ export class MemStorage implements IStorage {
       ...insertUser, 
       id,
       displayName: insertUser.displayName || `${insertUser.firstName} ${insertUser.lastName}`,
-      avatarUrl: insertUser.avatarUrl || null
+      avatarUrl: insertUser.avatarUrl || null,
+      relationshipGoals: null,
+      challengeAreas: null,
+      communicationFrequency: null,
+      onboardingCompleted: false
     };
     this.users.set(id, user);
     return user;
@@ -520,6 +525,28 @@ export class MemStorage implements IStorage {
     
     // Update user avatar
     const updatedUser = { ...user, avatarUrl };
+    this.users.set(userId, updatedUser);
+    
+    return updatedUser;
+  }
+  
+  async updateUser(userId: number, userData: Partial<User>): Promise<User> {
+    const user = await this.getUser(userId);
+    if (!user) {
+      throw new Error(`User with id ${userId} not found`);
+    }
+    
+    // Create an updated user object with the supplied fields
+    const updatedUser = { 
+      ...user,
+      ...userData,
+      // Ensure these fields are properly preserved with defaults
+      relationshipGoals: userData.relationshipGoals !== undefined ? userData.relationshipGoals : user.relationshipGoals || null,
+      challengeAreas: userData.challengeAreas !== undefined ? userData.challengeAreas : user.challengeAreas || null,
+      communicationFrequency: userData.communicationFrequency !== undefined ? userData.communicationFrequency : user.communicationFrequency || null,
+      onboardingCompleted: userData.onboardingCompleted !== undefined ? userData.onboardingCompleted : user.onboardingCompleted || null
+    };
+    
     this.users.set(userId, updatedUser);
     
     return updatedUser;

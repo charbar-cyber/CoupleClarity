@@ -53,12 +53,14 @@ const repairStyleLabels: Record<string, string> = {
 };
 
 type OnboardingQuestionnaireProps = {
-  onComplete: () => void;
+  onComplete: (data: Partial<QuestionnaireFormValues>) => void;
+  initialValues?: Partial<QuestionnaireFormValues>;
+  isEnhancedFlow?: boolean;
 };
 
 type QuestionnaireFormValues = z.infer<typeof onboardingQuestionnaireSchema>;
 
-export function OnboardingQuestionnaire({ onComplete }: OnboardingQuestionnaireProps) {
+export function OnboardingQuestionnaire({ onComplete, initialValues, isEnhancedFlow = false }: OnboardingQuestionnaireProps) {
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(0);
   const [showLoveLanguageDiscovery, setShowLoveLanguageDiscovery] = useState(false);
@@ -66,10 +68,10 @@ export function OnboardingQuestionnaire({ onComplete }: OnboardingQuestionnaireP
   const form = useForm<QuestionnaireFormValues>({
     resolver: zodResolver(onboardingQuestionnaireSchema),
     defaultValues: {
-      loveLanguage: undefined,
-      conflictStyle: undefined,
-      communicationStyle: undefined,
-      repairStyle: undefined
+      loveLanguage: initialValues?.loveLanguage ?? undefined,
+      conflictStyle: initialValues?.conflictStyle ?? undefined,
+      communicationStyle: initialValues?.communicationStyle ?? undefined,
+      repairStyle: initialValues?.repairStyle ?? undefined
     }
   });
   
@@ -117,7 +119,10 @@ export function OnboardingQuestionnaire({ onComplete }: OnboardingQuestionnaireP
         title: "Preferences saved!",
         description: "Your relationship preferences have been saved.",
       });
-      onComplete();
+      
+      // Pass the form data to the parent component
+      const values = form.getValues();
+      onComplete(values);
     },
     onError: (error) => {
       toast({
@@ -142,9 +147,16 @@ export function OnboardingQuestionnaire({ onComplete }: OnboardingQuestionnaireP
       if (currentStep < steps.length - 1) {
         setCurrentStep(prev => prev + 1);
       } else {
-        // On final step, submit the form
+        // On final step
         const values = form.getValues();
-        savePreferencesMutation.mutate(values);
+        
+        if (isEnhancedFlow) {
+          // Just pass the values to the parent component if this is part of the enhanced flow
+          onComplete(values);
+        } else {
+          // Otherwise submit the form (regular flow)
+          savePreferencesMutation.mutate(values);
+        }
       }
     }
   }

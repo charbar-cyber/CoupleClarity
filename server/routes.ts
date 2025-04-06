@@ -21,6 +21,7 @@ import {
   responseSchema, 
   transformationResponseSchema,
   onboardingQuestionnaireSchema,
+  enhancedOnboardingSchema,
   checkInSchema,
   insertAppreciationSchema,
   insertConflictThreadSchema,
@@ -35,7 +36,8 @@ import {
   avatarPromptSchema,
   updateAvatarSchema,
   type Therapist,
-  type User
+  type User,
+  type EnhancedOnboardingQuestionnaire
 } from "@shared/schema";
 
 // Extended WebSocket interface with userId
@@ -408,6 +410,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const err = error as Error;
       console.error("Error getting relationship info:", err);
       res.status(500).json({ message: "Failed to get relationship information" });
+    }
+  });
+
+  // User preferences endpoint
+  app.post("/api/user/preferences", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as Express.User).id;
+      
+      // Parse and validate the data
+      const validatedData = onboardingQuestionnaireSchema.parse(req.body);
+      
+      // Save the user preferences
+      const preferences = await storage.createUserPreferences({
+        userId,
+        ...validatedData
+      });
+      
+      res.json(preferences);
+    } catch (error: unknown) {
+      const err = error as Error;
+      if (err.name === "ZodError") {
+        return res.status(400).json({ message: "Validation error", errors: (err as any).errors });
+      }
+      console.error("Error saving user preferences:", err);
+      res.status(500).json({ message: "Failed to save preferences" });
+    }
+  });
+  
+  // Enhanced onboarding questionnaire endpoint
+  app.post("/api/user/enhanced-onboarding", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as Express.User).id;
+      
+      // Parse and validate the data
+      const validatedData = enhancedOnboardingSchema.parse(req.body);
+      
+      // Get the user
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Update user with onboarding data
+      const updatedUser = await storage.updateUser(userId, {
+        relationshipGoals: validatedData.relationshipGoals,
+        challengeAreas: validatedData.challengeAreas,
+        communicationFrequency: validatedData.communicationFrequency,
+        onboardingCompleted: true
+      });
+      
+      // If there are existing preferences, update them with additional data
+      // Otherwise create new preferences
+      let preferences = await storage.getUserPreferences(userId);
+      
+      if (preferences) {
+        // Update existing preferences
+        preferences = await storage.updateUserPreferences(userId, {
+          loveLanguage: validatedData.loveLanguage,
+          conflictStyle: validatedData.conflictStyle,
+          communicationStyle: validatedData.communicationStyle,
+          repairStyle: validatedData.repairStyle
+        });
+      } else {
+        // Create new preferences if they don't exist
+        preferences = await storage.createUserPreferences({
+          userId,
+          loveLanguage: validatedData.loveLanguage,
+          conflictStyle: validatedData.conflictStyle,
+          communicationStyle: validatedData.communicationStyle,
+          repairStyle: validatedData.repairStyle
+        });
+      }
+      
+      res.json({
+        user: {
+          ...updatedUser,
+          password: undefined // Don't send password back
+        },
+        preferences
+      });
+    } catch (error: unknown) {
+      const err = error as Error;
+      if (err.name === "ZodError") {
+        return res.status(400).json({ message: "Validation error", errors: (err as any).errors });
+      }
+      console.error("Error saving enhanced onboarding data:", err);
+      res.status(500).json({ message: "Failed to save onboarding data" });
     }
   });
 
