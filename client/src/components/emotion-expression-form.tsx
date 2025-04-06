@@ -10,7 +10,7 @@ import { emotionSchema } from "@shared/schema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { CheckCircle, ChevronDown, Plus } from "lucide-react";
+import { CheckCircle, ChevronDown, Plus, X } from "lucide-react";
 
 const emotionOptions = [
   // Positive emotions
@@ -70,6 +70,19 @@ export default function EmotionExpressionForm({ onSubmit, isLoading }: EmotionEx
       setSelectedEmotions([...selectedEmotions, emotion]);
     }
   }
+  
+  function removeEmotion(emotion: string) {
+    const updatedEmotions = selectedEmotions.filter(e => e !== emotion);
+    setSelectedEmotions(updatedEmotions);
+    
+    // If there are emotions left, set the current emotion to the last one added
+    if (updatedEmotions.length > 0) {
+      setValue("emotion", updatedEmotions[updatedEmotions.length - 1]);
+    } else {
+      // If no emotions left, clear the emotion field
+      setValue("emotion", "");
+    }
+  }
 
   function toggleContext() {
     setShowContext(!showContext);
@@ -108,9 +121,9 @@ export default function EmotionExpressionForm({ onSubmit, isLoading }: EmotionEx
                 {selectedEmotions.map((emotion) => {
                   const emotionObj = emotionOptions.find(e => e.value === emotion);
                   return (
-                    <span 
+                    <div 
                       key={emotion} 
-                      className={`px-3 py-1 rounded-full ${
+                      className={`px-3 py-1 rounded-full flex items-center ${
                         // Positive emotions
                         emotion === 'happy' || emotion === 'loved' || emotion === 'appreciated' || emotion === 'grateful'
                           ? 'bg-green-100 text-green-700'
@@ -133,8 +146,16 @@ export default function EmotionExpressionForm({ onSubmit, isLoading }: EmotionEx
                         : 'bg-primary/10 text-primary'
                       } text-sm`}
                     >
-                      {emotionObj?.label}
-                    </span>
+                      <span>{emotionObj?.label}</span>
+                      <button
+                        type="button"
+                        className="ml-2 hover:bg-white/30 rounded-full p-0.5 transition-colors"
+                        onClick={() => removeEmotion(emotion)}
+                        aria-label={`Remove ${emotionObj?.label} emotion`}
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
                   );
                 })}
                 <button 
