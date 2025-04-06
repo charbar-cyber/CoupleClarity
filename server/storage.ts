@@ -13,6 +13,8 @@ import {
   directMessages, type DirectMessage, type InsertDirectMessage,
   memories, type Memory, type InsertMemory,
   therapists, type Therapist, type InsertTherapist,
+  pushSubscriptions, type PushSubscription, type InsertPushSubscription,
+  notificationPreferences, type NotificationPreferences, type InsertNotificationPreferences,
   conflictStatusOptions,
   memoryTypes,
   therapistSpecialties,
@@ -45,6 +47,7 @@ export interface IStorage {
   createPartnership(partnership: InsertPartnership): Promise<Partnership>;
   getPartnership(id: number): Promise<Partnership | undefined>;
   getPartnershipByUsers(user1Id: number, user2Id: number): Promise<Partnership | undefined>;
+  getPartnershipByUser(userId: number): Promise<Partnership | undefined>;
   getPartnershipsForUser(userId: number): Promise<Partnership[]>;
   updatePartnershipStatus(id: number, status: string): Promise<Partnership>;
   
@@ -126,6 +129,22 @@ export interface IStorage {
   getTherapistsByModality(modality: string): Promise<Therapist[]>;
   getRecommendedTherapists(specialties?: string[], modalities?: string[], limit?: number): Promise<Therapist[]>;
   
+  // Push notification operations
+  createPushSubscription(subscription: InsertPushSubscription): Promise<PushSubscription>;
+  getPushSubscription(id: number): Promise<PushSubscription | undefined>;
+  getPushSubscriptionByEndpoint(endpoint: string): Promise<PushSubscription | undefined>;
+  getPushSubscriptionsByUserId(userId: number): Promise<PushSubscription[]>;
+  deletePushSubscription(id: number): Promise<void>;
+  deletePushSubscriptionByEndpoint(endpoint: string): Promise<void>;
+  saveNotificationSubscription(userId: number, subscription: any): Promise<PushSubscription>;
+  removeNotificationSubscription(userId: number, endpoint: string): Promise<void>;
+  getNotificationSubscriptions(userId: number): Promise<PushSubscription[]>;
+  
+  // Notification preferences operations
+  createNotificationPreferences(preferences: InsertNotificationPreferences): Promise<NotificationPreferences>;
+  getNotificationPreferences(userId: number): Promise<NotificationPreferences | undefined>;
+  updateNotificationPreferences(userId: number, preferences: Partial<InsertNotificationPreferences>): Promise<NotificationPreferences>;
+
   // Session store
   sessionStore: SessionStore;
 }
@@ -145,6 +164,8 @@ export class MemStorage implements IStorage {
   private directMessages: Map<number, DirectMessage>;
   private memories: Map<number, Memory>;
   private therapists: Map<number, Therapist>;
+  private pushSubscriptions: Map<number, PushSubscription>;
+  private notificationPrefs: Map<number, NotificationPreferences>;
   private userIdCounter: number;
   private messageIdCounter: number;
   private partnershipIdCounter: number;
@@ -159,6 +180,8 @@ export class MemStorage implements IStorage {
   private directMessageIdCounter: number;
   private memoryIdCounter: number;
   private therapistIdCounter: number;
+  private pushSubscriptionIdCounter: number;
+  private notificationPrefsIdCounter: number;
   sessionStore: session.Store;
 
   constructor() {
@@ -182,6 +205,8 @@ export class MemStorage implements IStorage {
     this.directMessages = new Map();
     this.memories = new Map();
     this.therapists = new Map();
+    this.pushSubscriptions = new Map();
+    this.notificationPrefs = new Map();
     this.userIdCounter = 1;
     this.messageIdCounter = 1;
     this.partnershipIdCounter = 1;
@@ -196,6 +221,8 @@ export class MemStorage implements IStorage {
     this.directMessageIdCounter = 1;
     this.memoryIdCounter = 1;
     this.therapistIdCounter = 1;
+    this.pushSubscriptionIdCounter = 1;
+    this.notificationPrefsIdCounter = 1;
     
     // Create default users with hashed passwords
     // The hash of 'password' using our algorithm
@@ -425,6 +452,18 @@ export class MemStorage implements IStorage {
         (partnership.user1Id === user1Id && partnership.user2Id === user2Id) ||
         (partnership.user1Id === user2Id && partnership.user2Id === user1Id)
     );
+  }
+  
+  async getPartnershipByUser(userId: number): Promise<Partnership | undefined> {
+    // Find the first active partnership for this user, or return the first one if no active partnership exists
+    const partnerships = await this.getPartnershipsForUser(userId);
+    if (partnerships.length === 0) {
+      return undefined;
+    }
+    
+    // Try to find an active partnership first
+    const activePartnership = partnerships.find(p => p.status === "active");
+    return activePartnership || partnerships[0];
   }
   
   async getPartnershipsForUser(userId: number): Promise<Partnership[]> {
@@ -1236,6 +1275,135 @@ export class MemStorage implements IStorage {
     });
     
     return filteredTherapists.slice(0, limit);
+  }
+
+  // Push subscription operations
+  async createPushSubscription(subscription: InsertPushSubscription): Promise<PushSubscription> {
+    const id = this.pushSubscriptionIdCounter++;
+    const now = new Date();
+    
+    const newSubscription: PushSubscription = {
+      ...subscription,
+      id,
+      createdAt: now
+    };
+    
+    this.pushSubscriptions.set(id, newSubscription);
+    return newSubscription;
+  }
+  
+  async getPushSubscription(id: number): Promise<PushSubscription | undefined> {
+    return this.pushSubscriptions.get(id);
+  }
+  
+  async getPushSubscriptionByEndpoint(endpoint: string): Promise<PushSubscription | undefined> {
+    return Array.from(this.pushSubscriptions.values()).find(
+      (subscription) => subscription.endpoint === endpoint
+    );
+  }
+  
+  async getPushSubscriptionsByUserId(userId: number): Promise<PushSubscription[]> {
+    return Array.from(this.pushSubscriptions.values())
+      .filter(subscription => subscription.userId === userId);
+  }
+  
+  async deletePushSubscription(id: number): Promise<void> {
+    this.pushSubscriptions.delete(id);
+  }
+  
+  async deletePushSubscriptionByEndpoint(endpoint: string): Promise<void> {
+    const subscription = await this.getPushSubscriptionByEndpoint(endpoint);
+    if (subscription) {
+      this.pushSubscriptions.delete(subscription.id);
+    }
+  }
+  
+  async saveNotificationSubscription(userId: number, subscription: any): Promise<PushSubscription> {
+    // First check if this endpoint already exists
+    const existingSubscription = await this.getPushSubscriptionByEndpoint(subscription.endpoint);
+    
+    if (existingSubscription) {
+      // If it exists, just return it
+      return existingSubscription;
+    }
+    
+    // Otherwise, create a new subscription
+    return this.createPushSubscription({
+      userId,
+      endpoint: subscription.endpoint,
+      p256dh: subscription.keys.p256dh,
+      auth: subscription.keys.auth
+    });
+  }
+  
+  async removeNotificationSubscription(userId: number, endpoint: string): Promise<void> {
+    await this.deletePushSubscriptionByEndpoint(endpoint);
+  }
+  
+  async getNotificationSubscriptions(userId: number): Promise<PushSubscription[]> {
+    return this.getPushSubscriptionsByUserId(userId);
+  }
+  
+  // Notification preferences operations
+  async createNotificationPreferences(preferences: InsertNotificationPreferences): Promise<NotificationPreferences> {
+    const id = this.notificationPrefsIdCounter++;
+    const now = new Date();
+    
+    // Create a properly typed NotificationPreferences object
+    const newPreferences: NotificationPreferences = {
+      id,
+      userId: preferences.userId,
+      updatedAt: now,
+      newConflicts: preferences.newConflicts !== undefined ? preferences.newConflicts : true,
+      partnerEmotions: preferences.partnerEmotions !== undefined ? preferences.partnerEmotions : true,
+      directMessages: preferences.directMessages !== undefined ? preferences.directMessages : true,
+      conflictUpdates: preferences.conflictUpdates !== undefined ? preferences.conflictUpdates : true,
+      weeklyCheckIns: preferences.weeklyCheckIns !== undefined ? preferences.weeklyCheckIns : true,
+      appreciations: preferences.appreciations !== undefined ? preferences.appreciations : true
+    };
+    
+    this.notificationPrefs.set(id, newPreferences);
+    return newPreferences;
+  }
+  
+  async getNotificationPreferences(userId: number): Promise<NotificationPreferences | undefined> {
+    return Array.from(this.notificationPrefs.values()).find(
+      (prefs) => prefs.userId === userId
+    );
+  }
+  
+  async updateNotificationPreferences(userId: number, preferences: Partial<InsertNotificationPreferences>): Promise<NotificationPreferences> {
+    const existingPrefs = await this.getNotificationPreferences(userId);
+    
+    if (existingPrefs) {
+      // Create an updated copy of existing preferences
+      const updatedPrefs: NotificationPreferences = {
+        id: existingPrefs.id,
+        userId: existingPrefs.userId,
+        updatedAt: new Date(),
+        // Apply updates with fallback to existing values
+        newConflicts: preferences.newConflicts !== undefined ? preferences.newConflicts : existingPrefs.newConflicts,
+        partnerEmotions: preferences.partnerEmotions !== undefined ? preferences.partnerEmotions : existingPrefs.partnerEmotions,
+        directMessages: preferences.directMessages !== undefined ? preferences.directMessages : existingPrefs.directMessages,
+        conflictUpdates: preferences.conflictUpdates !== undefined ? preferences.conflictUpdates : existingPrefs.conflictUpdates,
+        weeklyCheckIns: preferences.weeklyCheckIns !== undefined ? preferences.weeklyCheckIns : existingPrefs.weeklyCheckIns,
+        appreciations: preferences.appreciations !== undefined ? preferences.appreciations : existingPrefs.appreciations
+      };
+      
+      this.notificationPrefs.set(existingPrefs.id, updatedPrefs);
+      return updatedPrefs;
+    } else {
+      // Create new preferences if they don't exist
+      return this.createNotificationPreferences({
+        userId,
+        newConflicts: preferences.newConflicts ?? true,
+        partnerEmotions: preferences.partnerEmotions ?? true,
+        directMessages: preferences.directMessages ?? true,
+        conflictUpdates: preferences.conflictUpdates ?? true,
+        weeklyCheckIns: preferences.weeklyCheckIns ?? true,
+        appreciations: preferences.appreciations ?? true
+      });
+    }
   }
 }
 

@@ -416,6 +416,45 @@ export const therapyModalities = [
 ] as const;
 
 // Therapist recommendations
+// Push notification subscriptions
+export const pushSubscriptions = pgTable("push_subscriptions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  endpoint: text("endpoint").notNull().unique(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertPushSubscriptionSchema = createInsertSchema(pushSubscriptions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertPushSubscription = z.infer<typeof insertPushSubscriptionSchema>;
+export type PushSubscription = typeof pushSubscriptions.$inferSelect;
+
+// Notification preferences
+export const notificationPreferences = pgTable("notification_preferences", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id).unique(),
+  newConflicts: boolean("new_conflicts").default(true).notNull(),
+  partnerEmotions: boolean("partner_emotions").default(true).notNull(),
+  directMessages: boolean("direct_messages").default(true).notNull(),
+  conflictUpdates: boolean("conflict_updates").default(true).notNull(),
+  weeklyCheckIns: boolean("weekly_check_ins").default(true).notNull(),
+  appreciations: boolean("appreciations").default(true).notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertNotificationPreferencesSchema = createInsertSchema(notificationPreferences).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type InsertNotificationPreferences = z.infer<typeof insertNotificationPreferencesSchema>;
+export type NotificationPreferences = typeof notificationPreferences.$inferSelect;
+
 export const therapists = pgTable("therapists", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),

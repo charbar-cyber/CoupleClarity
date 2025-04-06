@@ -499,16 +499,338 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to save onboarding data" });
     }
   });
+  
+  // Push notification subscription endpoints
+  app.post("/api/notifications/subscribe", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as Express.User).id;
+      const { endpoint, keys } = req.body;
+      
+      if (!endpoint || !keys) {
+        return res.status(400).json({ message: "Missing required subscription data" });
+      }
+      
+      // Check if subscription already exists for this endpoint
+      const existingSubscription = await storage.getPushSubscriptionByEndpoint(endpoint);
+      
+      if (existingSubscription) {
+        // If subscription exists but for a different user, delete it
+        if (existingSubscription.userId !== userId) {
+          await storage.deletePushSubscription(existingSubscription.id);
+        } else {
+          // Subscription already exists for this user
+          return res.json({ message: "Subscription already exists", subscription: existingSubscription });
+        }
+      }
+      
+      // Create new subscription
+      const subscription = await storage.createPushSubscription({
+        userId,
+        endpoint,
+        p256dh: keys.p256dh,
+        auth: keys.auth
+      });
+      
+      res.status(201).json({ message: "Subscription created", subscription });
+    } catch (error: unknown) {
+      const err = error as Error;
+      console.error("Error creating push subscription:", err);
+      res.status(500).json({ message: "Failed to create push subscription" });
+    }
+  });
+  
+  app.delete("/api/notifications/unsubscribe", isAuthenticated, async (req, res) => {
+    try {
+      const { endpoint } = req.body;
+      
+      if (!endpoint) {
+        return res.status(400).json({ message: "Missing endpoint" });
+      }
+      
+      await storage.deletePushSubscriptionByEndpoint(endpoint);
+      res.json({ message: "Subscription removed" });
+    } catch (error: unknown) {
+      const err = error as Error;
+      console.error("Error removing push subscription:", err);
+      res.status(500).json({ message: "Failed to remove push subscription" });
+    }
+  });
+  
+  // Notification preferences endpoint
+  app.post("/api/notifications/preferences", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as Express.User).id;
+      const preferences = req.body;
+      
+      const updatedPreferences = await storage.updateNotificationPreferences(userId, preferences);
+      res.json(updatedPreferences);
+    } catch (error: unknown) {
+      const err = error as Error;
+      console.error("Error updating notification preferences:", err);
+      res.status(500).json({ message: "Failed to update notification preferences" });
+    }
+  });
+  
+  app.get("/api/notifications/preferences", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as Express.User).id;
+      const preferences = await storage.getNotificationPreferences(userId);
+      
+      if (!preferences) {
+        // Create default preferences if none exist
+        const defaultPreferences = await storage.createNotificationPreferences({
+          userId,
+          newConflicts: true,
+          partnerEmotions: true,
+          directMessages: true,
+          conflictUpdates: true,
+          weeklyCheckIns: true,
+          appreciations: true
+        });
+        
+        return res.json(defaultPreferences);
+      }
+      
+      res.json(preferences);
+    } catch (error: unknown) {
+      const err = error as Error;
+      console.error("Error getting notification preferences:", err);
+      res.status(500).json({ message: "Failed to get notification preferences" });
+    }
+  });
 
   const httpServer = createServer(app);
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  
+  // Map to keep track of connected clients
+  const clients: Map<number, AuthenticatedWebSocket> = new Map();
   
   // Set up WebSocket connections
   wss.on('connection', (ws: AuthenticatedWebSocket, req) => {
     console.log('WebSocket client connected');
     
-    // Handle WebSocket connections here...
+    ws.on('message', (message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        
+        // Handle authentication message
+        if (data.type === 'auth') {
+          ws.userId = data.userId;
+          clients.set(data.userId, ws);
+          console.log(`User ${data.userId} authenticated on WebSocket`);
+          
+          // Confirm successful auth
+          ws.send(JSON.stringify({ type: 'auth_success' }));
+        }
+        
+        // Handle direct message
+        if (data.type === 'direct_message' && ws.userId) {
+          handleDirectMessage(data, ws.userId);
+        }
+        
+        // Handle conflict thread update
+        if (data.type === 'conflict_update' && ws.userId) {
+          handleConflictUpdate(data, ws.userId);
+        }
+        
+        // Handle emotion expression
+        if (data.type === 'emotion_expressed' && ws.userId) {
+          handleEmotionExpressed(data, ws.userId);
+        }
+      } catch (error) {
+        console.error('Error processing WebSocket message:', error);
+      }
+    });
+    
+    ws.on('close', () => {
+      if (ws.userId) {
+        console.log(`User ${ws.userId} disconnected from WebSocket`);
+        clients.delete(ws.userId);
+      }
+    });
   });
+  
+  // WebSocket handlers
+  async function handleDirectMessage(data: any, senderId: number) {
+    try {
+      // Find recipient's WebSocket if connected
+      const partnership = await storage.getPartnershipByUser(senderId);
+      
+      if (!partnership) {
+        console.error('Partnership not found');
+        return;
+      }
+      
+      const recipientId = partnership.user1Id === senderId 
+        ? partnership.user2Id 
+        : partnership.user1Id;
+      
+      const recipientWs = clients.get(recipientId);
+      
+      if (recipientWs && recipientWs.readyState === WebSocket.OPEN) {
+        recipientWs.send(JSON.stringify({
+          type: 'new_direct_message',
+          message: data.message,
+          senderId,
+          senderName: data.senderName,
+          timestamp: new Date().toISOString()
+        }));
+      }
+      
+      // Send push notification
+      await sendNotification(recipientId, {
+        title: `Message from ${data.senderName}`,
+        body: data.message.substring(0, 100) + (data.message.length > 100 ? '...' : ''),
+        url: '/direct-message',
+        type: 'directMessages'
+      });
+    } catch (error) {
+      console.error('Error handling direct message:', error);
+    }
+  }
+  
+  async function handleConflictUpdate(data: any, senderId: number) {
+    try {
+      // Find recipient's WebSocket if connected
+      const thread = await storage.getConflictThread(data.threadId);
+      
+      if (!thread) {
+        console.error('Conflict thread not found');
+        return;
+      }
+      
+      const partnership = await storage.getPartnershipByUser(senderId);
+      
+      if (!partnership) {
+        console.error('Partnership not found');
+        return;
+      }
+      
+      const recipientId = partnership.user1Id === senderId 
+        ? partnership.user2Id 
+        : partnership.user1Id;
+      
+      const recipientWs = clients.get(recipientId);
+      
+      if (recipientWs && recipientWs.readyState === WebSocket.OPEN) {
+        recipientWs.send(JSON.stringify({
+          type: 'conflict_update',
+          threadId: data.threadId,
+          topic: data.topic,
+          updateType: data.updateType,
+          senderId,
+          senderName: data.senderName,
+          timestamp: new Date().toISOString()
+        }));
+      }
+      
+      // Send push notification
+      const notificationType = data.updateType === 'new' ? 'newConflicts' : 'conflictUpdates';
+      const notificationTitle = data.updateType === 'new' 
+        ? `New conflict thread from ${data.senderName}` 
+        : `Update in conflict: ${data.topic}`;
+      
+      await sendNotification(recipientId, {
+        title: notificationTitle,
+        body: data.updateType === 'new' 
+          ? `${data.senderName} started a conflict thread about: ${data.topic}` 
+          : `${data.senderName} added a message to the conflict about: ${data.topic}`,
+        url: `/conflict-threads/${data.threadId}`,
+        type: notificationType
+      });
+    } catch (error) {
+      console.error('Error handling conflict update:', error);
+    }
+  }
+  
+  async function handleEmotionExpressed(data: any, senderId: number) {
+    try {
+      // Find recipient's WebSocket if connected
+      const partnership = await storage.getPartnershipByUser(senderId);
+      
+      if (!partnership) {
+        console.error('Partnership not found');
+        return;
+      }
+      
+      const recipientId = partnership.user1Id === senderId 
+        ? partnership.user2Id 
+        : partnership.user1Id;
+      
+      const recipientWs = clients.get(recipientId);
+      
+      if (recipientWs && recipientWs.readyState === WebSocket.OPEN) {
+        recipientWs.send(JSON.stringify({
+          type: 'emotion_expressed',
+          emotion: data.emotion,
+          senderId,
+          senderName: data.senderName,
+          timestamp: new Date().toISOString()
+        }));
+      }
+      
+      // Send push notification
+      await sendNotification(recipientId, {
+        title: `${data.senderName} expressed an emotion`,
+        body: `${data.senderName} is feeling ${data.emotion}`,
+        url: '/dashboard',
+        type: 'partnerEmotions'
+      });
+    } catch (error) {
+      console.error('Error handling emotion expression:', error);
+    }
+  }
+  
+  // Helper function to send push notifications
+  async function sendNotification(userId: number, notificationData: {
+    title: string;
+    body: string;
+    url: string;
+    type: 'newConflicts' | 'partnerEmotions' | 'directMessages' | 'conflictUpdates' | 'weeklyCheckIns' | 'appreciations';
+  }) {
+    try {
+      // Get user's notification preferences
+      const preferences = await storage.getNotificationPreferences(userId);
+      
+      // Check if user has enabled this type of notification
+      if (!preferences || !preferences[notificationData.type]) {
+        return;
+      }
+      
+      // Get user's push subscriptions
+      const subscriptions = await storage.getPushSubscriptionsByUserId(userId);
+      
+      if (!subscriptions || subscriptions.length === 0) {
+        return;
+      }
+      
+      // In a real app, you would use web-push to send the notification
+      // For this prototype, we'll just log that we would send a notification
+      console.log(`Sending push notification to user ${userId}:`, notificationData);
+      console.log(`Notification would be sent to ${subscriptions.length} devices`);
+      
+      // In a real implementation with web-push:
+      // for (const subscription of subscriptions) {
+      //   try {
+      //     await webpush.sendNotification({
+      //       endpoint: subscription.endpoint,
+      //       keys: {
+      //         p256dh: subscription.p256dhKey,
+      //         auth: subscription.authKey
+      //       }
+      //     }, JSON.stringify(notificationData));
+      //   } catch (err) {
+      //     console.error(`Error sending notification to subscription ${subscription.id}:`, err);
+      //     // If subscription is no longer valid, remove it
+      //     if (err.statusCode === 410) {
+      //       await storage.deletePushSubscriptionByEndpoint(subscription.endpoint);
+      //     }
+      //   }
+      // }
+    } catch (error) {
+      console.error('Error sending push notification:', error);
+    }
+  }
 
   return httpServer;
 }
