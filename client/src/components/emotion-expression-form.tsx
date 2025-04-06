@@ -42,6 +42,8 @@ type EmotionExpressionFormProps = {
 export default function EmotionExpressionForm({ onSubmit, isLoading }: EmotionExpressionFormProps) {
   const [showContext, setShowContext] = useState(false);
   const [selectedEmotions, setSelectedEmotions] = useState<string[]>([]);
+  const [showCustomEmotionInput, setShowCustomEmotionInput] = useState(false);
+  const [customEmotion, setCustomEmotion] = useState("");
 
   const form = useForm<z.infer<typeof emotionSchema>>({
     resolver: zodResolver(emotionSchema),
@@ -62,6 +64,24 @@ export default function EmotionExpressionForm({ onSubmit, isLoading }: EmotionEx
     reset();
     setShowContext(false);
     setSelectedEmotions([]);
+    setShowCustomEmotionInput(false);
+    setCustomEmotion("");
+  }
+
+  function handleCustomEmotionSubmit() {
+    if (customEmotion.trim()) {
+      // Convert to lowercase and replace spaces with underscores for value
+      const customEmotionValue = customEmotion.trim().toLowerCase().replace(/\s+/g, "_");
+      
+      // Only add if not already in the list
+      if (!selectedEmotions.includes(customEmotionValue)) {
+        addEmotion(customEmotionValue);
+        
+        // Reset custom emotion input
+        setCustomEmotion("");
+        setShowCustomEmotionInput(false);
+      }
+    }
   }
 
   function addEmotion(emotion: string) {
@@ -161,16 +181,46 @@ export default function EmotionExpressionForm({ onSubmit, isLoading }: EmotionEx
                 <button 
                   type="button"
                   className="px-2 py-1 rounded-full border border-dashed border-neutral-300 text-neutral-500 text-sm hover:bg-neutral-100"
-                  onClick={() => {
-                    const selectElement = document.querySelector('[id^=radix-]');
-                    if (selectElement) {
-                      (selectElement as HTMLElement).click();
-                    }
-                  }}
+                  onClick={() => setShowCustomEmotionInput(true)}
                 >
                   <Plus size={14} className="inline mr-1" /> Add
                 </button>
               </div>
+              
+              {showCustomEmotionInput && (
+                <div className="mt-3 flex items-center gap-2">
+                  <Input
+                    className="flex-grow"
+                    placeholder="Type a custom emotion..."
+                    value={customEmotion}
+                    onChange={(e) => setCustomEmotion(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleCustomEmotionSubmit();
+                      }
+                    }}
+                  />
+                  <Button 
+                    type="button"
+                    onClick={handleCustomEmotionSubmit}
+                    className="bg-primary text-white hover:bg-primary/90"
+                  >
+                    Add
+                  </Button>
+                  <Button 
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setShowCustomEmotionInput(false);
+                      setCustomEmotion("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )}
+              
               {errors.emotion && (
                 <p className="text-red-500 text-xs mt-1">{errors.emotion.message}</p>
               )}
