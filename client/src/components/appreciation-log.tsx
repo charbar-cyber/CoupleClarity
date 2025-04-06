@@ -23,7 +23,7 @@ import { Loader2, Heart, PlusCircle } from "lucide-react";
 // Define the appreciation schema
 const appreciationSchema = z.object({
   content: z.string().min(1, "Appreciation cannot be empty").max(300, "Appreciation is too long"),
-  partnerId: z.number(),
+  partnerId: z.number().optional(),
 });
 
 type AppreciationFormValues = z.infer<typeof appreciationSchema>;
@@ -37,8 +37,8 @@ interface Appreciation {
 }
 
 interface AppreciationLogProps {
-  userId: number;
-  partnerId: number;
+  userId?: number;
+  partnerId?: number;
 }
 
 export default function AppreciationLog({ userId, partnerId }: AppreciationLogProps) {

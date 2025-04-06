@@ -9,8 +9,8 @@ import Homebase from "@/components/homebase";
 import MessageTimeline from "@/components/message-timeline";
 import EmotionalInsights from "@/components/emotional-insights";
 import WeeklyCheckIn from "@/components/weekly-check-in";
-import { apiRequest } from "@/lib/queryClient";
-import { TransformationResponse } from "@shared/schema";
+import { apiRequest, getQueryFn, queryClient } from "@/lib/queryClient";
+import { TransformationResponse, User } from "@shared/schema";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -27,13 +27,18 @@ export default function Home() {
   const { connected, sendMessage } = useWebSocket();
   
   // Get user info
-  const userId = user?.id || 1;
+  const userId = user?.id;
   const userName = user?.displayName || user?.firstName || "You";
   
-  // For demonstration purposes
-  // In a real app, this would be fetched from the API
-  const partnerId = 2; // Temporary partner ID
-  const partnerName = "Partner";
+  // Get partner info from API
+  const { data: partnerData } = useQuery<User | null>({
+    queryKey: ['/api/user/partner'],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+    enabled: !!userId // Only run query if user is logged in
+  });
+  
+  const partnerId = partnerData?.id;
+  const partnerName = partnerData?.displayName || partnerData?.firstName || "Partner";
 
   const transformMutation = useMutation({
     mutationFn: async (data: {

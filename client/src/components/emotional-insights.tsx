@@ -6,7 +6,7 @@ import { PieChart, Pie, BarChart, Bar, Cell, XAxis, YAxis, Tooltip, Legend, Resp
 import { Loader2 } from "lucide-react";
 
 interface EmotionalInsightsProps {
-  userId: number;
+  userId?: number;
 }
 
 interface EmotionData {
@@ -48,12 +48,19 @@ export default function EmotionalInsights({ userId }: EmotionalInsightsProps) {
   
   // Fetch emotion analytics data from the server
   const { data: analyticsData, isLoading } = useQuery({
-    queryKey: ['/api/emotions/analytics'],
+    queryKey: ['/api/emotions/analytics', userId],
     queryFn: async () => {
-      const res = await fetch('/api/emotions/analytics');
-      if (!res.ok) throw new Error('Failed to fetch emotion analytics');
-      return res.json();
+      try {
+        const res = await fetch('/api/emotions/analytics' + (userId ? `?userId=${userId}` : ''));
+        if (!res.ok) throw new Error('Failed to fetch emotion analytics');
+        return res.json();
+      } catch (error) {
+        console.error('Error fetching emotion analytics:', error);
+        // Return default data if there's an error
+        return { emotionData: [], timelineData: [], totalExpressions: 0 };
+      }
     },
+    enabled: !!userId // Only run query if userId is defined
   });
   
   useEffect(() => {

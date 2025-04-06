@@ -333,6 +333,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // API endpoint to get the user's partner
+  app.get("/api/user/partner", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as Express.User).id;
+      
+      // Get all partnerships for user
+      const partnerships = await storage.getPartnershipsForUser(userId);
+      
+      // If user has no partnerships, return null
+      if (partnerships.length === 0) {
+        return res.json(null);
+      }
+      
+      // Get the first active partnership (in a real app, you might have logic to select the correct one)
+      const activePartnership = partnerships.find(p => p.status === "active") || partnerships[0];
+      
+      // Determine partner ID - it's the other user in the partnership
+      const partnerId = activePartnership.user1Id === userId ? activePartnership.user2Id : activePartnership.user1Id;
+      
+      // Get partner user data
+      const partner = await storage.getUser(partnerId);
+      
+      if (!partner) {
+        return res.status(404).json({ message: "Partner not found" });
+      }
+      
+      // Don't send the password
+      const { password, ...partnerData } = partner;
+      
+      // Get partner preferences if they exist
+      const partnerPrefs = await storage.getUserPreferences(partnerId);
+      
+      res.json({
+        ...partnerData,
+        preferences: partnerPrefs || null,
+        startDate: activePartnership.startDate || activePartnership.createdAt
+      });
+    } catch (error: unknown) {
+      const err = error as Error;
+      console.error("Error getting partner info:", err);
+      res.status(500).json({ message: "Failed to get partner information" });
+    }
+  });
+  
+  // API endpoint to get relationship data
+  app.get("/api/relationship", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as Express.User).id;
+      
+      // Get all partnerships for user
+      const partnerships = await storage.getPartnershipsForUser(userId);
+      
+      // If user has no partnerships, return empty data
+      if (partnerships.length === 0) {
+        return res.json({ 
+          hasPartner: false, 
+          startDate: null,
+          status: null,
+          partnershipId: null 
+        });
+      }
+      
+      // Get the first active partnership
+      const activePartnership = partnerships.find(p => p.status === "active") || partnerships[0];
+      
+      res.json({
+        hasPartner: true,
+        startDate: activePartnership.startDate || activePartnership.createdAt,
+        status: activePartnership.status,
+        partnershipId: activePartnership.id
+      });
+    } catch (error: unknown) {
+      const err = error as Error;
+      console.error("Error getting relationship info:", err);
+      res.status(500).json({ message: "Failed to get relationship information" });
+    }
+  });
+
   const httpServer = createServer(app);
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
   

@@ -38,7 +38,7 @@ interface Prompt {
 }
 
 interface WeeklyCheckInProps {
-  userId: number;
+  userId?: number;
 }
 
 export default function WeeklyCheckIn({ userId }: WeeklyCheckInProps) {
@@ -52,10 +52,10 @@ export default function WeeklyCheckIn({ userId }: WeeklyCheckInProps) {
     data: checkInStatus, 
     isLoading: isStatusLoading 
   } = useQuery({
-    queryKey: ['/api/check-in/latest'],
+    queryKey: ['/api/check-in/latest', userId],
     queryFn: async () => {
       try {
-        const res = await fetch('/api/check-in/latest');
+        const res = await fetch(`/api/check-in/latest${userId ? `?userId=${userId}` : ''}`);
         if (res.status === 404) {
           return { needsNewCheckIn: true, currentWeek: new Date() };
         }
@@ -67,6 +67,7 @@ export default function WeeklyCheckIn({ userId }: WeeklyCheckInProps) {
         return { needsNewCheckIn: true, currentWeek: new Date() };
       }
     },
+    enabled: !!userId // Only run query if userId is defined
   });
 
   // Fetch prompts for the check-in
@@ -74,13 +75,18 @@ export default function WeeklyCheckIn({ userId }: WeeklyCheckInProps) {
     data: prompts, 
     isLoading: isPromptsLoading 
   } = useQuery({
-    queryKey: ['/api/check-in/prompts'],
+    queryKey: ['/api/check-in/prompts', userId],
     queryFn: async () => {
-      const res = await fetch('/api/check-in/prompts');
-      if (!res.ok) throw new Error('Failed to fetch check-in prompts');
-      return res.json();
+      try {
+        const res = await fetch(`/api/check-in/prompts${userId ? `?userId=${userId}` : ''}`);
+        if (!res.ok) throw new Error('Failed to fetch check-in prompts');
+        return res.json();
+      } catch (error) {
+        console.error("Error fetching check-in prompts:", error);
+        return [];
+      }
     },
-    enabled: isExpanded || (checkInStatus?.needsNewCheckIn === true),
+    enabled: (isExpanded || (checkInStatus?.needsNewCheckIn === true)) && !!userId,
   });
 
   // Prepare form with default values
@@ -108,12 +114,15 @@ export default function WeeklyCheckIn({ userId }: WeeklyCheckInProps) {
   // Submit mutation
   const submitMutation = useMutation({
     mutationFn: async (data: CheckInFormValues) => {
+      // Include userId in request body if available
+      const payload = userId ? { ...data, userId } : data;
+      
       const res = await fetch('/api/check-in/responses', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       });
       
       if (!res.ok) {

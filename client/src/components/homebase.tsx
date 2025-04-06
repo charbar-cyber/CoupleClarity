@@ -27,7 +27,7 @@ import { formatPreference } from "@/lib/utils";
 import AppreciationLog from "./appreciation-log";
 
 interface HomebaseProps {
-  userId: number;
+  userId?: number;
   partnerId?: number;
   userName: string;
   partnerName?: string;
@@ -88,22 +88,34 @@ export default function Homebase({ userId, partnerId, userName, partnerName }: H
     return formatPreference(loveLanguage);
   };
 
-  // Mock relationship start date (would come from real data in production)
-  const relationshipStartDate = new Date();
-  relationshipStartDate.setMonth(relationshipStartDate.getMonth() - 3); // 3 months ago
+  // Get relationship data from API
+  const { data: relationshipData } = useQuery({
+    queryKey: ['/api/relationship'],
+    queryFn: async () => {
+      try {
+        const res = await fetch('/api/relationship');
+        if (!res.ok) throw new Error('Failed to fetch relationship data');
+        return res.json();
+      } catch (error) {
+        console.error('Error fetching relationship data:', error);
+        return { hasPartner: false, startDate: null };
+      }
+    }
+  });
   
   // Format date for display
-  const formatDate = (date: Date) => {
+  const formatDate = (date: string | null) => {
+    if (!date) return "Recently joined";
     return new Intl.DateTimeFormat('en-US', { 
       year: 'numeric', 
       month: 'long', 
       day: 'numeric' 
-    }).format(date);
+    }).format(new Date(date));
   };
 
-  // Mock status (would come from real data in production)
-  const userStatus = "Reflecting today";
-  const partnerStatus = partnerId ? "Shared a message" : "Not connected";
+  // User status based on active features (in a real production app, this would be dynamic)
+  const userStatus = "Active";
+  const partnerStatus = partnerId ? "Connected" : "Not connected";
 
   return (
     <Card className="mb-6 overflow-hidden">
@@ -119,7 +131,7 @@ export default function Homebase({ userId, partnerId, userName, partnerName }: H
                 <Calendar className="h-5 w-5 text-primary" />
                 <span className="text-sm text-muted-foreground">Together since:</span>
               </div>
-              <span className="text-sm font-medium">{formatDate(relationshipStartDate)}</span>
+              <span className="text-sm font-medium">{formatDate(relationshipData?.startDate)}</span>
             </div>
           </div>
 
