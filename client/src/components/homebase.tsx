@@ -148,7 +148,7 @@ export default function Homebase({ userId, partnerId, userName, partnerName }: H
             {/* Partner Card */}
             {partnerId && partnerName ? (
               <div className="flex flex-col items-center p-4 bg-card rounded-lg border shadow-sm relative">
-                <div className="absolute top-2 right-2">
+                <div className="absolute top-3 right-3">
                   <PartnerInviteMenu />
                 </div>
                 <Avatar className="h-16 w-16 mb-2">
@@ -630,9 +630,13 @@ function PartnerInviteMenu() {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
-            <UserPlus2 className="h-4 w-4" />
-            <span className="sr-only">Invite Options</span>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="rounded-full bg-primary/10 hover:bg-primary/20 border-primary/20"
+          >
+            <UserPlus2 className="h-4 w-4 mr-1 text-primary" />
+            <span className="text-xs text-primary font-medium">Invite</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
