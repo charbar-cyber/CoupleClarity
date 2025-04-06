@@ -12,8 +12,11 @@ import {
   conflictMessages, type ConflictMessage, type InsertConflictMessage,
   directMessages, type DirectMessage, type InsertDirectMessage,
   memories, type Memory, type InsertMemory,
+  therapists, type Therapist, type InsertTherapist,
   conflictStatusOptions,
-  memoryTypes
+  memoryTypes,
+  therapistSpecialties,
+  therapyModalities
 } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
@@ -81,6 +84,9 @@ export interface IStorage {
   getActiveConflictThreads(userId: number): Promise<ConflictThread[]>;
   updateConflictThreadStatus(id: number, status: string, summary?: string): Promise<ConflictThread>;
   updateConflictResolutionInsights(id: number, insights: string): Promise<ConflictThread>;
+  updateConflictThreadLastActivity(id: number): Promise<ConflictThread>;
+  markConflictThreadNeedsHelp(id: number, reason?: string): Promise<ConflictThread>;
+  getStaleConflictThreads(thresholdHours: number): Promise<ConflictThread[]>;
   
   // Conflict message operations
   createConflictMessage(message: InsertConflictMessage): Promise<ConflictMessage>;
@@ -105,6 +111,14 @@ export interface IStorage {
   updateMemory(id: number, memory: Partial<InsertMemory>): Promise<Memory>;
   deleteMemory(id: number): Promise<void>;
   
+  // Therapist operations
+  createTherapist(therapist: InsertTherapist): Promise<Therapist>;
+  getTherapist(id: number): Promise<Therapist | undefined>;
+  getAllTherapists(): Promise<Therapist[]>;
+  getTherapistsBySpecialty(specialty: string): Promise<Therapist[]>;
+  getTherapistsByModality(modality: string): Promise<Therapist[]>;
+  getRecommendedTherapists(specialties?: string[], modalities?: string[], limit?: number): Promise<Therapist[]>;
+  
   // Session store
   sessionStore: SessionStore;
 }
@@ -123,6 +137,7 @@ export class MemStorage implements IStorage {
   private conflictMessages: Map<number, ConflictMessage>;
   private directMessages: Map<number, DirectMessage>;
   private memories: Map<number, Memory>;
+  private therapists: Map<number, Therapist>;
   private userIdCounter: number;
   private messageIdCounter: number;
   private partnershipIdCounter: number;
@@ -136,6 +151,7 @@ export class MemStorage implements IStorage {
   private conflictMessageIdCounter: number;
   private directMessageIdCounter: number;
   private memoryIdCounter: number;
+  private therapistIdCounter: number;
   sessionStore: session.Store;
 
   constructor() {
@@ -158,6 +174,7 @@ export class MemStorage implements IStorage {
     this.conflictMessages = new Map();
     this.directMessages = new Map();
     this.memories = new Map();
+    this.therapists = new Map();
     this.userIdCounter = 1;
     this.messageIdCounter = 1;
     this.partnershipIdCounter = 1;
@@ -171,6 +188,7 @@ export class MemStorage implements IStorage {
     this.conflictMessageIdCounter = 1;
     this.directMessageIdCounter = 1;
     this.memoryIdCounter = 1;
+    this.therapistIdCounter = 1;
     
     // Create default users with hashed passwords
     // The hash of 'password' using our algorithm
@@ -225,6 +243,77 @@ export class MemStorage implements IStorage {
     this.createCheckInPrompt({
       prompt: "What's one goal you have for your relationship in the coming week?",
       category: "goals"
+    });
+    
+    // Create default therapists
+    this.createTherapist({
+      name: "Dr. Sarah Johnson",
+      title: "Licensed Marriage and Family Therapist (LMFT)",
+      bio: "Dr. Johnson has over 15 years of experience working with couples to improve communication and resolve conflicts. She specializes in emotion-focused therapy and has helped hundreds of couples rebuild trust and connection.",
+      specialties: ["couples_counseling", "communication", "emotional_disconnect"],
+      modalities: ["in_person", "online"],
+      websiteUrl: "https://www.drjohnsontherapy.com",
+      email: "dr.johnson@example.com",
+      phoneNumber: "555-123-4567",
+      imageUrl: "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e",
+      location: "Los Angeles, CA",
+      isVerified: true
+    });
+    
+    this.createTherapist({
+      name: "Mark Robinson, PhD",
+      title: "Clinical Psychologist",
+      bio: "Dr. Robinson focuses on helping couples navigate difficult transitions and heal from relationship trauma. His approach combines cognitive-behavioral techniques with mindfulness practices for lasting change.",
+      specialties: ["trauma", "conflict_resolution", "couples_counseling"],
+      modalities: ["online", "phone"],
+      websiteUrl: "https://www.drrobinsontherapy.com",
+      email: "m.robinson@example.com",
+      phoneNumber: "555-987-6543",
+      imageUrl: "https://images.unsplash.com/photo-1560250097-0b93528c311a",
+      location: "New York, NY",
+      isVerified: true
+    });
+    
+    this.createTherapist({
+      name: "Jennifer Lee, LCSW",
+      title: "Licensed Clinical Social Worker",
+      bio: "Jennifer specializes in helping couples build healthier communication patterns and develop effective conflict resolution skills. She has additional training in Gottman Method Couples Therapy.",
+      specialties: ["communication", "conflict_resolution", "behavioral_therapy"],
+      modalities: ["in_person", "online", "text_based"],
+      websiteUrl: "https://www.jenniferleetherapy.com",
+      email: "jennifer.lee@example.com",
+      phoneNumber: "555-456-7890",
+      imageUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330",
+      location: "Chicago, IL",
+      isVerified: true
+    });
+    
+    this.createTherapist({
+      name: "David Chen, LMFT",
+      title: "Licensed Marriage and Family Therapist",
+      bio: "David helps couples and families heal from past conflicts and build stronger relationships. He specializes in multicultural couples therapy and intergenerational family dynamics.",
+      specialties: ["family_therapy", "couples_counseling", "conflict_resolution"],
+      modalities: ["in_person", "online"],
+      websiteUrl: "https://www.davidchentherapy.com",
+      email: "david.chen@example.com",
+      phoneNumber: "555-789-0123",
+      imageUrl: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e",
+      location: "San Francisco, CA",
+      isVerified: true
+    });
+    
+    this.createTherapist({
+      name: "Amanda Wilson, PsyD",
+      title: "Licensed Psychologist",
+      bio: "Dr. Wilson specializes in helping couples recover from relationship challenges like infidelity and emotional disconnect. Her approach is compassionate, direct, and focused on practical solutions.",
+      specialties: ["emotional_disconnect", "trauma", "behavioral_therapy"],
+      modalities: ["online", "phone", "text_based"],
+      websiteUrl: "https://www.amandawilsonpsyd.com",
+      email: "a.wilson@example.com",
+      phoneNumber: "555-234-5678",
+      imageUrl: "https://images.unsplash.com/photo-1580489944761-15a19d654956",
+      location: "Denver, CO",
+      isVerified: true
     });
   }
 
@@ -300,11 +389,14 @@ export class MemStorage implements IStorage {
     const id = this.partnershipIdCounter++;
     const now = new Date();
     
+    // Create partnership with explicit properties to ensure type safety
     const partnership: Partnership = {
-      ...insertPartnership,
       id,
+      user1Id: insertPartnership.user1Id,
+      user2Id: insertPartnership.user2Id,
       status: "pending",
-      createdAt: now
+      createdAt: now,
+      startDate: null // Always initialize as null, will be set when accepted
     };
     
     this.partnerships.set(id, partnership);
@@ -616,14 +708,20 @@ export class MemStorage implements IStorage {
     const id = this.conflictThreadIdCounter++;
     const now = new Date();
     
+    // Create conflict thread with explicit properties to ensure type safety
     const conflictThread: ConflictThread = {
-      ...thread,
       id,
+      userId: thread.userId,
+      partnerId: thread.partnerId,
+      topic: thread.topic,
       status: "active",
       createdAt: now,
+      lastActivityAt: now,
       resolvedAt: null,
       resolutionSummary: null,
-      resolutionInsights: null
+      resolutionInsights: null,
+      needsExtraHelp: false,
+      stuckReason: null
     };
     
     this.conflictThreads.set(id, conflictThread);
@@ -688,6 +786,53 @@ export class MemStorage implements IStorage {
     return updatedThread;
   }
   
+  async updateConflictThreadLastActivity(id: number): Promise<ConflictThread> {
+    const thread = await this.getConflictThread(id);
+    if (!thread) {
+      throw new Error(`Conflict thread with id ${id} not found`);
+    }
+    
+    const now = new Date();
+    const updatedThread: ConflictThread = {
+      ...thread,
+      lastActivityAt: now
+    };
+    
+    this.conflictThreads.set(id, updatedThread);
+    return updatedThread;
+  }
+  
+  async markConflictThreadNeedsHelp(id: number, reason?: string): Promise<ConflictThread> {
+    const thread = await this.getConflictThread(id);
+    if (!thread) {
+      throw new Error(`Conflict thread with id ${id} not found`);
+    }
+    
+    const updatedThread: ConflictThread = {
+      ...thread,
+      needsExtraHelp: true,
+      stuckReason: reason || thread.stuckReason
+    };
+    
+    this.conflictThreads.set(id, updatedThread);
+    return updatedThread;
+  }
+  
+  async getStaleConflictThreads(thresholdHours: number): Promise<ConflictThread[]> {
+    const now = new Date();
+    const thresholdTime = new Date(now.getTime() - (thresholdHours * 60 * 60 * 1000));
+    
+    return Array.from(this.conflictThreads.values())
+      .filter(thread => 
+        thread.status === "active" && 
+        new Date(thread.lastActivityAt) < thresholdTime
+      )
+      .sort((a, b) => {
+        // Sort by lastActivityAt in ascending order (oldest first)
+        return new Date(a.lastActivityAt).getTime() - new Date(b.lastActivityAt).getTime();
+      });
+  }
+  
   async createConflictMessage(message: InsertConflictMessage): Promise<ConflictMessage> {
     const id = this.conflictMessageIdCounter++;
     const now = new Date();
@@ -696,7 +841,8 @@ export class MemStorage implements IStorage {
       ...message,
       id,
       createdAt: now,
-      emotionalTone: message.emotionalTone || null
+      emotionalTone: message.emotionalTone || null,
+      messageType: message.messageType || "user"
     };
     
     this.conflictMessages.set(id, conflictMessage);
@@ -897,6 +1043,97 @@ export class MemStorage implements IStorage {
     }
     
     this.memories.delete(id);
+  }
+  
+  // Therapist operations
+  async createTherapist(therapist: InsertTherapist): Promise<Therapist> {
+    const id = this.therapistIdCounter++;
+    const now = new Date();
+    
+    const newTherapist: Therapist = {
+      id,
+      name: therapist.name,
+      title: therapist.title,
+      bio: therapist.bio,
+      specialties: therapist.specialties,
+      modalities: therapist.modalities,
+      createdAt: now,
+      isVerified: therapist.isVerified || false,
+      email: therapist.email || null,
+      phoneNumber: therapist.phoneNumber || null,
+      websiteUrl: therapist.websiteUrl || null,
+      imageUrl: therapist.imageUrl || null,
+      location: therapist.location || null
+    };
+    
+    this.therapists.set(id, newTherapist);
+    return newTherapist;
+  }
+  
+  async getTherapist(id: number): Promise<Therapist | undefined> {
+    return this.therapists.get(id);
+  }
+  
+  async getAllTherapists(): Promise<Therapist[]> {
+    return Array.from(this.therapists.values())
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+  
+  async getTherapistsBySpecialty(specialty: string): Promise<Therapist[]> {
+    if (!therapistSpecialties.includes(specialty as any)) {
+      throw new Error(`Invalid therapist specialty: ${specialty}`);
+    }
+    
+    return Array.from(this.therapists.values())
+      .filter(therapist => therapist.specialties.includes(specialty))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+  
+  async getTherapistsByModality(modality: string): Promise<Therapist[]> {
+    if (!therapyModalities.includes(modality as any)) {
+      throw new Error(`Invalid therapy modality: ${modality}`);
+    }
+    
+    return Array.from(this.therapists.values())
+      .filter(therapist => therapist.modalities.includes(modality))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+  
+  async getRecommendedTherapists(specialties?: string[], modalities?: string[], limit: number = 5): Promise<Therapist[]> {
+    let filteredTherapists = Array.from(this.therapists.values());
+    
+    // Filter by specialties if provided
+    if (specialties && specialties.length > 0) {
+      filteredTherapists = filteredTherapists.filter(therapist => 
+        specialties.some(specialty => therapist.specialties.includes(specialty))
+      );
+    }
+    
+    // Filter by modalities if provided
+    if (modalities && modalities.length > 0) {
+      filteredTherapists = filteredTherapists.filter(therapist => 
+        modalities.some(modality => therapist.modalities.includes(modality))
+      );
+    }
+    
+    // Sort by relevance (more matching specialties and modalities first)
+    filteredTherapists.sort((a, b) => {
+      // Count the number of matching specialties and modalities
+      const aScore = (specialties ? specialties.filter(s => a.specialties.includes(s)).length : 0) +
+                    (modalities ? modalities.filter(m => a.modalities.includes(m)).length : 0);
+      const bScore = (specialties ? specialties.filter(s => b.specialties.includes(s)).length : 0) +
+                    (modalities ? modalities.filter(m => b.modalities.includes(m)).length : 0);
+      
+      // Sort by score in descending order (higher score first)
+      if (bScore !== aScore) {
+        return bScore - aScore;
+      }
+      
+      // If scores are the same, sort alphabetically by name
+      return a.name.localeCompare(b.name);
+    });
+    
+    return filteredTherapists.slice(0, limit);
   }
 }
 

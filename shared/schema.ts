@@ -259,9 +259,12 @@ export const conflictThreads = pgTable("conflict_threads", {
   topic: text("topic").notNull(),
   status: text("status", { enum: conflictStatusOptions }).default("active").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  lastActivityAt: timestamp("last_activity_at").defaultNow().notNull(),
   resolvedAt: timestamp("resolved_at"),
   resolutionSummary: text("resolution_summary"),
   resolutionInsights: text("resolution_insights"),
+  needsExtraHelp: boolean("needs_extra_help").default(false).notNull(),
+  stuckReason: text("stuck_reason"),
 });
 
 export const insertConflictThreadSchema = createInsertSchema(conflictThreads).omit({
@@ -283,6 +286,7 @@ export const conflictMessages = pgTable("conflict_messages", {
   userId: integer("user_id").notNull().references(() => users.id),
   content: text("content").notNull(),
   emotionalTone: text("emotional_tone"),
+  messageType: text("message_type").default("user").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -363,3 +367,62 @@ export const insertMemorySchema = createInsertSchema(memories)
 
 export type InsertMemory = z.infer<typeof insertMemorySchema>;
 export type Memory = typeof memories.$inferSelect;
+
+// Therapist specialties
+export const therapistSpecialties = [
+  'couples_counseling', 
+  'communication', 
+  'emotional_disconnect', 
+  'trauma', 
+  'conflict_resolution',
+  'behavioral_therapy',
+  'family_therapy'
+] as const;
+
+// Therapy modalities
+export const therapyModalities = [
+  'in_person', 
+  'online', 
+  'phone', 
+  'text_based'
+] as const;
+
+// Therapist recommendations
+export const therapists = pgTable("therapists", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  title: text("title").notNull(), // e.g., "LMFT", "PhD", "PsyD"
+  bio: text("bio").notNull(),
+  specialties: text("specialties").array().notNull(),
+  modalities: text("modalities").array().notNull(),
+  websiteUrl: text("website_url"),
+  phoneNumber: text("phone_number"),
+  email: text("email"),
+  imageUrl: text("image_url"),
+  location: text("location"),
+  isVerified: boolean("is_verified").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertTherapistSchema = createInsertSchema(therapists)
+  .omit({ id: true, createdAt: true })
+  .extend({
+    specialties: z.array(z.enum(therapistSpecialties)),
+    modalities: z.array(z.enum(therapyModalities))
+  });
+
+export type InsertTherapist = z.infer<typeof insertTherapistSchema>;
+export type Therapist = typeof therapists.$inferSelect;
+
+// Schema for requesting extra help
+export const requestHelpSchema = z.object({
+  threadId: z.number(),
+  reason: z.string().min(1, "Please provide a reason why this conflict is difficult to resolve"),
+  preferences: z.object({
+    preferredModalities: z.array(z.enum(therapyModalities)),
+    preferredSpecialties: z.array(z.enum(therapistSpecialties)).optional(),
+    additionalNotes: z.string().optional()
+  }).optional()
+});
+
+export type RequestHelpInput = z.infer<typeof requestHelpSchema>;

@@ -37,6 +37,9 @@ export function isAuthenticated(req: Request, res: Response, next: NextFunction)
 }
 
 export function setupAuth(app: Express) {
+  // Trust first proxy in production environment for secure cookies
+  app.set("trust proxy", 1);
+
   // Set up session middleware
   app.use(
     session({
@@ -46,6 +49,9 @@ export function setupAuth(app: Express) {
       store: storage.sessionStore,
       cookie: {
         maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+        sameSite: "lax", // Allows the cookie to be sent with same-site requests and top-level navigation
+        secure: false, // Set to true in production with HTTPS
+        httpOnly: true, // Prevents JavaScript from accessing the cookie
       },
     })
   );

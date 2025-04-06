@@ -32,7 +32,11 @@ import {
   insertMemorySchema,
   memoryTypes,
   resolveConflictSchema,
-  conflictInitiationSchema
+  conflictInitiationSchema,
+  requestHelpSchema,
+  therapistSpecialties,
+  therapyModalities,
+  type Therapist
 } from "@shared/schema";
 import { setupAuth } from "./auth";
 
@@ -1457,6 +1461,143 @@ export async function registerRoutes(app: Express): Promise<Server> {
     ws.on('close', () => {
       console.log('WebSocket client disconnected');
     });
+  });
+  
+  // Therapist-related endpoints
+  app.get("/api/therapists", isAuthenticated, async (req, res) => {
+    try {
+      const { specialty, modality } = req.query;
+      
+      let therapists: Array<Therapist>;
+      
+      if (specialty) {
+        therapists = await storage.getTherapistsBySpecialty(specialty as string);
+      } else if (modality) {
+        therapists = await storage.getTherapistsByModality(modality as string);
+      } else {
+        therapists = await storage.getAllTherapists();
+      }
+      
+      res.json(therapists);
+    } catch (error: unknown) {
+      const err = error as Error;
+      console.error("Error getting therapists:", err);
+      res.status(500).json({ message: "Failed to get therapists", error: err.message });
+    }
+  });
+  
+  app.get("/api/therapists/recommended", isAuthenticated, async (req, res) => {
+    try {
+      const { specialties, modalities, limit } = req.query;
+      
+      const parsedSpecialties = specialties ? 
+        (Array.isArray(specialties) ? specialties : [specialties]) as string[] : 
+        undefined;
+      
+      const parsedModalities = modalities ? 
+        (Array.isArray(modalities) ? modalities : [modalities]) as string[] : 
+        undefined;
+      
+      const parsedLimit = limit ? parseInt(limit as string) : 5;
+      
+      const therapists = await storage.getRecommendedTherapists(
+        parsedSpecialties,
+        parsedModalities,
+        parsedLimit
+      );
+      
+      res.json(therapists);
+    } catch (error: unknown) {
+      const err = error as Error;
+      console.error("Error getting recommended therapists:", err);
+      res.status(500).json({ message: "Failed to get recommended therapists", error: err.message });
+    }
+  });
+  
+  app.get("/api/therapists/:id", isAuthenticated, async (req, res) => {
+    try {
+      const therapistId = parseInt(req.params.id);
+      if (isNaN(therapistId)) {
+        return res.status(400).json({ message: "Invalid therapist ID" });
+      }
+      
+      const therapist = await storage.getTherapist(therapistId);
+      if (!therapist) {
+        return res.status(404).json({ message: "Therapist not found" });
+      }
+      
+      res.json(therapist);
+    } catch (error: unknown) {
+      console.error("Error getting therapist:", error);
+      res.status(500).json({ message: "Failed to get therapist" });
+    }
+  });
+  
+  app.post("/api/conflict-threads/:id/request-help", isAuthenticated, async (req, res) => {
+    try {
+      const threadId = parseInt(req.params.id);
+      if (isNaN(threadId)) {
+        return res.status(400).json({ message: "Invalid thread ID" });
+      }
+      
+      const thread = await storage.getConflictThread(threadId);
+      if (!thread) {
+        return res.status(404).json({ message: "Conflict thread not found" });
+      }
+      
+      // Verify user has access to this thread
+      const userId = (req.user as Express.User).id;
+      if (thread.userId !== userId && thread.partnerId !== userId) {
+        return res.status(403).json({ message: "You don't have permission to request help for this thread" });
+      }
+      
+      // Validate the request data
+      const validatedData = requestHelpSchema.parse({
+        ...req.body,
+        threadId
+      });
+      
+      // Create a system message in the thread
+      await storage.createConflictMessage({
+        threadId,
+        userId,
+        content: `Professional help requested. Reason: ${validatedData.reason}`,
+        messageType: "system"
+      });
+      
+      // Get recommended therapists based on preferences
+      const recommendedTherapists = await storage.getRecommendedTherapists(
+        validatedData.preferences?.preferredSpecialties,
+        validatedData.preferences?.preferredModalities,
+        5
+      );
+      
+      res.json({
+        message: "Help request received successfully",
+        therapists: recommendedTherapists
+      });
+    } catch (error: unknown) {
+      const err = error as Error;
+      if (err.name === "ZodError") {
+        return res.status(400).json({ message: "Validation error", errors: (err as any).errors });
+      }
+      console.error("Error requesting help for conflict thread:", err);
+      res.status(500).json({ message: "Failed to request help for conflict thread" });
+    }
+  });
+  
+  app.get("/api/conflict-threads/stale", isAuthenticated, async (req, res) => {
+    try {
+      const thresholdHours = req.query.thresholdHours ? parseInt(req.query.thresholdHours as string) : 48;
+      
+      // Get stale conflict threads
+      const staleThreads = await storage.getStaleConflictThreads(thresholdHours);
+      
+      res.json(staleThreads);
+    } catch (error: unknown) {
+      console.error("Error getting stale conflict threads:", error);
+      res.status(500).json({ message: "Failed to get stale conflict threads" });
+    }
   });
   
   return httpServer;
