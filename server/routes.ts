@@ -36,8 +36,10 @@ import {
   requestHelpSchema,
   therapistSpecialties,
   therapyModalities,
-  type Therapist
+  type Therapist,
+  type User
 } from "@shared/schema";
+import crypto from "crypto";
 import { setupAuth } from "./auth";
 
 // Authentication middleware to protect routes
@@ -1250,6 +1252,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Handle invitation acceptance from link
+  // Get invitation details by token
+  app.get("/api/invites/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+      if (!token) {
+        return res.status(400).json({ error: "Token is required" });
+      }
+      
+      // Find the invitation by token
+      const invite = await storage.getInviteByToken(token);
+      if (!invite) {
+        return res.status(404).json({ error: "Invitation not found" });
+      }
+      
+      // Get inviter details
+      const inviter = await storage.getUser(invite.fromUserId);
+      if (!inviter) {
+        return res.status(404).json({ error: "Inviter not found" });
+      }
+      
+      // Return invitation details
+      return res.json({
+        partnerFirstName: inviter.firstName,
+        partnerLastName: inviter.lastName,
+        partnerEmail: invite.partnerEmail,
+        fromUserId: invite.fromUserId,
+        isAccepted: !!invite.acceptedAt
+      });
+    } catch (error: any) {
+      console.error("Error fetching invitation:", error);
+      return res.status(500).json({ error: error.message || "An error occurred while fetching the invitation" });
+    }
+  });
+  
+  // Generate invitation link endpoint
+  app.post("/api/invites/generate-link", isAuthenticated, async (req: Request & { user?: Express.User }, res) => {
+    try {
+      // Generate a unique token for this invitation
+      const token = crypto.randomUUID().replace(/-/g, '');
+      
+      // Create a bare invitation record - the partner details will be added later
+      // This is just a placeholder to associate the token with the user
+      const invite = await storage.createInvite({
+        fromUserId: req.user!.id,
+        partnerFirstName: "Pending",
+        partnerLastName: "Invitation",
+        partnerEmail: `pending_${token.substring(0, 8)}@example.com`
+      }, token);
+      
+      // Return just the token for the frontend to construct the full URL
+      res.status(201).json({ 
+        token,
+        message: "Invitation link generated successfully"
+      });
+    } catch (error: any) {
+      console.error("Error generating invitation link:", error);
+      res.status(500).json({ error: error.message || "An error occurred while generating the invitation link" });
+    }
+  });
+  
   app.post("/api/invites/accept", async (req, res) => {
     try {
       const { token, username, password, firstName, lastName, email } = req.body;

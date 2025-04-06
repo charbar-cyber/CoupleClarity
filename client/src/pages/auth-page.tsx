@@ -160,6 +160,8 @@ export default function AuthPage() {
     const { confirmPassword, ...registrationData } = data;
     
     try {
+      console.log("Submitting invite registration data:", { ...registrationData, password: "****" });
+      
       // Use the dedicated invite acceptance endpoint
       const response = await fetch('/api/invites/accept', {
         method: 'POST',
@@ -167,25 +169,36 @@ export default function AuthPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(registrationData),
+        credentials: 'include'
       });
       
       if (response.ok) {
-        const data = await response.json();
+        const responseData = await response.json();
+        console.log("Invitation accepted successfully:", responseData);
         
         // Update the auth context with the new user
-        if (data.user) {
+        if (responseData.user) {
           loginMutation.mutate({
             username: registrationData.username,
             password: registrationData.password
           });
         }
       } else {
-        const errorData = await response.json();
-        console.error('Failed to accept invitation:', errorData.error);
-        // You could add toast notification here
+        let errorMessage = "Failed to accept invitation";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (e) {
+          // If the response isn't JSON, just use the generic error message
+        }
+        console.error('Failed to accept invitation:', errorMessage);
+        
+        // Show error toast
+        alert(`Error: ${errorMessage}`);
       }
     } catch (error) {
       console.error('Error accepting invitation:', error);
+      alert(`Error: ${error instanceof Error ? error.message : "Unknown error occurred"}`);
     }
   };
 
@@ -297,6 +310,11 @@ export default function AuthPage() {
                     type="submit" 
                     className="w-full"
                     disabled={registerMutation.isPending}
+                    onClick={() => {
+                      console.log("Invitation form button clicked");
+                      console.log("Form data:", inviteForm.getValues());
+                      console.log("Form errors:", inviteForm.formState.errors);
+                    }}
                   >
                     {registerMutation.isPending && (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
