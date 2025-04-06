@@ -54,13 +54,14 @@ const repairStyleLabels: Record<string, string> = {
 
 type OnboardingQuestionnaireProps = {
   onComplete: (data: Partial<QuestionnaireFormValues>) => void;
+  onBack?: () => void;
   initialValues?: Partial<QuestionnaireFormValues>;
   isEnhancedFlow?: boolean;
 };
 
 type QuestionnaireFormValues = z.infer<typeof onboardingQuestionnaireSchema>;
 
-export function OnboardingQuestionnaire({ onComplete, initialValues, isEnhancedFlow = false }: OnboardingQuestionnaireProps) {
+export function OnboardingQuestionnaire({ onComplete, onBack, initialValues, isEnhancedFlow = false }: OnboardingQuestionnaireProps) {
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(0);
   const [showLoveLanguageDiscovery, setShowLoveLanguageDiscovery] = useState(false);
@@ -164,6 +165,9 @@ export function OnboardingQuestionnaire({ onComplete, initialValues, isEnhancedF
   function handlePrevious() {
     if (currentStep > 0) {
       setCurrentStep(prev => prev - 1);
+    } else if (onBack) {
+      // If we're on the first step and an onBack handler was provided, call it
+      onBack();
     }
   }
 
@@ -251,7 +255,7 @@ export function OnboardingQuestionnaire({ onComplete, initialValues, isEnhancedF
           <Button
             variant="outline"
             onClick={handlePrevious}
-            disabled={currentStep === 0}
+            disabled={currentStep === 0 && !onBack}
           >
             Previous
           </Button>

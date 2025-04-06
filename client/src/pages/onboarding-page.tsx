@@ -41,18 +41,25 @@ export default function OnboardingPage() {
     setLocation("/");
   };
 
+  // Handle going back from the enhanced questionnaire to the preferences
+  const handleEnhancedBack = () => {
+    setStep("preferences");
+  };
+
   return (
     <div>
       {step === "welcome" && <WelcomeScreen onStart={handleStart} />}
       {step === "preferences" && (
         <OnboardingQuestionnaire 
-          onComplete={handlePreferencesComplete} 
+          onComplete={handlePreferencesComplete}
+          onBack={handleStart}
           isEnhancedFlow={true}
         />
       )}
       {step === "enhanced" && (
         <EnhancedOnboardingQuestionnaire 
           onComplete={handleEnhancedComplete}
+          onBack={handleEnhancedBack}
           initialPreferences={preferencesData}
         />
       )}

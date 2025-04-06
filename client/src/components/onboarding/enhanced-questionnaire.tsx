@@ -28,10 +28,11 @@ const communicationFrequencyLabels: Record<string, string> = {
 
 type EnhancedOnboardingProps = {
   onComplete: () => void;
+  onBack: () => void;
   initialPreferences?: Partial<EnhancedOnboardingQuestionnaire>;
 };
 
-export function EnhancedOnboardingQuestionnaire({ onComplete, initialPreferences }: EnhancedOnboardingProps) {
+export function EnhancedOnboardingQuestionnaire({ onComplete, onBack, initialPreferences }: EnhancedOnboardingProps) {
   const { toast } = useToast();
   const [step, setStep] = useState<"preferences" | "relationship" | "complete">("preferences");
   const [preferencesData, setPreferencesData] = useState<Partial<EnhancedOnboardingQuestionnaire>>({});
@@ -95,6 +96,15 @@ export function EnhancedOnboardingQuestionnaire({ onComplete, initialPreferences
       />
     );
   }
+  
+  // Handle back button clicks
+  const handleBack = () => {
+    if (step === "relationship") {
+      setStep("preferences");
+    } else {
+      onBack();
+    }
+  };
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-background to-muted p-4">
@@ -189,7 +199,7 @@ export function EnhancedOnboardingQuestionnaire({ onComplete, initialPreferences
         <CardFooter className="flex justify-between">
           <Button 
             variant="outline" 
-            onClick={() => setStep("preferences")}
+            onClick={handleBack}
             disabled={saveEnhancedQuestionnaireMutation.isPending}
           >
             Back
