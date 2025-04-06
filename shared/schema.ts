@@ -16,6 +16,7 @@ export const users = pgTable("users", {
   lastName: text("last_name").notNull(),
   email: text("email").notNull().unique(),
   displayName: text("display_name").notNull(),
+  avatarUrl: text("avatar_url"),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
@@ -25,6 +26,7 @@ export const insertUserSchema = createInsertSchema(users).pick({
   lastName: true,
   email: true,
   displayName: true,
+  avatarUrl: true,
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -426,3 +428,18 @@ export const requestHelpSchema = z.object({
 });
 
 export type RequestHelpInput = z.infer<typeof requestHelpSchema>;
+
+// Schema for avatar generation and update
+export const avatarPromptSchema = z.object({
+  prompt: z.string().min(10, "Please provide a detailed description for the AI to generate a good avatar"),
+  userId: z.number(),
+});
+
+export type AvatarPromptInput = z.infer<typeof avatarPromptSchema>;
+
+export const updateAvatarSchema = z.object({
+  userId: z.number(),
+  avatarUrl: z.string().url("Please provide a valid URL for the avatar image"),
+});
+
+export type UpdateAvatarInput = z.infer<typeof updateAvatarSchema>;

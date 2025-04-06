@@ -24,6 +24,12 @@ export interface AudioTranscriptionResponse {
   text: string;
 }
 
+// Interface for avatar generation response
+export interface AvatarGenerationResponse {
+  imageUrl: string;
+  error?: string;
+}
+
 // Initialize OpenAI client
 const openai = new OpenAI({ 
   apiKey: process.env.OPENAI_API_KEY || "sk-demo-key-for-development" 
@@ -260,5 +266,47 @@ export async function transcribeAudio(audioFilePath: string): Promise<AudioTrans
     } catch (err) {
       console.error("Error deleting temporary audio file:", err);
     }
+  }
+}
+
+/**
+ * Generates an avatar image based on the user's prompt using DALL-E 3
+ * @param prompt Detailed description of the avatar to generate
+ * @returns URL of the generated image
+ */
+export async function generateAvatar(prompt: string): Promise<AvatarGenerationResponse> {
+  try {
+    // Enhance the prompt to ensure a high-quality avatar
+    const enhancedPrompt = `Create a high-quality, professional and visually appealing profile picture/avatar that represents: ${prompt}. 
+    The image should be a close-up portrait style, with a clean background and strong visual appeal. 
+    Make it suitable for a profile picture on a relationship app - warm, approachable, and positive.`;
+
+    // Generate the image with DALL-E 3
+    const response = await openai.images.generate({
+      model: "dall-e-3", // Using DALL-E 3 for highest quality
+      prompt: enhancedPrompt,
+      n: 1, // Generate one image
+      size: "1024x1024", // Standard square size
+      quality: "standard",
+      style: "natural", // More photo-realistic style for avatars
+    });
+
+    // Return the URL of the generated image
+    const imageUrl = response.data[0]?.url || '';
+    if (!imageUrl) {
+      throw new Error("No image URL returned from OpenAI API");
+    }
+    
+    return {
+      imageUrl: imageUrl,
+    };
+  } catch (error) {
+    console.error("Error generating avatar:", error);
+    
+    // Return an error response
+    return {
+      imageUrl: "",
+      error: "Failed to generate avatar. Please try again with a different description."
+    };
   }
 }

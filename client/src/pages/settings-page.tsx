@@ -33,7 +33,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, Sun, Moon, Bell, User, MessageSquare, PaintBucket, UserCog, LogOut, Users, Mail, Send } from "lucide-react";
+import { Loader2, Sun, Moon, Bell, User, MessageSquare, PaintBucket, UserCog, LogOut, Users, Mail, Send, ImageIcon } from "lucide-react";
 import { UserPreferences } from "@shared/schema";
 
 // Theme options
@@ -281,12 +281,23 @@ export default function SettingsPage() {
             <CardContent>
               <form onSubmit={handleProfileSubmit} className="space-y-6">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-6">
-                  <Avatar className="h-16 w-16">
-                    <AvatarImage src="" />
-                    <AvatarFallback className="text-lg">
-                      {user.firstName[0]}{user.lastName[0]}
-                    </AvatarFallback>
-                  </Avatar>
+                  <div className="flex flex-col items-center">
+                    <Avatar className="h-16 w-16">
+                      <AvatarImage src={user?.avatarUrl || ""} />
+                      <AvatarFallback className="text-lg">
+                        {user.firstName[0]}{user.lastName[0]}
+                      </AvatarFallback>
+                    </Avatar>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="mt-2 flex items-center gap-1"
+                      onClick={() => navigate("/settings/avatar")}
+                    >
+                      <ImageIcon className="h-3 w-3" />
+                      <span>Customize Avatar</span>
+                    </Button>
+                  </div>
                   <div>
                     <h3 className="text-lg font-medium">{user.firstName} {user.lastName}</h3>
                     <p className="text-sm text-muted-foreground">@{user.username}</p>

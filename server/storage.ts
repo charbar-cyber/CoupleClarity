@@ -35,6 +35,7 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUserPassword(userId: number, newPassword: string): Promise<User>;
+  updateUserAvatar(userId: number, avatarUrl: string): Promise<User>;
   createPasswordResetToken(email: string): Promise<{token: string, userId: number} | null>;
   getPasswordResetToken(token: string): Promise<{userId: number, expiresAt: Date} | null>;
   invalidatePasswordResetToken(token: string): Promise<void>;
@@ -337,7 +338,8 @@ export class MemStorage implements IStorage {
     const user: User = { 
       ...insertUser, 
       id,
-      displayName: insertUser.displayName || `${insertUser.firstName} ${insertUser.lastName}`
+      displayName: insertUser.displayName || `${insertUser.firstName} ${insertUser.lastName}`,
+      avatarUrl: insertUser.avatarUrl || null
     };
     this.users.set(id, user);
     return user;
@@ -505,6 +507,19 @@ export class MemStorage implements IStorage {
     
     // Update user password
     const updatedUser = { ...user, password: newPassword };
+    this.users.set(userId, updatedUser);
+    
+    return updatedUser;
+  }
+  
+  async updateUserAvatar(userId: number, avatarUrl: string): Promise<User> {
+    const user = await this.getUser(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    
+    // Update user avatar
+    const updatedUser = { ...user, avatarUrl };
     this.users.set(userId, updatedUser);
     
     return updatedUser;

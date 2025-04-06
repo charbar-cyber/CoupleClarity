@@ -16,6 +16,7 @@ import NewConflictThreadPage from "@/pages/new-conflict-thread-page";
 import ConflictThreadDetailPage from "@/pages/conflict-thread-detail-page";
 import ConflictResolutionPage from "@/pages/conflict-resolution-page";
 import SettingsPage from "@/pages/settings-page";
+import AvatarSettingsPage from "@/pages/avatar-settings-page";
 import DirectMessagePage from "@/pages/direct-message-page";
 import ForgotPasswordPage from "@/pages/forgot-password-page";
 import ResetPasswordPage from "@/pages/reset-password-page";
@@ -49,6 +50,7 @@ function Router() {
         <ProtectedRoute path="/conflict/:id/resolve" component={ConflictResolutionPage} />
         <ProtectedRoute path="/conflict/:id" component={ConflictThreadDetailPage} />
         <ProtectedRoute path="/settings" component={SettingsPage} />
+        <ProtectedRoute path="/settings/avatar" component={AvatarSettingsPage} />
         <ProtectedRoute path="/messages/direct/:partnerId" component={DirectMessagePage} />
         <Route>
           <NotFound />

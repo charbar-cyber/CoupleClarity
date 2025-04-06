@@ -14,7 +14,7 @@ interface SessionWithPassport {
   };
 }
 import { storage } from "./storage";
-import { transformEmotionalMessage, summarizeResponse, transformConflictMessage, transcribeAudio } from "./openai";
+import { transformEmotionalMessage, summarizeResponse, transformConflictMessage, transcribeAudio, generateAvatar } from "./openai";
 import { hashPassword } from "./auth"; // Import hashPassword for user creation
 import multer from "multer";
 import path from "path";
@@ -36,6 +36,8 @@ import {
   requestHelpSchema,
   therapistSpecialties,
   therapyModalities,
+  avatarPromptSchema,
+  updateAvatarSchema,
   type Therapist,
   type User
 } from "@shared/schema";
@@ -1659,6 +1661,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: unknown) {
       console.error("Error getting stale conflict threads:", error);
       res.status(500).json({ message: "Failed to get stale conflict threads" });
+    }
+  });
+  
+  // Avatar generation endpoint
+  app.post("/api/avatar/generate", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as Express.User).id;
+      const validatedData = avatarPromptSchema.parse({
+        ...req.body,
+        userId
+      });
+      
+      // Check if user exists
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Generate avatar using OpenAI
+      const result = await generateAvatar(validatedData.prompt);
+      
+      if (result.error) {
+        return res.status(400).json({ 
+          message: "Avatar generation failed", 
+          error: result.error 
+        });
+      }
+      
+      // Update user's avatar URL
+      const updatedUser = await storage.updateUserAvatar(userId, result.imageUrl);
+      
+      // Return the result
+      res.json({
+        avatarUrl: result.imageUrl,
+        message: "Avatar generated successfully"
+      });
+    } catch (error: unknown) {
+      const err = error as Error;
+      if (err.name === "ZodError") {
+        return res.status(400).json({ message: "Validation error", errors: (err as any).errors });
+      }
+      console.error("Error generating avatar:", err);
+      res.status(500).json({ message: "Failed to generate avatar" });
+    }
+  });
+  
+  // Avatar update endpoint
+  app.post("/api/avatar/update", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as Express.User).id;
+      const validatedData = updateAvatarSchema.parse({
+        ...req.body,
+        userId
+      });
+      
+      // Check if user exists
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Update user's avatar URL
+      const updatedUser = await storage.updateUserAvatar(userId, validatedData.avatarUrl);
+      
+      // Return the result
+      res.json({
+        avatarUrl: validatedData.avatarUrl,
+        message: "Avatar updated successfully"
+      });
+    } catch (error: unknown) {
+      const err = error as Error;
+      if (err.name === "ZodError") {
+        return res.status(400).json({ message: "Validation error", errors: (err as any).errors });
+      }
+      console.error("Error updating avatar:", err);
+      res.status(500).json({ message: "Failed to update avatar" });
     }
   });
   
