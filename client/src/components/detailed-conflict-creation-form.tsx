@@ -73,8 +73,8 @@ export default function DetailedConflictCreationForm({ partnerId, partnerName }:
     mutationFn: async (messageContent: string) => {
       const threadData = {
         partnerId,
-        title: form.getValues().topic,
-        description: form.getValues().situation,
+        topic: form.getValues().topic,
+        // Send the situation as a separate field, not needed for thread creation
       };
       
       // First create the thread
@@ -84,8 +84,10 @@ export default function DetailedConflictCreationForm({ partnerId, partnerName }:
       // Then create the message within the thread
       const messageData = {
         threadId: threadResult.id,
+        userId: threadResult.userId, // Make sure we get the user ID from the thread result
         content: messageContent,
-        isAIGenerated: true
+        messageType: "ai_transformed", // Use the correct message type
+        emotionalTone: "empathetic" // Add an emotional tone
       };
       
       const messageResponse = await apiRequest("POST", `/api/conflict-threads/${threadResult.id}/messages`, messageData);
