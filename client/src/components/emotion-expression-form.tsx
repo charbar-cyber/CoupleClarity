@@ -13,6 +13,17 @@ import { z } from "zod";
 import { CheckCircle, ChevronDown, Plus } from "lucide-react";
 
 const emotionOptions = [
+  // Positive emotions
+  { value: "happy", label: "Happy" },
+  { value: "loved", label: "Loved" },
+  { value: "appreciated", label: "Appreciated" },
+  { value: "grateful", label: "Grateful" },
+  { value: "excited", label: "Excited" },
+  { value: "hopeful", label: "Hopeful" },
+  { value: "content", label: "Content" },
+  { value: "proud", label: "Proud" },
+  
+  // Negative/challenging emotions
   { value: "frustrated", label: "Frustrated" },
   { value: "hurt", label: "Hurt" },
   { value: "anxious", label: "Anxious" },
@@ -71,7 +82,7 @@ export default function EmotionExpressionForm({ onSubmit, isLoading }: EmotionEx
     <div className="mb-6">
       <Card className="bg-white rounded-lg shadow-card p-6 transition-all duration-300 hover:shadow-card-hover">
         <CardContent className="p-0">
-          <h3 className="font-heading font-medium text-lg text-primary mb-4">Express Your Feelings</h3>
+          <h3 className="font-heading font-medium text-lg text-primary mb-4">Express Your Emotions</h3>
           
           <form onSubmit={handleSubmit(onSubmit)}>
             <div className="mb-5">
@@ -100,11 +111,26 @@ export default function EmotionExpressionForm({ onSubmit, isLoading }: EmotionEx
                     <span 
                       key={emotion} 
                       className={`px-3 py-1 rounded-full ${
-                        emotion === 'frustrated' || emotion === 'angry' 
+                        // Positive emotions
+                        emotion === 'happy' || emotion === 'loved' || emotion === 'appreciated' || emotion === 'grateful'
+                          ? 'bg-green-100 text-green-700'
+                        // Excited/energetic emotions
+                        : emotion === 'excited' || emotion === 'hopeful' || emotion === 'proud'
+                          ? 'bg-amber-100 text-amber-700'
+                        // Content emotions
+                        : emotion === 'content'
+                          ? 'bg-teal-100 text-teal-700'
+                        // Negative emotions
+                        : emotion === 'frustrated' || emotion === 'angry' 
                           ? 'bg-red-100 text-red-700' 
-                          : emotion === 'anxious' 
-                            ? 'bg-blue-100 text-blue-700'
-                            : 'bg-primary/10 text-primary'
+                        // Anxiety emotions
+                        : emotion === 'anxious' || emotion === 'overwhelmed'
+                          ? 'bg-blue-100 text-blue-700'
+                        // Sad emotions
+                        : emotion === 'sad' || emotion === 'hurt' || emotion === 'disappointed'
+                          ? 'bg-purple-100 text-purple-700'
+                        // Default
+                        : 'bg-primary/10 text-primary'
                       } text-sm`}
                     >
                       {emotionObj?.label}
@@ -131,17 +157,17 @@ export default function EmotionExpressionForm({ onSubmit, isLoading }: EmotionEx
             
             <div className="mb-5">
               <Label htmlFor="rawMessage" className="block text-sm font-medium text-neutral-700 mb-1">
-                What do you want to express? (Raw feelings)
+                What do you want to express? (Your raw emotions)
               </Label>
               <Textarea 
                 id="rawMessage" 
                 rows={4} 
-                placeholder="I'm so frustrated that you're always on your phone when we're together. It makes me feel ignored and unimportant..." 
+                placeholder="Express how you feel, whether it's positive ('I'm really happy that you planned a surprise date for us...') or something more challenging ('I'm frustrated that you're on your phone when we're together...')" 
                 className="block w-full py-2.5 px-4 border border-neutral-200 rounded-lg bg-white resize-none"
                 {...register("rawMessage")}
               />
               <div className="flex justify-between mt-1">
-                <span className="text-xs text-neutral-500">Be honest about your feelings</span>
+                <span className="text-xs text-neutral-500">Be honest about your emotions</span>
                 <span className={`text-xs ${charCount > 500 ? 'text-red-500' : 'text-neutral-500'}`}>
                   {charCount}/500 characters
                 </span>
