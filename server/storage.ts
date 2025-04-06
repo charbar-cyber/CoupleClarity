@@ -20,6 +20,7 @@ import {
 } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
+import crypto from "crypto";
 
 // Storage interface with CRUD methods
 // Extend the SessionStore interface to include the get method
@@ -33,6 +34,10 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUserPassword(userId: number, newPassword: string): Promise<User>;
+  createPasswordResetToken(email: string): Promise<{token: string, userId: number} | null>;
+  getPasswordResetToken(token: string): Promise<{userId: number, expiresAt: Date} | null>;
+  invalidatePasswordResetToken(token: string): Promise<void>;
   
   // Partnership operations
   createPartnership(partnership: InsertPartnership): Promise<Partnership>;
@@ -487,6 +492,61 @@ export class MemStorage implements IStorage {
     return Array.from(this.users.values()).find(
       (user) => user.email === email
     );
+  }
+  
+  // Password reset operations
+  private passwordResetTokens: Map<string, { userId: number, expiresAt: Date }> = new Map();
+  
+  async updateUserPassword(userId: number, newPassword: string): Promise<User> {
+    const user = await this.getUser(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    
+    // Update user password
+    const updatedUser = { ...user, password: newPassword };
+    this.users.set(userId, updatedUser);
+    
+    return updatedUser;
+  }
+  
+  async createPasswordResetToken(email: string): Promise<{ token: string, userId: number } | null> {
+    const user = await this.getUserByEmail(email);
+    if (!user) {
+      return null; // User not found
+    }
+    
+    // Generate a unique token using Node.js crypto module
+    const token = crypto.randomUUID().replace(/-/g, '');
+    
+    // Set expiration to 1 hour from now
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 1);
+    
+    // Store the token
+    this.passwordResetTokens.set(token, { userId: user.id, expiresAt });
+    
+    return { token, userId: user.id };
+  }
+  
+  async getPasswordResetToken(token: string): Promise<{ userId: number, expiresAt: Date } | null> {
+    const tokenData = this.passwordResetTokens.get(token);
+    
+    if (!tokenData) {
+      return null;
+    }
+    
+    // Check if token is expired
+    if (new Date() > tokenData.expiresAt) {
+      this.passwordResetTokens.delete(token);
+      return null;
+    }
+    
+    return tokenData;
+  }
+  
+  async invalidatePasswordResetToken(token: string): Promise<void> {
+    this.passwordResetTokens.delete(token);
   }
   
   // Invite operations

@@ -17,6 +17,8 @@ import ConflictThreadDetailPage from "@/pages/conflict-thread-detail-page";
 import ConflictResolutionPage from "@/pages/conflict-resolution-page";
 import SettingsPage from "@/pages/settings-page";
 import DirectMessagePage from "@/pages/direct-message-page";
+import ForgotPasswordPage from "@/pages/forgot-password-page";
+import ResetPasswordPage from "@/pages/reset-password-page";
 import Header from "./components/header";
 import Footer from "./components/footer";
 import { ProtectedRoute } from "@/components/protected-route";
@@ -30,6 +32,12 @@ function Router() {
       <Switch>
         <Route path="/auth">
           <AuthPage />
+        </Route>
+        <Route path="/forgot-password">
+          <ForgotPasswordPage />
+        </Route>
+        <Route path="/reset-password">
+          <ResetPasswordPage />
         </Route>
         <ProtectedRoute path="/onboarding" component={OnboardingPage} />
         <ProtectedRoute path="/" component={Home} />
