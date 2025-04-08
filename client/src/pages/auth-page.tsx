@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Loader2, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
 // Login schema
@@ -60,6 +60,13 @@ export default function AuthPage() {
     partnerLastName?: string;
     partnerEmail?: string;
   } | null>(null);
+  
+  // Password visibility states
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false);
+  const [showRegisterConfirmPassword, setShowRegisterConfirmPassword] = useState(false);
+  const [showInvitePassword, setShowInvitePassword] = useState(false);
+  const [showInviteConfirmPassword, setShowInviteConfirmPassword] = useState(false);
   
   const [_, setLocation] = useLocation();
   const { user, isLoading, loginMutation, registerMutation } = useAuth();
@@ -162,8 +169,8 @@ export default function AuthPage() {
     try {
       console.log("Submitting invite registration data:", { ...registrationData, password: "****" });
       
-      // Use the dedicated invite acceptance endpoint
-      const response = await fetch('/api/invites/accept', {
+      // Use the register with invite endpoint 
+      const response = await fetch('/api/register/invite', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -283,11 +290,20 @@ export default function AuthPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="password">Password</Label>
-                      <Input
-                        id="password"
-                        type="password"
-                        {...inviteForm.register("password")}
-                      />
+                      <div className="relative">
+                        <Input
+                          id="password"
+                          type={showInvitePassword ? "text" : "password"}
+                          {...inviteForm.register("password")}
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                          onClick={() => setShowInvitePassword(!showInvitePassword)}
+                        >
+                          {showInvitePassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
                       {inviteForm.formState.errors.password && (
                         <p className="text-sm text-destructive">{inviteForm.formState.errors.password.message}</p>
                       )}
@@ -295,11 +311,20 @@ export default function AuthPage() {
                     
                     <div className="space-y-2">
                       <Label htmlFor="confirmPassword">Confirm Password</Label>
-                      <Input
-                        id="confirmPassword"
-                        type="password"
-                        {...inviteForm.register("confirmPassword")}
-                      />
+                      <div className="relative">
+                        <Input
+                          id="confirmPassword"
+                          type={showInviteConfirmPassword ? "text" : "password"}
+                          {...inviteForm.register("confirmPassword")}
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                          onClick={() => setShowInviteConfirmPassword(!showInviteConfirmPassword)}
+                        >
+                          {showInviteConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
                       {inviteForm.formState.errors.confirmPassword && (
                         <p className="text-sm text-destructive">{inviteForm.formState.errors.confirmPassword.message}</p>
                       )}
@@ -346,11 +371,20 @@ export default function AuthPage() {
                     
                     <div className="space-y-2">
                       <Label htmlFor="password">Password</Label>
-                      <Input
-                        id="password"
-                        type="password"
-                        {...loginForm.register("password")}
-                      />
+                      <div className="relative">
+                        <Input
+                          id="password"
+                          type={showLoginPassword ? "text" : "password"}
+                          {...loginForm.register("password")}
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                          onClick={() => setShowLoginPassword(!showLoginPassword)}
+                        >
+                          {showLoginPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
                       {loginForm.formState.errors.password && (
                         <p className="text-sm text-destructive">{loginForm.formState.errors.password.message}</p>
                       )}
@@ -430,11 +464,20 @@ export default function AuthPage() {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="password">Password</Label>
-                        <Input
-                          id="password"
-                          type="password"
-                          {...registrationForm.register("password")}
-                        />
+                        <div className="relative">
+                          <Input
+                            id="password"
+                            type={showRegisterPassword ? "text" : "password"}
+                            {...registrationForm.register("password")}
+                          />
+                          <button
+                            type="button"
+                            className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                            onClick={() => setShowRegisterPassword(!showRegisterPassword)}
+                          >
+                            {showRegisterPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                          </button>
+                        </div>
                         {registrationForm.formState.errors.password && (
                           <p className="text-sm text-destructive">{registrationForm.formState.errors.password.message}</p>
                         )}
@@ -442,11 +485,20 @@ export default function AuthPage() {
                       
                       <div className="space-y-2">
                         <Label htmlFor="confirmPassword">Confirm Password</Label>
-                        <Input
-                          id="confirmPassword"
-                          type="password"
-                          {...registrationForm.register("confirmPassword")}
-                        />
+                        <div className="relative">
+                          <Input
+                            id="confirmPassword"
+                            type={showRegisterConfirmPassword ? "text" : "password"}
+                            {...registrationForm.register("confirmPassword")}
+                          />
+                          <button
+                            type="button"
+                            className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                            onClick={() => setShowRegisterConfirmPassword(!showRegisterConfirmPassword)}
+                          >
+                            {showRegisterConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                          </button>
+                        </div>
                         {registrationForm.formState.errors.confirmPassword && (
                           <p className="text-sm text-destructive">{registrationForm.formState.errors.confirmPassword.message}</p>
                         )}
