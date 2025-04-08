@@ -228,6 +228,9 @@ export class MemStorage implements IStorage {
     // The hash of 'password' using our algorithm
     const hashedPassword = "1b5db04ba4332b716198835c09f9d07d5f3fe242aeee8f324c2bbc506fa1975c5ff25f3787650275c7b808b4fdce36cb48db9fdaff523bc6b75676ffc94dd906.2fa1a8cf45c71b32c2627a9eba6c24be";
     
+    // The hash of 'password123' using our algorithm
+    const password123Hash = "0e8c16fc0702ba627980910437820ef147228f45021a50c3dff80776d3cb691e8b7e05d4416d13c8ee2d770bdca3277601efc5b09635bea580cd9ec2e4e5755b.a0c4cd0fd4e96b6e8a9f29f9418ec691";
+    
     const user1 = this.createUser({
       username: "partner1",
       password: hashedPassword,
@@ -244,6 +247,16 @@ export class MemStorage implements IStorage {
       lastName: "Taylor",
       email: "partner2@example.com",
       displayName: "Partner Two"
+    });
+    
+    // Create a test user with known credentials
+    const testUser = this.createUser({
+      username: "testuser",
+      password: password123Hash,
+      firstName: "Test",
+      lastName: "User",
+      email: "test@example.com",
+      displayName: "Test User"
     });
     
     // Create a partnership between the two users
