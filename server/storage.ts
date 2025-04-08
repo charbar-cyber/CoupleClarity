@@ -15,6 +15,7 @@ import {
   therapists, type Therapist, type InsertTherapist,
   pushSubscriptions, type PushSubscription, type InsertPushSubscription,
   notificationPreferences, type NotificationPreferences, type InsertNotificationPreferences,
+  currentEmotions, type CurrentEmotion, type InsertCurrentEmotion,
   conflictStatusOptions,
   memoryTypes,
   therapistSpecialties,
@@ -144,6 +145,12 @@ export interface IStorage {
   createNotificationPreferences(preferences: InsertNotificationPreferences): Promise<NotificationPreferences>;
   getNotificationPreferences(userId: number): Promise<NotificationPreferences | undefined>;
   updateNotificationPreferences(userId: number, preferences: Partial<InsertNotificationPreferences>): Promise<NotificationPreferences>;
+  
+  // Current emotions operations
+  getCurrentEmotion(userId: number): Promise<CurrentEmotion | undefined>;
+  setCurrentEmotion(emotion: InsertCurrentEmotion): Promise<CurrentEmotion>;
+  updateCurrentEmotion(userId: number, emotion: Partial<InsertCurrentEmotion>): Promise<CurrentEmotion>;
+  getPartnerCurrentEmotion(userId: number): Promise<CurrentEmotion | undefined>;
 
   // Session store
   sessionStore: SessionStore;
@@ -166,6 +173,7 @@ export class MemStorage implements IStorage {
   private therapists: Map<number, Therapist>;
   private pushSubscriptions: Map<number, PushSubscription>;
   private notificationPrefs: Map<number, NotificationPreferences>;
+  private currentEmotions: Map<number, CurrentEmotion>;
   private userIdCounter: number;
   private messageIdCounter: number;
   private partnershipIdCounter: number;
@@ -207,6 +215,7 @@ export class MemStorage implements IStorage {
     this.therapists = new Map();
     this.pushSubscriptions = new Map();
     this.notificationPrefs = new Map();
+    this.currentEmotions = new Map();
     this.userIdCounter = 1;
     this.messageIdCounter = 1;
     this.partnershipIdCounter = 1;
@@ -704,8 +713,12 @@ export class MemStorage implements IStorage {
       throw new Error(`Preferences for user with id ${insertPreferences.userId} already exist`);
     }
     
+    // Ensure preferredAiModel has a value
+    const preferredAiModel = insertPreferences.preferredAiModel || 'openai';
+    
     const preferences: UserPreferences = {
       ...insertPreferences,
+      preferredAiModel,
       id,
       createdAt: now,
       updatedAt: now
@@ -728,9 +741,15 @@ export class MemStorage implements IStorage {
     }
     
     const now = new Date();
+    
+    // Handle preferredAiModel update separately to ensure it's never undefined
+    const preferredAiModel = updatedPreferences.preferredAiModel !== undefined ? 
+      updatedPreferences.preferredAiModel : userPrefs.preferredAiModel;
+      
     const updatedPrefs: UserPreferences = {
       ...userPrefs,
       ...updatedPreferences,
+      preferredAiModel, // Explicitly set this to avoid type errors
       updatedAt: now
     };
     
@@ -1417,6 +1436,76 @@ export class MemStorage implements IStorage {
         appreciations: preferences.appreciations ?? true
       });
     }
+  }
+
+  // Current emotion operations
+  async getCurrentEmotion(userId: number): Promise<CurrentEmotion | undefined> {
+    return Array.from(this.currentEmotions.values()).find(
+      (emotion) => emotion.userId === userId
+    );
+  }
+  
+  async setCurrentEmotion(emotion: InsertCurrentEmotion): Promise<CurrentEmotion> {
+    // Check if user has an existing emotion
+    const existingEmotion = await this.getCurrentEmotion(emotion.userId);
+    
+    if (existingEmotion) {
+      // Update the existing emotion
+      return this.updateCurrentEmotion(emotion.userId, emotion);
+    }
+    
+    // Create a new emotion entry
+    const id = this.currentEmotions.size + 1;
+    const now = new Date();
+    
+    const newEmotion: CurrentEmotion = {
+      ...emotion,
+      id,
+      updatedAt: now,
+      note: emotion.note || null,
+      intensity: emotion.intensity || 5
+    };
+    
+    this.currentEmotions.set(id, newEmotion);
+    return newEmotion;
+  }
+  
+  async updateCurrentEmotion(userId: number, emotionData: Partial<InsertCurrentEmotion>): Promise<CurrentEmotion> {
+    const existingEmotion = await this.getCurrentEmotion(userId);
+    
+    if (!existingEmotion) {
+      // If no emotion exists, create a new one
+      return this.setCurrentEmotion({
+        userId,
+        emotion: emotionData.emotion || "neutral",
+        intensity: emotionData.intensity || 5,
+        note: emotionData.note
+      });
+    }
+    
+    // Update the existing emotion
+    const updatedEmotion = {
+      ...existingEmotion,
+      ...emotionData,
+      updatedAt: new Date()
+    };
+    
+    this.currentEmotions.set(existingEmotion.id, updatedEmotion);
+    return updatedEmotion;
+  }
+  
+  async getPartnerCurrentEmotion(userId: number): Promise<CurrentEmotion | undefined> {
+    // Get partnership
+    const partnership = await this.getPartnershipByUser(userId);
+    if (!partnership || partnership.status !== 'active') {
+      return undefined;
+    }
+    
+    // Determine partner's ID
+    const partnerId = partnership.user1Id === userId ? partnership.user2Id : partnership.user1Id;
+    
+    // Get partner's current emotion
+    return this.getCurrentEmotion(partnerId);
   }
 }
 

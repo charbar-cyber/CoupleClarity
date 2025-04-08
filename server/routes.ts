@@ -15,6 +15,7 @@ const __dirname = path.dirname(__filename);
 
 import { storage } from "./storage";
 import { transformEmotionalMessage, summarizeResponse, transformConflictMessage, transcribeAudio, generateAvatar, analyzeLoveLanguage } from "./openai";
+import * as anthropic from "./anthropic";
 import { hashPassword, setupAuth } from "./auth";
 import { 
   emotionSchema, 
@@ -63,17 +64,203 @@ function isAuthenticated(req: Request, res: Response, next: NextFunction) {
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication
   setupAuth(app);
+  
+  // Current emotion endpoints
+  app.get('/api/current-emotion', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      const currentEmotion = await storage.getCurrentEmotion(req.user.id);
+      if (!currentEmotion) {
+        return res.status(404).json({ error: 'No current emotion set' });
+      }
+      
+      res.json(currentEmotion);
+    } catch (error) {
+      console.error('Error fetching current emotion:', error);
+      res.status(500).json({ error: 'Failed to fetch current emotion' });
+    }
+  });
+  
+  app.post('/api/current-emotion', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      const { emotion, intensity, note } = req.body;
+      
+      if (!emotion) {
+        return res.status(400).json({ error: 'Emotion is required' });
+      }
+      
+      const result = await storage.setCurrentEmotion({
+        userId: req.user.id,
+        emotion,
+        intensity: intensity || 5,
+        note
+      });
+      
+      // Send notification to partner about emotion update
+      const partnership = await storage.getPartnershipByUser(req.user.id);
+      if (partnership && partnership.status === 'active') {
+        const partnerId = partnership.user1Id === req.user.id ? partnership.user2Id : partnership.user1Id;
+        
+        // Send WebSocket notification if user is connected
+        const client = clients.get(partnerId);
+        if (client && client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify({
+            type: 'emotion_update',
+            userId: req.user.id,
+            emotion: emotion,
+            intensity: intensity || 5
+          }));
+          console.log(`Sent emotion update to user ${partnerId}`);
+        } else {
+          console.log(`User ${partnerId} is not connected to receive emotion update`);
+        }
+        
+        // Send push notification if enabled
+        const partnerPrefs = await storage.getNotificationPreferences(partnerId);
+        if (partnerPrefs && partnerPrefs.partnerEmotions) {
+          await sendNotification(partnerId, {
+            title: 'Partner Emotion Update',
+            body: `${req.user.firstName} is feeling ${emotion}`,
+            url: '/dashboard',
+            type: 'partnerEmotions'
+          });
+        }
+      }
+      
+      res.status(201).json(result);
+    } catch (error) {
+      console.error('Error setting current emotion:', error);
+      res.status(500).json({ error: 'Failed to set current emotion' });
+    }
+  });
+  
+  app.get('/api/partner/current-emotion', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      const partnerEmotion = await storage.getPartnerCurrentEmotion(req.user.id);
+      if (!partnerEmotion) {
+        return res.status(404).json({ error: 'Partner has no current emotion set or no active partnership' });
+      }
+      
+      res.json(partnerEmotion);
+    } catch (error) {
+      console.error('Error fetching partner current emotion:', error);
+      res.status(500).json({ error: 'Failed to fetch partner current emotion' });
+    }
+  });
   // API Routes
+  // AI model preference endpoint
+  app.post("/api/user/ai-model-preference", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as Express.User).id;
+      const { preferredAiModel } = req.body;
+      
+      if (!preferredAiModel || !['openai', 'anthropic'].includes(preferredAiModel)) {
+        return res.status(400).json({ message: "Invalid AI model specified. Use 'openai' or 'anthropic'." });
+      }
+      
+      // Get user preferences or create if doesn't exist
+      let userPrefs = await storage.getUserPreferences(userId);
+      
+      if (!userPrefs) {
+        // Create default preferences with selected AI model
+        userPrefs = await storage.createUserPreferences({
+          userId,
+          preferredAiModel,
+          theme: 'light',
+          emailNotifications: true,
+          pushNotifications: true,
+          messageFrequency: 'daily'
+        });
+      } else {
+        // Update existing preferences
+        userPrefs = await storage.updateUserPreferences(userId, {
+          preferredAiModel
+        });
+      }
+      
+      res.json({
+        preferredAiModel: userPrefs.preferredAiModel,
+        message: "AI model preference updated successfully"
+      });
+    } catch (error) {
+      console.error("Error updating AI model preference:", error);
+      res.status(500).json({ message: "Failed to update AI model preference" });
+    }
+  });
+  
+  app.get("/api/user/ai-model-preference", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as Express.User).id;
+      
+      // Get user preferences
+      const userPrefs = await storage.getUserPreferences(userId);
+      
+      if (!userPrefs) {
+        // Default to OpenAI if no preferences exist
+        return res.json({ preferredAiModel: 'openai' });
+      }
+      
+      res.json({ preferredAiModel: userPrefs.preferredAiModel || 'openai' });
+    } catch (error) {
+      console.error("Error getting AI model preference:", error);
+      res.status(500).json({ message: "Failed to get AI model preference" });
+    }
+  });
+
+  // Original transform endpoint with AI model selection
   app.post("/api/transform", isAuthenticated, async (req, res) => {
     try {
+      const userId = (req.user as Express.User).id;
       const validatedData = emotionSchema.parse(req.body);
       
-      // Call OpenAI API to transform the message
-      const transformedResult = await transformEmotionalMessage(
-        validatedData.emotion,
-        validatedData.rawMessage,
-        validatedData.context
-      );
+      // Get user preferences to determine which AI model to use
+      const userPrefs = await storage.getUserPreferences(userId);
+      const preferredModel = userPrefs?.preferredAiModel || 'openai';
+      
+      let transformedResult;
+      
+      // Use appropriate model based on user preference
+      if (preferredModel === 'anthropic') {
+        // Call Anthropic API
+        const transformedMessage = await anthropic.transformMessage(
+          validatedData.rawMessage,
+          Array.isArray(validatedData.emotion) ? validatedData.emotion : [validatedData.emotion]
+        );
+        
+        // Convert to common response format
+        transformedResult = {
+          transformedMessage,
+          communicationElements: {
+            iStatements: true,
+            specificRequests: true,
+            empathyIndicators: true,
+            blameFree: true
+          },
+          deliveryTips: [
+            "Speak calmly and maintain open body language",
+            "Allow your partner time to respond without interruption",
+            "Be receptive to their perspective"
+          ]
+        };
+      } else {
+        // Call OpenAI API (default)
+        transformedResult = await transformEmotionalMessage(
+          validatedData.emotion,
+          validatedData.rawMessage,
+          validatedData.context
+        );
+      }
       
       let messageId;
       
@@ -921,6 +1108,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Error handling emotion expression:', error);
     }
   }
+  
+  // This function is now directly implemented in the emotion update endpoint
+  // Keeping this comment as a reminder for consistency
   
   // Helper function to send push notifications
   async function sendNotification(userId: number, notificationData: {

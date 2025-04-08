@@ -166,6 +166,8 @@ export const registrationSchema = z.object({
 export type RegistrationInput = z.infer<typeof registrationSchema>;
 
 // User preferences schema
+export const aiModelOptions = ['openai', 'anthropic'] as const;
+
 export const userPreferences = pgTable("user_preferences", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().unique(),
@@ -173,6 +175,7 @@ export const userPreferences = pgTable("user_preferences", {
   conflictStyle: text("conflict_style").notNull(),
   communicationStyle: text("communication_style").notNull(),
   repairStyle: text("repair_style").notNull(),
+  preferredAiModel: text("preferred_ai_model").default('openai').notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -425,6 +428,24 @@ export const pushSubscriptions = pgTable("push_subscriptions", {
   auth: text("auth").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// Current emotions table to track what each user is currently feeling
+export const currentEmotions = pgTable("current_emotions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id).unique(),
+  emotion: text("emotion").notNull(),
+  intensity: integer("intensity").default(5).notNull(),
+  note: text("note"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertCurrentEmotionSchema = createInsertSchema(currentEmotions).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type InsertCurrentEmotion = z.infer<typeof insertCurrentEmotionSchema>;
+export type CurrentEmotion = typeof currentEmotions.$inferSelect;
 
 export const insertPushSubscriptionSchema = createInsertSchema(pushSubscriptions).omit({
   id: true,
