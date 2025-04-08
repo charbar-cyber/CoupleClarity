@@ -36,6 +36,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Loader2, Sun, Moon, Bell, User, MessageSquare, PaintBucket, UserCog, LogOut, Users, Mail, Send, ImageIcon } from "lucide-react";
 import { UserPreferences } from "@shared/schema";
 import { ChangePasswordForm } from "@/components/change-password-form";
+import { ChangeUsernameForm } from "@/components/change-username-form";
 
 // Theme options
 type Theme = "light" | "dark" | "system";
@@ -583,8 +584,15 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div>
-                <h3 className="font-medium mb-2">Account Security</h3>
-                <ChangePasswordForm />
+                <h3 className="font-medium mb-2">Account Information</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Manage your username, password, and other account settings.
+                </p>
+                <div className="grid gap-4">
+                  {/* Import the ChangeUsernameForm component */}
+                  <ChangeUsernameForm />
+                  <ChangePasswordForm />
+                </div>
               </div>
               
               <Separator />

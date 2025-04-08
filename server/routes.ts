@@ -469,6 +469,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to update user profile" });
     }
   });
+
+  // Dedicated endpoint for changing username
+  app.patch("/api/user/username", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as Express.User).id;
+      const { username } = req.body;
+      
+      // Validate username
+      if (!username) {
+        return res.status(400).json({ message: "Username is required" });
+      }
+      
+      if (username.length < 3) {
+        return res.status(400).json({ message: "Username must be at least 3 characters" });
+      }
+      
+      // Get the current user data
+      const currentUser = await storage.getUser(userId);
+      if (!currentUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Check if username is already taken
+      if (username !== currentUser.username) {
+        const existingUser = await storage.getUserByUsername(username);
+        if (existingUser) {
+          return res.status(400).json({ message: "Username already exists" });
+        }
+      }
+      
+      // Update the username
+      const updatedUser = await storage.updateUser(userId, { username });
+      
+      // Remove sensitive data before returning
+      const { password, ...userWithoutPassword } = updatedUser;
+      
+      res.json(userWithoutPassword);
+    } catch (error: unknown) {
+      const err = error as Error;
+      console.error("Error changing username:", err);
+      res.status(500).json({ message: "Failed to change username" });
+    }
+  });
   
   // API endpoint to change user password
   app.post("/api/user/change-password", isAuthenticated, async (req, res) => {
