@@ -412,6 +412,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to get relationship information" });
     }
   });
+  
+  // API endpoint to update user profile
+  app.patch("/api/user/profile", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as Express.User).id;
+      
+      // Get the current user data
+      const currentUser = await storage.getUser(userId);
+      if (!currentUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Extract updatable fields from request body
+      const { username, firstName, lastName, email, displayName } = req.body;
+      
+      // Create update object with only fields that are provided
+      const updateData: Partial<User> = {};
+      if (username !== undefined) updateData.username = username;
+      if (firstName !== undefined) updateData.firstName = firstName;
+      if (lastName !== undefined) updateData.lastName = lastName;
+      if (email !== undefined) updateData.email = email;
+      if (displayName !== undefined) updateData.displayName = displayName;
+      
+      // If no fields to update, return current user
+      if (Object.keys(updateData).length === 0) {
+        return res.json(currentUser);
+      }
+      
+      // Check for username uniqueness if username is being updated
+      if (updateData.username && updateData.username !== currentUser.username) {
+        const existingUser = await storage.getUserByUsername(updateData.username);
+        if (existingUser) {
+          return res.status(400).json({ message: "Username already exists" });
+        }
+      }
+      
+      // Check for email uniqueness if email is being updated
+      if (updateData.email && updateData.email !== currentUser.email) {
+        const existingUser = await storage.getUserByEmail(updateData.email);
+        if (existingUser) {
+          return res.status(400).json({ message: "Email already exists" });
+        }
+      }
+      
+      // Update the user
+      const updatedUser = await storage.updateUser(userId, updateData);
+      
+      // Remove sensitive data before returning
+      const { password, ...userWithoutPassword } = updatedUser;
+      
+      res.json(userWithoutPassword);
+    } catch (error: unknown) {
+      const err = error as Error;
+      console.error("Error updating user profile:", err);
+      res.status(500).json({ message: "Failed to update user profile" });
+    }
+  });
 
   // User preferences endpoint
   app.post("/api/user/preferences", isAuthenticated, async (req, res) => {
