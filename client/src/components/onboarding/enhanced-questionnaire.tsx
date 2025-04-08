@@ -34,8 +34,20 @@ type EnhancedOnboardingProps = {
 
 export function EnhancedOnboardingQuestionnaire({ onComplete, onBack, initialPreferences }: EnhancedOnboardingProps) {
   const { toast } = useToast();
-  const [step, setStep] = useState<"preferences" | "relationship" | "complete">("preferences");
-  const [preferencesData, setPreferencesData] = useState<Partial<EnhancedOnboardingQuestionnaire>>({});
+  // If we have initialPreferences with all required love language fields, 
+  // start directly at relationship questions to avoid duplicate questions
+  const hasCompletedPreferences = initialPreferences && 
+    initialPreferences.loveLanguage && 
+    initialPreferences.conflictStyle && 
+    initialPreferences.communicationStyle && 
+    initialPreferences.repairStyle;
+    
+  const [step, setStep] = useState<"preferences" | "relationship" | "complete">(
+    hasCompletedPreferences ? "relationship" : "preferences"
+  );
+  const [preferencesData, setPreferencesData] = useState<Partial<EnhancedOnboardingQuestionnaire>>(
+    initialPreferences || {}
+  );
 
   // Form for relationship-specific questions
   const relationshipForm = useForm<EnhancedOnboardingQuestionnaire>({
@@ -51,7 +63,7 @@ export function EnhancedOnboardingQuestionnaire({ onComplete, onBack, initialPre
 
   // Handle completion of the preferences step
   const handlePreferencesComplete = (data: Partial<EnhancedOnboardingQuestionnaire>) => {
-    setPreferencesData(data);
+    setPreferencesData({...preferencesData, ...data});
     setStep("relationship");
   };
 
@@ -99,9 +111,11 @@ export function EnhancedOnboardingQuestionnaire({ onComplete, onBack, initialPre
   
   // Handle back button clicks
   const handleBack = () => {
-    if (step === "relationship") {
+    if (step === "relationship" && !hasCompletedPreferences) {
+      // Only go back to preferences if we haven't completed them already
       setStep("preferences");
     } else {
+      // Otherwise go back to the previous page in the main onboarding flow
       onBack();
     }
   };
