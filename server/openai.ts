@@ -30,6 +30,13 @@ export interface AvatarGenerationResponse {
   error?: string;
 }
 
+// Interface for love language analysis response
+export interface LoveLanguageAnalysisResponse {
+  analysisText: string;
+  personalizedTips: string[];
+  appUsageSuggestions: string[];
+}
+
 // Initialize OpenAI client
 const openai = new OpenAI({ 
   apiKey: process.env.OPENAI_API_KEY || "sk-demo-key-for-development" 
@@ -309,4 +316,112 @@ export async function generateAvatar(prompt: string): Promise<AvatarGenerationRe
       error: "Failed to generate avatar. Please try again with a different description."
     };
   }
+}
+
+/**
+ * Analyzes user's love language and provides personalized insights and app usage suggestions
+ * @param loveLanguage The user's love language preference
+ * @param questionnaire Optional additional questionnaire data
+ * @returns Personalized analysis and app usage suggestions
+ */
+export async function analyzeLoveLanguage(
+  loveLanguage: string,
+  questionnaire?: {
+    conflictStyle?: string;
+    communicationStyle?: string;
+    repairStyle?: string;
+    relationshipGoals?: string;
+    challengeAreas?: string;
+  }
+): Promise<LoveLanguageAnalysisResponse> {
+  try {
+    // Construct the prompt for the OpenAI API
+    const systemPrompt = `You are an expert relationship coach and love language specialist.
+    Your task is to provide a personalized analysis of a user's love language and relationship preferences,
+    including specific suggestions for using the CoupleClarity app.
+    
+    User's Love Language: ${loveLanguage}
+    ${questionnaire?.conflictStyle ? `Conflict Style: ${questionnaire.conflictStyle}` : ''}
+    ${questionnaire?.communicationStyle ? `Communication Style: ${questionnaire.communicationStyle}` : ''}
+    ${questionnaire?.repairStyle ? `Repair Style: ${questionnaire.repairStyle}` : ''}
+    ${questionnaire?.relationshipGoals ? `Relationship Goals: ${questionnaire.relationshipGoals}` : ''}
+    ${questionnaire?.challengeAreas ? `Challenge Areas: ${questionnaire.challengeAreas}` : ''}
+    
+    Respond with a JSON object containing:
+    1. "analysisText": A personalized analysis of their love language and what it means for their relationship (3-4 sentences)
+    2. "personalizedTips": An array of 3-4 specific tips for expressing and receiving love based on their love language
+    3. "appUsageSuggestions": An array of 3 specific ways they can use CoupleClarity app features to enhance their relationship based on their love language and preferences`;
+
+    // Call the OpenAI API
+    // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: "Please analyze this user's love language and relationship preferences." }
+      ],
+      response_format: { type: "json_object" }
+    });
+
+    // Parse the response
+    const result = JSON.parse(response.choices[0].message.content || "{}");
+    
+    return {
+      analysisText: result.analysisText || `Your primary love language is ${formatLoveLanguage(loveLanguage)}. This means you especially value ${getLoveLanguageDescription(loveLanguage)} in your relationship.`,
+      personalizedTips: result.personalizedTips || [
+        `Share what specific ${formatLoveLanguage(loveLanguage)} actions make you feel most loved`,
+        "Schedule regular check-ins to discuss if your emotional needs are being met",
+        "Learn to recognize when your partner is showing love in their own language"
+      ],
+      appUsageSuggestions: result.appUsageSuggestions || [
+        "Use the Appreciation Log to record moments when your partner speaks your love language",
+        "Try the Weekly Check-in feature to maintain regular communication about your needs",
+        "Use the Emotional Expression tool to clearly communicate your feelings and needs"
+      ]
+    };
+  } catch (error) {
+    console.error("Error analyzing love language:", error);
+    
+    // Provide a fallback response in case of an error
+    return {
+      analysisText: `Your primary love language is ${formatLoveLanguage(loveLanguage)}. Understanding this preference can help you and your partner connect more meaningfully.`,
+      personalizedTips: [
+        "Pay attention to how your partner naturally expresses love",
+        "Clearly communicate what actions make you feel most appreciated",
+        "Be open to receiving love in different forms"
+      ],
+      appUsageSuggestions: [
+        "Use the Appreciation Log to record moments when your partner speaks your love language",
+        "Try the Weekly Check-in feature to maintain regular communication about your needs",
+        "Use the Emotional Expression tool to clearly communicate your feelings and needs"
+      ]
+    };
+  }
+}
+
+// Helper functions for the love language analysis
+function formatLoveLanguage(loveLanguage: string): string {
+  const formattedLanguages: Record<string, string> = {
+    words_of_affirmation: "Words of Affirmation",
+    quality_time: "Quality Time",
+    acts_of_service: "Acts of Service",
+    physical_touch: "Physical Touch",
+    gifts: "Gifts and Thoughtful Gestures",
+    not_sure: "Still Exploring Your Love Language"
+  };
+  
+  return formattedLanguages[loveLanguage] || loveLanguage;
+}
+
+function getLoveLanguageDescription(loveLanguage: string): string {
+  const descriptions: Record<string, string> = {
+    words_of_affirmation: "verbal acknowledgments of affection and appreciation",
+    quality_time: "meaningful, undivided attention and shared experiences",
+    acts_of_service: "actions that ease your burden and show thoughtfulness",
+    physical_touch: "physical closeness and touch as expressions of love",
+    gifts: "thoughtful gifts that show you were thought of",
+    not_sure: "a variety of expressions of love as you explore your preferences"
+  };
+  
+  return descriptions[loveLanguage] || "unique expressions of love";
 }

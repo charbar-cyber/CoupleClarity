@@ -9,6 +9,7 @@ import Homebase from "@/components/homebase";
 import MessageTimeline from "@/components/message-timeline";
 import EmotionalInsights from "@/components/emotional-insights";
 import WeeklyCheckIn from "@/components/weekly-check-in";
+import LoveLanguageAnalysis from "@/components/love-language-analysis";
 import { apiRequest, getQueryFn, queryClient } from "@/lib/queryClient";
 import { TransformationResponse, User } from "@shared/schema";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -160,6 +161,10 @@ export default function Home() {
                 
                 <div className="mt-6 lg:hidden">
                   <EmotionalInsights userId={userId} />
+                </div>
+                
+                <div className="mt-6">
+                  <LoveLanguageAnalysis />
                 </div>
                 
                 <div className="mt-6">

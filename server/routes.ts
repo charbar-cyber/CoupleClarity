@@ -14,7 +14,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 import { storage } from "./storage";
-import { transformEmotionalMessage, summarizeResponse, transformConflictMessage, transcribeAudio, generateAvatar } from "./openai";
+import { transformEmotionalMessage, summarizeResponse, transformConflictMessage, transcribeAudio, generateAvatar, analyzeLoveLanguage } from "./openai";
 import { hashPassword, setupAuth } from "./auth";
 import { 
   emotionSchema, 
@@ -831,6 +831,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Error sending push notification:', error);
     }
   }
+
+  // API endpoint for analyzing love language
+  app.get("/api/user/love-language-analysis", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as Express.User).id;
+      
+      // Get user preferences
+      const preferences = await storage.getUserPreferences(userId);
+      if (!preferences || !preferences.loveLanguage) {
+        return res.status(404).json({ 
+          message: "No love language preferences found for this user" 
+        });
+      }
+
+      // Get user data for additional context
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Create questionnaire data from preferences and user data
+      const questionnaire = {
+        conflictStyle: preferences.conflictStyle,
+        communicationStyle: preferences.communicationStyle,
+        repairStyle: preferences.repairStyle,
+        relationshipGoals: user.relationshipGoals || undefined,
+        challengeAreas: user.challengeAreas || undefined
+      };
+      
+      // Call OpenAI to analyze love language
+      const analysis = await analyzeLoveLanguage(preferences.loveLanguage, questionnaire);
+      
+      res.json(analysis);
+    } catch (error: unknown) {
+      const err = error as Error;
+      console.error("Error analyzing love language:", err);
+      res.status(500).json({ message: "Failed to analyze love language" });
+    }
+  });
 
   return httpServer;
 }
