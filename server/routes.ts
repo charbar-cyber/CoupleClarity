@@ -469,6 +469,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to update user profile" });
     }
   });
+  
+  // API endpoint to change user password
+  app.post("/api/user/change-password", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as Express.User).id;
+      const { currentPassword, newPassword } = req.body;
+      
+      // Validate request
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ message: "Current password and new password are required" });
+      }
+      
+      // Get the current user data
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Get the comparePasswords function from auth.ts
+      const authModule = await import("./auth");
+      
+      // Verify the current password
+      const isPasswordValid = await authModule.comparePasswords(currentPassword, user.password);
+      if (!isPasswordValid) {
+        return res.status(400).json({ message: "Current password is incorrect" });
+      }
+      
+      // Hash the new password
+      const hashedPassword = await hashPassword(newPassword);
+      
+      // Update user password
+      const updatedUser = await storage.updateUserPassword(userId, hashedPassword);
+      
+      // Return success without any sensitive data
+      res.json({ message: "Password updated successfully" });
+    } catch (error: unknown) {
+      const err = error as Error;
+      console.error("Error changing password:", err);
+      res.status(500).json({ message: "Failed to change password" });
+    }
+  });
 
   // User preferences endpoint
   app.post("/api/user/preferences", isAuthenticated, async (req, res) => {

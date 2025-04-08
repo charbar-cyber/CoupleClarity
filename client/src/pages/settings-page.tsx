@@ -35,6 +35,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Loader2, Sun, Moon, Bell, User, MessageSquare, PaintBucket, UserCog, LogOut, Users, Mail, Send, ImageIcon } from "lucide-react";
 import { UserPreferences } from "@shared/schema";
+import { ChangePasswordForm } from "@/components/change-password-form";
 
 // Theme options
 type Theme = "light" | "dark" | "system";
@@ -583,7 +584,7 @@ export default function SettingsPage() {
             <CardContent className="space-y-6">
               <div>
                 <h3 className="font-medium mb-2">Account Security</h3>
-                <Button variant="outline" className="w-full mb-2">Change Password</Button>
+                <ChangePasswordForm />
               </div>
               
               <Separator />
