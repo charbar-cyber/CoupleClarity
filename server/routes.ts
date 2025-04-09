@@ -177,10 +177,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userPrefs = await storage.createUserPreferences({
           userId,
           preferredAiModel,
-          theme: 'light',
-          emailNotifications: true,
-          pushNotifications: true,
-          messageFrequency: 'daily'
+          loveLanguage: 'not_sure', // Default value until user completes onboarding
+          conflictStyle: 'not_sure',
+          communicationStyle: 'gentle',
+          repairStyle: 'talking'
         });
       } else {
         // Update existing preferences
@@ -1191,8 +1191,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         challengeAreas: user.challengeAreas || undefined
       };
       
-      // Call OpenAI to analyze love language
-      const analysis = await analyzeLoveLanguage(preferences.loveLanguage, questionnaire);
+      // Check user's preferred AI model
+      const preferredModel = preferences.preferredAiModel || 'openai';
+      
+      let analysis;
+      
+      // Use appropriate model based on user preference
+      if (preferredModel === 'anthropic' && process.env.ANTHROPIC_API_KEY) {
+        // For Anthropic model - create a format that matches what the client expects
+        // Convert questionnaire to format expected by Anthropic function
+        const responses = {
+          'Love Language': preferences.loveLanguage,
+          'Conflict Style': questionnaire.conflictStyle || 'Not specified',
+          'Communication Style': questionnaire.communicationStyle || 'Not specified',
+          'Repair Style': questionnaire.repairStyle || 'Not specified',
+          'Relationship Goals': questionnaire.relationshipGoals || 'Not specified',
+          'Challenge Areas': questionnaire.challengeAreas || 'Not specified'
+        };
+        
+        const anthropicAnalysis = await anthropic.analyzeLoveLanguage(responses);
+        
+        // Transform Anthropic response to match the format expected by the client
+        analysis = {
+          analysisText: anthropicAnalysis.explanation,
+          personalizedTips: anthropicAnalysis.suggestions,
+          appUsageSuggestions: [
+            "Use the Appreciation Log to record meaningful gestures",
+            "Schedule regular check-ins to discuss your emotional needs",
+            "Explore the Conflict Resolution tools when communication gets challenging"
+          ]
+        };
+      } else {
+        // Use OpenAI model
+        analysis = await analyzeLoveLanguage(preferences.loveLanguage, questionnaire);
+      }
       
       res.json(analysis);
     } catch (error: unknown) {

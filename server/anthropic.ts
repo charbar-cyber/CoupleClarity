@@ -1,9 +1,13 @@
 import Anthropic from '@anthropic-ai/sdk';
 
+// Check if API key is available
+const hasApiKey = !!process.env.ANTHROPIC_API_KEY;
+
+// Only initialize if API key is available
 // the newest Anthropic model is "claude-3-7-sonnet-20250219" which was released February 24, 2025
-const anthropic = new Anthropic({
+const anthropic = hasApiKey ? new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
-});
+}) : null;
 
 /**
  * Transform an emotional message into a more empathetic expression
@@ -12,6 +16,12 @@ const anthropic = new Anthropic({
  * @returns The transformed message with higher empathy
  */
 export async function transformMessage(text: string, emotions: string[]): Promise<string> {
+  // If API key is not available, return the original text
+  if (!hasApiKey || !anthropic) {
+    console.warn('Anthropic API key not available. Using original text.');
+    return text;
+  }
+
   try {
     const emotionsString = emotions.join(', ');
     const prompt = `Transform the following message into a more empathetic expression that maintains the core feelings but communicates them in a healthier way. 
@@ -27,7 +37,8 @@ export async function transformMessage(text: string, emotions: string[]): Promis
     5. Express appreciation where possible
     6. Maintain authenticity`;
 
-    const response = await anthropic.messages.create({
+    // This non-null assertion is safe because we've checked if anthropic is null above
+    const response = await anthropic!.messages.create({
       model: 'claude-3-7-sonnet-20250219',
       max_tokens: 1024,
       messages: [{ role: 'user', content: prompt }],
@@ -56,6 +67,19 @@ export async function analyzeConflict(messages: Array<{text: string, author: str
   insights: string,
   strategies: string[]
 }> {
+  // If API key is not available, return a default response
+  if (!hasApiKey || !anthropic) {
+    console.warn('Anthropic API key not available. Using default conflict analysis.');
+    return {
+      insights: "API key for advanced conflict analysis is not available. Basic analysis suggests focusing on communication and understanding.",
+      strategies: [
+        "Take turns expressing your perspectives without interruption",
+        "Acknowledge each other's feelings before proposing solutions",
+        "Focus on the issue at hand rather than bringing up past conflicts"
+      ]
+    };
+  }
+
   try {
     const messagesText = messages.map(msg => `${msg.author}: ${msg.text}`).join('\n\n');
     
@@ -70,7 +94,8 @@ export async function analyzeConflict(messages: Array<{text: string, author: str
     
     Format your response as a JSON object with "insights" as a string and "strategies" as an array of strings.`;
 
-    const response = await anthropic.messages.create({
+    // This non-null assertion is safe because we've checked if anthropic is null above
+    const response = await anthropic!.messages.create({
       model: 'claude-3-7-sonnet-20250219',
       max_tokens: 1500,
       system: "You're a relationship expert specializing in conflict resolution. Provide insights and strategies in JSON format with keys: 'insights' and 'strategies' (array).",
@@ -109,6 +134,25 @@ export async function analyzeLoveLanguage(responses: Record<string, string>): Pr
   explanation: string,
   suggestions: string[]
 }> {
+  // If API key is not available, return a default response
+  if (!hasApiKey || !anthropic) {
+    console.warn('Anthropic API key not available. Using default love language analysis.');
+    
+    // Extract the primary love language from responses if available
+    const loveLanguage = responses['Love Language'] || 'Unknown';
+    
+    return {
+      primaryLanguage: loveLanguage,
+      secondaryLanguage: "Quality Time", // Default secondary language
+      explanation: "Love language analysis requires an AI model. Based on your selection, we've identified your primary love language. Understanding your love language can help strengthen your relationship.",
+      suggestions: [
+        "Share with your partner specific ways they can show love in your primary language",
+        "Be aware of your partner's love language and try to express love in that way",
+        "Schedule regular conversations about how you both feel most appreciated"
+      ]
+    };
+  }
+
   try {
     const responsesText = Object.entries(responses)
       .map(([question, answer]) => `${question}: ${answer}`)
@@ -134,7 +178,8 @@ export async function analyzeLoveLanguage(responses: Record<string, string>): Pr
     
     Format your response as a JSON object with keys: primaryLanguage, secondaryLanguage, explanation, and suggestions (array).`;
 
-    const response = await anthropic.messages.create({
+    // This non-null assertion is safe because we've checked if anthropic is null above
+    const response = await anthropic!.messages.create({
       model: 'claude-3-7-sonnet-20250219',
       max_tokens: 1500,
       system: "You're a relationship expert specializing in love languages. Provide analysis in JSON format with keys: 'primaryLanguage', 'secondaryLanguage', 'explanation', and 'suggestions' (array).",
