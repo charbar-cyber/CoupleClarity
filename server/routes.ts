@@ -36,9 +36,16 @@ import {
   therapyModalities,
   avatarPromptSchema,
   updateAvatarSchema,
+  relationshipTypeOptions,
+  privacyLevelOptions,
+  milestoneTypeOptions,
+  coupleProfileSchema,
+  milestoneSchema,
   type Therapist,
   type User,
-  type EnhancedOnboardingQuestionnaire
+  type EnhancedOnboardingQuestionnaire,
+  type Partnership,
+  type Milestone
 } from "@shared/schema";
 
 // Extended WebSocket interface with userId
@@ -1244,6 +1251,272 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error creating test user:', error);
       res.status(500).json({ error: 'Failed to create test user' });
+    }
+  });
+  
+  // ====== Couple Profile and Settings API ======
+  
+  // Get couple profile
+  app.get('/api/partnership/profile', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      // Find the active partnership for the user
+      const partnership = await storage.getPartnershipByUser(req.user.id);
+      if (!partnership) {
+        return res.status(404).json({ error: 'No partnership found' });
+      }
+      
+      // Get partner's information
+      const partnerId = partnership.user1Id === req.user.id ? partnership.user2Id : partnership.user1Id;
+      const partner = await storage.getUser(partnerId);
+      
+      // Return the partnership and partner data
+      res.json({
+        partnership,
+        partner: partner ? {
+          id: partner.id,
+          displayName: partner.displayName,
+          firstName: partner.firstName,
+          lastName: partner.lastName,
+          avatarUrl: partner.avatarUrl
+        } : null
+      });
+    } catch (error) {
+      console.error('Error fetching couple profile:', error);
+      res.status(500).json({ error: 'Failed to fetch couple profile' });
+    }
+  });
+  
+  // Update couple profile
+  app.put('/api/partnership/profile', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      const validatedData = coupleProfileSchema.parse(req.body);
+      
+      // Find the partnership
+      const partnership = await storage.getPartnershipByUser(req.user.id);
+      if (!partnership) {
+        return res.status(404).json({ error: 'No partnership found' });
+      }
+      
+      // Update the partnership
+      const updatedPartnership = await storage.updatePartnershipProfile(partnership.id, {
+        relationshipType: validatedData.relationshipType,
+        privacyLevel: validatedData.privacyLevel,
+        anniversaryDate: validatedData.anniversaryDate ? new Date(validatedData.anniversaryDate) : null,
+        meetingStory: validatedData.meetingStory,
+        relationshipGoals: validatedData.relationshipGoals,
+        coupleNickname: validatedData.coupleNickname,
+        sharedPicture: validatedData.sharedPicture
+      });
+      
+      res.json(updatedPartnership);
+    } catch (error) {
+      console.error('Error updating couple profile:', error);
+      
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: 'Invalid data format', details: error.errors });
+      }
+      
+      res.status(500).json({ error: 'Failed to update couple profile' });
+    }
+  });
+  
+  // ====== Relationship Milestones API ======
+  
+  // Get milestones
+  app.get('/api/partnership/milestones', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      // Find the active partnership for the user
+      const partnership = await storage.getPartnershipByUser(req.user.id);
+      if (!partnership) {
+        return res.status(404).json({ error: 'No partnership found' });
+      }
+      
+      // Get milestones for this partnership
+      const milestones = await storage.getMilestonesByPartnership(partnership.id);
+      
+      res.json(milestones);
+    } catch (error) {
+      console.error('Error fetching milestones:', error);
+      res.status(500).json({ error: 'Failed to fetch milestones' });
+    }
+  });
+  
+  // Get milestones by type
+  app.get('/api/partnership/milestones/:type', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      const { type } = req.params;
+      
+      // Validate milestone type
+      if (!milestoneTypeOptions.includes(type as any)) {
+        return res.status(400).json({ error: 'Invalid milestone type' });
+      }
+      
+      // Find the active partnership for the user
+      const partnership = await storage.getPartnershipByUser(req.user.id);
+      if (!partnership) {
+        return res.status(404).json({ error: 'No partnership found' });
+      }
+      
+      // Get milestones for this partnership and type
+      const milestones = await storage.getMilestonesByType(partnership.id, type);
+      
+      res.json(milestones);
+    } catch (error) {
+      console.error('Error fetching milestones by type:', error);
+      res.status(500).json({ error: 'Failed to fetch milestones' });
+    }
+  });
+  
+  // Add milestone
+  app.post('/api/partnership/milestones', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      const validatedData = milestoneSchema.parse(req.body);
+      
+      // Find the active partnership for the user
+      const partnership = await storage.getPartnershipByUser(req.user.id);
+      if (!partnership) {
+        return res.status(404).json({ error: 'No partnership found' });
+      }
+      
+      // Create milestone
+      const milestone = await storage.createMilestone({
+        partnershipId: partnership.id,
+        type: validatedData.type,
+        title: validatedData.title,
+        description: validatedData.description,
+        date: new Date(validatedData.date),
+        imageUrl: validatedData.imageUrl,
+        isPrivate: validatedData.isPrivate
+      });
+      
+      // Create a memory for this milestone (if applicable)
+      await storage.createMemory({
+        userId: req.user.id,
+        partnershipId: partnership.id,
+        type: 'milestone',
+        title: validatedData.title,
+        description: validatedData.description || '',
+        date: new Date(validatedData.date),
+        imageUrl: validatedData.imageUrl,
+        associatedId: milestone.id,
+        isSignificant: true
+      });
+      
+      res.status(201).json(milestone);
+    } catch (error) {
+      console.error('Error creating milestone:', error);
+      
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: 'Invalid data format', details: error.errors });
+      }
+      
+      res.status(500).json({ error: 'Failed to create milestone' });
+    }
+  });
+  
+  // Update milestone
+  app.put('/api/partnership/milestones/:id', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      const { id } = req.params;
+      const milestoneId = parseInt(id);
+      
+      if (isNaN(milestoneId)) {
+        return res.status(400).json({ error: 'Invalid milestone ID' });
+      }
+      
+      const validatedData = milestoneSchema.parse(req.body);
+      
+      // Find the milestone
+      const milestone = await storage.getMilestone(milestoneId);
+      if (!milestone) {
+        return res.status(404).json({ error: 'Milestone not found' });
+      }
+      
+      // Verify user is part of the partnership
+      const partnership = await storage.getPartnership(milestone.partnershipId);
+      if (!partnership || (partnership.user1Id !== req.user.id && partnership.user2Id !== req.user.id)) {
+        return res.status(403).json({ error: 'Not authorized to update this milestone' });
+      }
+      
+      // Update milestone
+      const updatedMilestone = await storage.updateMilestone(milestoneId, {
+        type: validatedData.type,
+        title: validatedData.title,
+        description: validatedData.description,
+        date: new Date(validatedData.date),
+        imageUrl: validatedData.imageUrl,
+        isPrivate: validatedData.isPrivate
+      });
+      
+      res.json(updatedMilestone);
+    } catch (error) {
+      console.error('Error updating milestone:', error);
+      
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: 'Invalid data format', details: error.errors });
+      }
+      
+      res.status(500).json({ error: 'Failed to update milestone' });
+    }
+  });
+  
+  // Delete milestone
+  app.delete('/api/partnership/milestones/:id', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      const { id } = req.params;
+      const milestoneId = parseInt(id);
+      
+      if (isNaN(milestoneId)) {
+        return res.status(400).json({ error: 'Invalid milestone ID' });
+      }
+      
+      // Find the milestone
+      const milestone = await storage.getMilestone(milestoneId);
+      if (!milestone) {
+        return res.status(404).json({ error: 'Milestone not found' });
+      }
+      
+      // Verify user is part of the partnership
+      const partnership = await storage.getPartnership(milestone.partnershipId);
+      if (!partnership || (partnership.user1Id !== req.user.id && partnership.user2Id !== req.user.id)) {
+        return res.status(403).json({ error: 'Not authorized to delete this milestone' });
+      }
+      
+      // Delete milestone
+      await storage.deleteMilestone(milestoneId);
+      
+      res.status(204).end();
+    } catch (error) {
+      console.error('Error deleting milestone:', error);
+      res.status(500).json({ error: 'Failed to delete milestone' });
     }
   });
 

@@ -46,6 +46,13 @@ export const partnerships = pgTable("partnerships", {
   user2Id: integer("user2_id").notNull(),
   status: text("status").notNull().default("pending"), // pending, active, inactive
   startDate: timestamp("start_date"),
+  relationshipType: text("relationship_type"), // dating, engaged, married, etc.
+  anniversaryDate: timestamp("anniversary_date"),
+  meetingStory: text("meeting_story"), // how the couple met
+  coupleNickname: text("couple_nickname"), // nickname for the couple
+  sharedPicture: text("shared_picture"), // URL to a shared couple image
+  relationshipGoals: text("relationship_goals"), // shared goals of the couple
+  privacyLevel: text("privacy_level").default("standard").notNull(), // private, standard, public
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -56,6 +63,46 @@ export const insertPartnershipSchema = createInsertSchema(partnerships).omit({
 
 export type InsertPartnership = z.infer<typeof insertPartnershipSchema>;
 export type Partnership = typeof partnerships.$inferSelect;
+
+// Relationship types
+export const relationshipTypeOptions = ['dating', 'engaged', 'married', 'domestic_partners', 'other'] as const;
+
+// Privacy levels
+export const privacyLevelOptions = ['private', 'standard', 'public'] as const;
+
+// Relationship milestones
+export const relationshipMilestones = pgTable("relationship_milestones", {
+  id: serial("id").primaryKey(),
+  partnershipId: integer("partnership_id").notNull().references(() => partnerships.id),
+  title: text("title").notNull(),
+  description: text("description"),
+  date: timestamp("date").notNull(),
+  type: text("type").notNull(), // first_date, first_kiss, moved_in, engagement, etc.
+  imageUrl: text("image_url"),
+  isPrivate: boolean("is_private").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertMilestoneSchema = createInsertSchema(relationshipMilestones).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertMilestone = z.infer<typeof insertMilestoneSchema>;
+export type Milestone = typeof relationshipMilestones.$inferSelect;
+
+// Milestone types
+export const milestoneTypeOptions = [
+  'first_date', 
+  'first_kiss', 
+  'said_i_love_you', 
+  'moved_in', 
+  'engagement', 
+  'wedding', 
+  'anniversary',
+  'vacation',
+  'other'
+] as const;
 
 export const messages = pgTable("messages", {
   id: serial("id").primaryKey(),
@@ -338,6 +385,19 @@ export const resolveConflictSchema = z.object({
 
 export type ResolveConflictInput = z.infer<typeof resolveConflictSchema>;
 
+// Schema for updating couple profiles
+export const coupleProfileSchema = z.object({
+  relationshipType: z.enum(relationshipTypeOptions).optional(),
+  anniversaryDate: z.string().optional(), // ISO date string
+  meetingStory: z.string().optional(),
+  coupleNickname: z.string().optional(),
+  sharedPicture: z.string().optional(), // URL
+  relationshipGoals: z.string().optional(),
+  privacyLevel: z.enum(privacyLevelOptions).optional(),
+});
+
+export type CoupleProfileInput = z.infer<typeof coupleProfileSchema>;
+
 // Direct messages schema
 export const directMessages = pgTable("direct_messages", {
   id: serial("id").primaryKey(),
@@ -514,6 +574,19 @@ export const requestHelpSchema = z.object({
 });
 
 export type RequestHelpInput = z.infer<typeof requestHelpSchema>;
+
+// Schema for creating relationship milestones
+export const milestoneSchema = z.object({
+  partnershipId: z.number(),
+  title: z.string().min(1, "Please provide a title for this milestone"),
+  description: z.string().optional(),
+  date: z.string(), // ISO date string
+  type: z.enum(milestoneTypeOptions),
+  imageUrl: z.string().url().optional(),
+  isPrivate: z.boolean().default(false)
+});
+
+export type MilestoneInput = z.infer<typeof milestoneSchema>;
 
 // Schema for avatar generation and update
 export const avatarPromptSchema = z.object({

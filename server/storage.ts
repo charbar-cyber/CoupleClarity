@@ -16,10 +16,14 @@ import {
   pushSubscriptions, type PushSubscription, type InsertPushSubscription,
   notificationPreferences, type NotificationPreferences, type InsertNotificationPreferences,
   currentEmotions, type CurrentEmotion, type InsertCurrentEmotion,
+  relationshipMilestones, type Milestone, type InsertMilestone,
   conflictStatusOptions,
   memoryTypes,
   therapistSpecialties,
-  therapyModalities
+  therapyModalities,
+  relationshipTypeOptions,
+  privacyLevelOptions,
+  milestoneTypeOptions
 } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
@@ -51,6 +55,15 @@ export interface IStorage {
   getPartnershipByUser(userId: number): Promise<Partnership | undefined>;
   getPartnershipsForUser(userId: number): Promise<Partnership[]>;
   updatePartnershipStatus(id: number, status: string): Promise<Partnership>;
+  updatePartnershipProfile(id: number, profileData: Partial<InsertPartnership>): Promise<Partnership>;
+  
+  // Milestone operations
+  createMilestone(milestone: InsertMilestone): Promise<Milestone>;
+  getMilestone(id: number): Promise<Milestone | undefined>;
+  getMilestonesByPartnership(partnershipId: number): Promise<Milestone[]>;
+  getMilestonesByType(partnershipId: number, type: string): Promise<Milestone[]>;
+  updateMilestone(id: number, milestoneData: Partial<InsertMilestone>): Promise<Milestone>;
+  deleteMilestone(id: number): Promise<void>;
   
   // Message storage operations
   createMessage(message: InsertMessage): Promise<Message>;
@@ -216,6 +229,7 @@ export class MemStorage implements IStorage {
     this.pushSubscriptions = new Map();
     this.notificationPrefs = new Map();
     this.currentEmotions = new Map();
+    this.relationshipMilestones = new Map();
     this.userIdCounter = 1;
     this.messageIdCounter = 1;
     this.partnershipIdCounter = 1;
@@ -232,6 +246,7 @@ export class MemStorage implements IStorage {
     this.therapistIdCounter = 1;
     this.pushSubscriptionIdCounter = 1;
     this.notificationPrefsIdCounter = 1;
+    this.milestoneIdCounter = 1;
     
     // Create default users with hashed passwords
     // The hash of 'password' using our algorithm
@@ -457,7 +472,14 @@ export class MemStorage implements IStorage {
       user2Id: insertPartnership.user2Id,
       status: "pending",
       createdAt: now,
-      startDate: null // Always initialize as null, will be set when accepted
+      startDate: null, // Always initialize as null, will be set when accepted
+      relationshipType: null,
+      anniversaryDate: null,
+      meetingStory: null,
+      coupleNickname: null,
+      sharedPicture: null,
+      relationshipGoals: null,
+      privacyLevel: "standard"
     };
     
     this.partnerships.set(id, partnership);
@@ -512,6 +534,79 @@ export class MemStorage implements IStorage {
     
     this.partnerships.set(id, updatedPartnership);
     return updatedPartnership;
+  }
+  
+  async updatePartnershipProfile(id: number, profileData: Partial<InsertPartnership>): Promise<Partnership> {
+    const partnership = await this.getPartnership(id);
+    if (!partnership) {
+      throw new Error(`Partnership with id ${id} not found`);
+    }
+    
+    const updatedPartnership = {
+      ...partnership,
+      ...profileData
+    };
+    
+    this.partnerships.set(id, updatedPartnership);
+    return updatedPartnership;
+  }
+  
+  // Milestone operations
+  private relationshipMilestones: Map<number, Milestone> = new Map();
+  private milestoneIdCounter: number = 1;
+  
+  async createMilestone(milestone: InsertMilestone): Promise<Milestone> {
+    const id = this.milestoneIdCounter++;
+    const newMilestone: Milestone = {
+      ...milestone,
+      id,
+      createdAt: new Date(),
+      description: milestone.description || null,
+      imageUrl: milestone.imageUrl || null,
+      isPrivate: milestone.isPrivate || false
+    };
+    
+    this.relationshipMilestones.set(id, newMilestone);
+    return newMilestone;
+  }
+  
+  async getMilestone(id: number): Promise<Milestone | undefined> {
+    return this.relationshipMilestones.get(id);
+  }
+  
+  async getMilestonesByPartnership(partnershipId: number): Promise<Milestone[]> {
+    return Array.from(this.relationshipMilestones.values())
+      .filter(milestone => milestone.partnershipId === partnershipId)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }
+  
+  async getMilestonesByType(partnershipId: number, type: string): Promise<Milestone[]> {
+    return Array.from(this.relationshipMilestones.values())
+      .filter(milestone => milestone.partnershipId === partnershipId && milestone.type === type)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }
+  
+  async updateMilestone(id: number, milestoneData: Partial<InsertMilestone>): Promise<Milestone> {
+    const milestone = await this.getMilestone(id);
+    if (!milestone) {
+      throw new Error(`Milestone with id ${id} not found`);
+    }
+    
+    const updatedMilestone = {
+      ...milestone,
+      ...milestoneData
+    };
+    
+    this.relationshipMilestones.set(id, updatedMilestone);
+    return updatedMilestone;
+  }
+  
+  async deleteMilestone(id: number): Promise<void> {
+    if (!this.relationshipMilestones.has(id)) {
+      throw new Error(`Milestone with id ${id} not found`);
+    }
+    
+    this.relationshipMilestones.delete(id);
   }
   
   // Shared messages

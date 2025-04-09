@@ -33,7 +33,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, Sun, Moon, Bell, User, MessageSquare, PaintBucket, UserCog, LogOut, Users, Mail, Send, ImageIcon } from "lucide-react";
+import { Loader2, Sun, Moon, Bell, User, MessageSquare, PaintBucket, UserCog, LogOut, Users, Mail, Send, ImageIcon, Heart as HeartIcon } from "lucide-react";
 import { UserPreferences } from "@shared/schema";
 import { ChangePasswordForm } from "@/components/change-password-form";
 import { ChangeUsernameForm } from "@/components/change-username-form";
@@ -343,6 +343,20 @@ export default function SettingsPage() {
                 </Button>
               </form>
             </CardContent>
+            <CardFooter className="flex flex-col items-start border-t pt-6">
+              <h3 className="text-sm font-medium mb-2">Couple Profile</h3>
+              <p className="text-sm text-muted-foreground mb-3">
+                Set up your relationship details, milestones, and couple preferences
+              </p>
+              <Button 
+                variant="outline" 
+                className="flex items-center gap-2"
+                onClick={() => navigate("/couple-profile")}
+              >
+                <HeartIcon className="h-4 w-4" />
+                Manage Couple Profile
+              </Button>
+            </CardFooter>
           </Card>
         </TabsContent>
         
