@@ -6,6 +6,7 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { z } from "zod";
 import { Loader2 } from "lucide-react";
+import { useCelebrationAnimations } from "@/hooks/use-animations";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,6 +23,7 @@ export default function ConflictResolutionForm({ threadId }: ConflictResolutionF
   const [, navigate] = useLocation();
   const [summary, setSummary] = useState("");
   const [insights, setInsights] = useState("");
+  const { celebrateResolution } = useCelebrationAnimations();
   
   const resolveConflictMutation = useMutation({
     mutationFn: async (data: { threadId: number; summary: string; insights?: string }) => {
@@ -44,7 +46,14 @@ export default function ConflictResolutionForm({ threadId }: ConflictResolutionF
         title: "Conflict Resolved",
         description: "Thank you for documenting your resolution process.",
       });
-      navigate("/conflict-threads");
+      
+      // Trigger celebration animation for resolving a conflict
+      celebrateResolution("Your relationship is stronger through working together!");
+      
+      // Add a small delay before navigating so user can see animation
+      setTimeout(() => {
+        navigate("/conflict-threads");
+      }, 2000);
     },
     onError: (error: Error) => {
       toast({
