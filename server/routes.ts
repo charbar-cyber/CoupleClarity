@@ -1201,6 +1201,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to analyze love language" });
     }
   });
+  
+  // Create test user for development purposes only
+  app.get('/api/create-test-user', async (req, res) => {
+    try {
+      // Check if test user exists
+      const existingUser = await storage.getUserByUsername('testuser');
+      
+      if (existingUser) {
+        return res.json({ 
+          message: 'Test user already exists',
+          userId: existingUser.id
+        });
+      }
+      
+      // Create test user with password 'password123'
+      const hashedPassword = await hashPassword('password123');
+      
+      const user = await storage.createUser({
+        username: 'testuser',
+        password: hashedPassword,
+        firstName: 'Test',
+        lastName: 'User',
+        email: 'test@example.com',
+        displayName: 'Test User'
+      });
+      
+      // Create user preferences
+      await storage.createUserPreferences({
+        userId: user.id,
+        loveLanguage: 'words_of_affirmation',
+        conflictStyle: 'talk_calmly',
+        communicationStyle: 'direct',
+        repairStyle: 'apology',
+        preferredAiModel: 'openai'
+      });
+      
+      res.json({ 
+        message: 'Test user created successfully',
+        userId: user.id
+      });
+    } catch (error) {
+      console.error('Error creating test user:', error);
+      res.status(500).json({ error: 'Failed to create test user' });
+    }
+  });
 
   return httpServer;
 }

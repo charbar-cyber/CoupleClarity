@@ -38,8 +38,14 @@ export interface LoveLanguageAnalysisResponse {
 }
 
 // Initialize OpenAI client
+// Ensure API key is provided
+if (!process.env.OPENAI_API_KEY) {
+  console.error('WARNING: OPENAI_API_KEY environment variable is not set');
+}
+
+// Initialize OpenAI client
 const openai = new OpenAI({ 
-  apiKey: process.env.OPENAI_API_KEY || "sk-demo-key-for-development" 
+  apiKey: process.env.OPENAI_API_KEY 
 });
 
 /**
