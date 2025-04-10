@@ -196,7 +196,56 @@ export function setupAuth(app: Express) {
       }
       
       if (invite.acceptedAt) {
-        return res.status(400).json({ error: "Invite has already been used" });
+        // Check if the invited user already exists
+        const existingPartner = await storage.getUserByEmail(req.body.email);
+        
+        // If the email in the request matches the partner's email in the invite,
+        // and the partner already has an account, attempt to connect them directly
+        if (existingPartner) {
+          const inviter = await storage.getUser(invite.fromUserId);
+          if (inviter) {
+            // Check if a partnership already exists
+            const existingPartnership = await storage.getPartnershipByUsers(invite.fromUserId, existingPartner.id);
+            if (existingPartnership) {
+              return res.status(400).json({ 
+                error: "You already have a partnership with this user",
+                partnerName: `${inviter.firstName} ${inviter.lastName}`,
+                redirectUrl: "/dashboard"
+              });
+            }
+            
+            // If they don't have a partnership yet, create one
+            await storage.createPartnership({
+              user1Id: invite.fromUserId,
+              user2Id: existingPartner.id,
+              status: "pending",
+              relationshipType: null,
+              anniversaryDate: null,
+              meetingStory: null,
+              coupleNickname: null,
+              sharedPicture: null,
+              relationshipGoals: null,
+              privacyLevel: "standard"
+            });
+            
+            // Login as the existing user
+            req.login(existingPartner, (err: Error) => {
+              if (err) {
+                return next(err);
+              }
+              
+              return res.status(200).json({ 
+                message: "Successfully connected with partner",
+                user: existingPartner,
+                redirectUrl: "/dashboard"
+              });
+            });
+            return;
+          }
+        }
+        
+        // If we can't handle the automatic connection, fall back to the error
+        return res.status(400).json({ error: "Invite has already been used. If you already have an account, try using the 'Connect Existing Account' option instead." });
       }
       
       // Check if username or email already exists
@@ -295,7 +344,10 @@ export function setupAuth(app: Express) {
       }
       
       if (invite.acceptedAt) {
-        return res.status(400).json({ error: "Invite has already been used" });
+        return res.status(400).json({ 
+          error: "Invite has already been used. If you already have an account, try using the 'Connect Existing Account' option instead.",
+          showConnectOption: true
+        });
       }
       
       const inviter = await storage.getUser(invite.fromUserId);

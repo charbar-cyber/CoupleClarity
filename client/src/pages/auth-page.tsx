@@ -59,6 +59,8 @@ export default function AuthPage() {
     partnerFirstName?: string;
     partnerLastName?: string;
     partnerEmail?: string;
+    error?: string;
+    showConnectOption?: boolean;
   } | null>(null);
   
   // Password visibility states
