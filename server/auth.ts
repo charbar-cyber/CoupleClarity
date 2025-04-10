@@ -64,18 +64,28 @@ export function setupAuth(app: Express) {
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
+        console.log(`Authentication attempt for username: "${username}"`);
+        // We'll normalize the username to lowercase for case-insensitive comparison
+        // getUserByUsername is already case-insensitive
         const user = await storage.getUserByUsername(username);
+        
         if (!user) {
+          console.log(`No user found with username: "${username}"`);
           return done(null, false, { message: "Incorrect username" });
         }
         
+        console.log(`User found: ${user.username} (ID: ${user.id}), verifying password...`);
         const isPasswordValid = await comparePasswords(password, user.password);
+        
         if (!isPasswordValid) {
+          console.log('Password verification failed');
           return done(null, false, { message: "Incorrect password" });
         }
         
+        console.log('Authentication successful');
         return done(null, user);
       } catch (error) {
+        console.error('Authentication error:', error);
         return done(error);
       }
     })
