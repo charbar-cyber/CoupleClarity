@@ -26,10 +26,16 @@ export default function ConflictResolutionPage() {
   
   return (
     <div className="container py-8 max-w-2xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6">Resolve Conflict</h1>
+      <h1 className="text-3xl font-bold mb-6 text-primary-blue">Resolve Conflict</h1>
       <p className="text-muted-foreground mb-8">
         Document how you and your partner resolved this conflict, and what you learned from the experience.
       </p>
+      
+      <div className="bg-gradient-to-r from-primary-blue/10 to-accent-coral/10 p-4 rounded-lg mb-8">
+        <p className="text-primary-blue font-medium">
+          Reflecting on conflicts helps strengthen your relationship. Take your time to document what you've learned.
+        </p>
+      </div>
       
       <ConflictResolutionForm threadId={threadId} />
     </div>

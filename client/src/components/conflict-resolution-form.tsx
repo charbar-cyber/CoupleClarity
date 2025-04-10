@@ -69,10 +69,10 @@ export default function ConflictResolutionForm({ threadId }: ConflictResolutionF
   
   return (
     <form onSubmit={handleSubmit}>
-      <Card>
+      <Card className="couple-card">
         <CardContent className="pt-6 space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="summary" className="text-base">
+            <Label htmlFor="summary" className="text-base font-medium">
               Resolution Summary
             </Label>
             <Textarea
@@ -80,13 +80,13 @@ export default function ConflictResolutionForm({ threadId }: ConflictResolutionF
               placeholder="Describe how you and your partner resolved this conflict..."
               value={summary}
               onChange={(e) => setSummary(e.target.value)}
-              className="min-h-[100px]"
+              className="min-h-[100px] border-primary-blue/30 focus:border-primary-blue"
               required
             />
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="insights" className="text-base">
+            <Label htmlFor="insights" className="text-base font-medium">
               What Did You Learn? (Optional)
             </Label>
             <Textarea
@@ -94,7 +94,7 @@ export default function ConflictResolutionForm({ threadId }: ConflictResolutionF
               placeholder="What insights did you gain from this experience? What would you do differently next time?"
               value={insights}
               onChange={(e) => setInsights(e.target.value)}
-              className="min-h-[150px]"
+              className="min-h-[150px] border-primary-blue/30 focus:border-primary-blue"
             />
           </div>
         </CardContent>
@@ -104,12 +104,14 @@ export default function ConflictResolutionForm({ threadId }: ConflictResolutionF
             type="button" 
             variant="outline" 
             onClick={() => navigate(`/conflict-threads/${threadId}`)}
+            className="hover:bg-primary-blue/5 hover:text-primary-blue"
           >
             Cancel
           </Button>
           <Button 
             type="submit"
             disabled={!summary.trim() || resolveConflictMutation.isPending}
+            className="couple-btn-primary"
           >
             {resolveConflictMutation.isPending ? (
               <>
