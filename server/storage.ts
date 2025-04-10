@@ -440,9 +440,18 @@ export class MemStorage implements IStorage {
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
+    console.log(`Searching for user with username: ${username}`);
+    const normalizedUsername = username.toLowerCase().trim();
+    
+    const allUsers = Array.from(this.users.values());
+    
+    // Case insensitive username comparison
+    const user = allUsers.find(
+      (user) => user.username.toLowerCase().trim() === normalizedUsername
     );
+    
+    console.log(user ? `Found user: ${user.username} (ID: ${user.id})` : 'No user found with this username');
+    return user;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
@@ -697,9 +706,24 @@ export class MemStorage implements IStorage {
   
   // User operations
   async getUserByEmail(email: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.email === email
+    console.log(`Searching for user with email: ${email}`);
+    const normalizedEmail = email.toLowerCase().trim();
+    
+    const allUsers = Array.from(this.users.values());
+    console.log(`Total users in database: ${allUsers.length}`);
+    
+    // Debug output of all users in the system
+    allUsers.forEach(user => {
+      console.log(`User ID: ${user.id}, Name: ${user.firstName} ${user.lastName}, Email: ${user.email}`);
+    });
+    
+    // Case insensitive email comparison
+    const user = allUsers.find(
+      (user) => user.email.toLowerCase().trim() === normalizedEmail
     );
+    
+    console.log(user ? `Found user: ${user.username}` : 'No user found with this email');
+    return user;
   }
   
   // Password reset operations
@@ -810,18 +834,39 @@ export class MemStorage implements IStorage {
   }
   
   async getInviteByToken(token: string): Promise<Invite | undefined> {
-    return Array.from(this.invites.values()).find(
+    console.log(`Looking for invite with token: ${token}`);
+    
+    const allInvites = Array.from(this.invites.values());
+    console.log(`Total invites in database: ${allInvites.length}`);
+    
+    if (allInvites.length > 0) {
+      console.log('Existing invite tokens:');
+      allInvites.forEach(invite => {
+        console.log(`- Token: ${invite.inviteToken}, From: ${invite.fromUserId}, Partner Email: ${invite.partnerEmail}, Accepted: ${invite.acceptedAt ? 'Yes' : 'No'}`);
+      });
+    }
+    
+    const invite = allInvites.find(
       (invite) => invite.inviteToken === token
     );
+    
+    console.log(invite ? `Found invite from user ID: ${invite.fromUserId}` : 'No invite found with this token');
+    return invite;
   }
   
   async getInvitesByEmail(email: string): Promise<Invite[]> {
-    return Array.from(this.invites.values())
-      .filter(invite => invite.partnerEmail === email)
+    console.log(`Looking for invites with email: ${email}`);
+    const normalizedEmail = email.toLowerCase().trim();
+    
+    const invites = Array.from(this.invites.values())
+      .filter(invite => invite.partnerEmail.toLowerCase().trim() === normalizedEmail)
       .sort((a, b) => {
         // Sort by invitedAt in descending order (newest first)
         return new Date(b.invitedAt).getTime() - new Date(a.invitedAt).getTime();
       });
+      
+    console.log(`Found ${invites.length} invites for email: ${email}`);
+    return invites;
   }
   
   async updateInviteAccepted(id: number): Promise<Invite> {
