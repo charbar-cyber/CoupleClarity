@@ -98,20 +98,28 @@ export function setupAuth(app: Express) {
 
   // Authentication Routes
   app.post("/api/login", (req, res, next) => {
+    console.log("Login attempt for username:", req.body.username);
+    
     passport.authenticate("local", (err: Error | null, user: User | false, info: { message: string }) => {
       if (err) {
+        console.error("Login error:", err);
         return next(err);
       }
       
       if (!user) {
+        console.log("Authentication failed:", info?.message || "Unknown reason");
         return res.status(401).json({ error: info?.message || "Authentication failed" });
       }
       
+      console.log("User authenticated successfully:", user.username);
+      
       req.login(user, (err: Error) => {
         if (err) {
+          console.error("Session error:", err);
           return next(err);
         }
         
+        console.log("Login successful, session created");
         return res.json(user);
       });
     })(req, res, next);
