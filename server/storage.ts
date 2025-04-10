@@ -1657,7 +1657,7 @@ export class MemStorage implements IStorage {
       ...template,
       id,
       createdAt: now,
-      updatedAt: now
+      isActive: true
     };
     
     this.exerciseTemplates.set(id, newTemplate);

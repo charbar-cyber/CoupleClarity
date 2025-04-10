@@ -525,6 +525,7 @@ export const notificationPreferences = pgTable("notification_preferences", {
   conflictUpdates: boolean("conflict_updates").default(true).notNull(),
   weeklyCheckIns: boolean("weekly_check_ins").default(true).notNull(),
   appreciations: boolean("appreciations").default(true).notNull(),
+  exerciseNotifications: boolean("exercise_notifications").default(true).notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
@@ -573,6 +574,9 @@ export const exerciseStatusOptions = [
 export const communicationExercises = pgTable("communication_exercises", {
   id: serial("id").primaryKey(),
   partnershipId: integer("partnership_id").notNull().references(() => partnerships.id),
+  initiatorId: integer("initiator_id").notNull().references(() => users.id),
+  partnerId: integer("partner_id").notNull().references(() => users.id),
+  templateId: integer("template_id").references(() => exerciseTemplates.id),
   title: text("title").notNull(),
   description: text("description").notNull(),
   type: text("type", { enum: exerciseTypeOptions }).notNull(),
@@ -647,7 +651,8 @@ export const exerciseTemplates = pgTable("exercise_templates", {
   difficultyLevel: text("difficulty_level").notNull(), // beginner, intermediate, advanced
   estimatedTimeMinutes: integer("estimated_time_minutes").notNull(),
   isActive: boolean("is_active").default(true).notNull(),
-  templateData: text("template_data").notNull(), // JSON data with steps
+  steps: text("steps").notNull(), // JSON array of step objects
+  templateData: text("template_data").notNull(), // JSON data with additional config
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
