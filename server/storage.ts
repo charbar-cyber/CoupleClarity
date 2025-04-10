@@ -1690,14 +1690,25 @@ export class MemStorage implements IStorage {
     const now = new Date();
     
     const newExercise: CommunicationExercise = {
-      ...exercise,
       id,
-      createdAt: now,
-      lastUpdatedAt: now,
-      completedAt: null,
-      status: exercise.status || 'in_progress',
+      partnershipId: exercise.partnershipId,
+      initiatorId: exercise.initiatorId,
+      partnerId: exercise.partnerId,
+      templateId: exercise.templateId || null,
+      title: exercise.title,
+      description: exercise.description,
+      type: exercise.type,
+      status: 'in_progress',
+      currentStep: exercise.currentStep || 1,
       currentStepNumber: exercise.currentStepNumber || 1,
-      currentUserId: exercise.currentUserId || exercise.initiatorId
+      totalSteps: exercise.totalSteps,
+      currentUserId: exercise.currentUserId || exercise.initiatorId,
+      scheduledFor: exercise.scheduledFor || now,
+      completedAt: null,
+      user1Progress: exercise.user1Progress || '{}',
+      user2Progress: exercise.user2Progress || '{}',
+      createdAt: now,
+      lastUpdatedAt: now
     };
     
     this.communicationExercises.set(id, newExercise);
@@ -1814,9 +1825,16 @@ export class MemStorage implements IStorage {
     const id = this.exerciseStepIdCounter++;
     
     const newStep: ExerciseStep = {
-      ...step,
       id,
-      instructions: step.instructions || null,
+      exerciseId: step.exerciseId,
+      stepNumber: step.stepNumber,
+      title: step.title,
+      instructions: step.instructions || '',
+      promptText: step.promptText,
+      expectedResponseType: step.expectedResponseType,
+      options: step.options || '[]',
+      requiredForCompletion: step.requiredForCompletion !== undefined ? step.requiredForCompletion : true,
+      userRole: step.userRole || 'both',
       timeEstimate: step.timeEstimate || null
     };
     
@@ -1844,11 +1862,16 @@ export class MemStorage implements IStorage {
     const now = new Date();
     
     const newResponse: ExerciseResponse = {
-      ...response,
       id,
-      createdAt: now,
+      userId: response.userId,
+      exerciseId: response.exerciseId,
+      stepId: response.stepId,
+      responseText: response.responseText || null,
+      responseOption: response.responseOption || null,
+      audioUrl: response.audioUrl || null,
       aiAnalysis: response.aiAnalysis || null,
-      isCompleted: response.isCompleted || true
+      isCompleted: response.isCompleted !== undefined ? response.isCompleted : true,
+      createdAt: now
     };
     
     this.exerciseResponses.set(id, newResponse);

@@ -1617,13 +1617,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
               await storage.createExerciseStep({
                 exerciseId: exercise.id,
                 stepNumber: i + 1,
-                title: stepData.title,
-                promptText: stepData.promptText,
-                instructions: stepData.instructions,
+                title: stepData.title || `Step ${i + 1}`,
+                promptText: stepData.promptText || '',
+                instructions: stepData.instructions || '',
                 expectedResponseType: stepData.expectedResponseType || 'text',
-                options: stepData.options || null,
-                requiredForCompletion: stepData.requiredForCompletion || true,
-                userRole: stepData.userRole || 'both'
+                options: stepData.options || '[]',
+                requiredForCompletion: stepData.requiredForCompletion !== undefined ? stepData.requiredForCompletion : true,
+                userRole: stepData.userRole || 'both',
+                timeEstimate: stepData.timeEstimate || null
               });
             }
           }
