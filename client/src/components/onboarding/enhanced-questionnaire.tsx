@@ -207,8 +207,9 @@ export function EnhancedOnboardingQuestionnaire({ onComplete, onBack, initialPre
                             id="challenge-communication" 
                             checked={selectedChallenges.communication}
                             onCheckedChange={(checked) => {
-                              setSelectedChallenges({...selectedChallenges, communication: checked === true});
-                              handleChallengeChange();
+                              const newChallenges = {...selectedChallenges, communication: checked === true};
+                              setSelectedChallenges(newChallenges);
+                              handleChallengeChange(newChallenges, otherChallenge);
                             }}
                           />
                           <FormLabel htmlFor="challenge-communication" className="font-normal flex-1 cursor-pointer">
@@ -221,13 +222,14 @@ export function EnhancedOnboardingQuestionnaire({ onComplete, onBack, initialPre
                             id="challenge-emotional" 
                             checked={selectedChallenges.emotionalDistance}
                             onCheckedChange={(checked) => {
-                              setSelectedChallenges({...selectedChallenges, emotionalDistance: checked === true});
-                              handleChallengeChange();
+                              const newChallenges = {...selectedChallenges, emotionalDistance: checked === true};
+                              setSelectedChallenges(newChallenges);
+                              handleChallengeChange(newChallenges, otherChallenge);
                             }}
                           />
-                          <Label htmlFor="challenge-emotional" className="font-normal flex-1 cursor-pointer">
+                          <FormLabel htmlFor="challenge-emotional" className="font-normal flex-1 cursor-pointer">
                             Emotional distance
-                          </Label>
+                          </FormLabel>
                         </div>
                         
                         <div className="flex items-start space-x-2 p-2 border rounded-md">
@@ -235,13 +237,14 @@ export function EnhancedOnboardingQuestionnaire({ onComplete, onBack, initialPre
                             id="challenge-trust" 
                             checked={selectedChallenges.trust}
                             onCheckedChange={(checked) => {
-                              setSelectedChallenges({...selectedChallenges, trust: checked === true});
-                              handleChallengeChange();
+                              const newChallenges = {...selectedChallenges, trust: checked === true};
+                              setSelectedChallenges(newChallenges);
+                              handleChallengeChange(newChallenges, otherChallenge);
                             }}
                           />
-                          <Label htmlFor="challenge-trust" className="font-normal flex-1 cursor-pointer">
+                          <FormLabel htmlFor="challenge-trust" className="font-normal flex-1 cursor-pointer">
                             Trust or betrayal
-                          </Label>
+                          </FormLabel>
                         </div>
                         
                         <div className="flex items-start space-x-2 p-2 border rounded-md">
@@ -249,13 +252,14 @@ export function EnhancedOnboardingQuestionnaire({ onComplete, onBack, initialPre
                             id="challenge-parenting" 
                             checked={selectedChallenges.parenting}
                             onCheckedChange={(checked) => {
-                              setSelectedChallenges({...selectedChallenges, parenting: checked === true});
-                              handleChallengeChange();
+                              const newChallenges = {...selectedChallenges, parenting: checked === true};
+                              setSelectedChallenges(newChallenges);
+                              handleChallengeChange(newChallenges, otherChallenge);
                             }}
                           />
-                          <Label htmlFor="challenge-parenting" className="font-normal flex-1 cursor-pointer">
+                          <FormLabel htmlFor="challenge-parenting" className="font-normal flex-1 cursor-pointer">
                             Parenting stress
-                          </Label>
+                          </FormLabel>
                         </div>
                         
                         <div className="flex items-start space-x-2 p-2 border rounded-md">
@@ -267,9 +271,9 @@ export function EnhancedOnboardingQuestionnaire({ onComplete, onBack, initialPre
                               handleChallengeChange();
                             }}
                           />
-                          <Label htmlFor="challenge-intimacy" className="font-normal flex-1 cursor-pointer">
+                          <FormLabel htmlFor="challenge-intimacy" className="font-normal flex-1 cursor-pointer">
                             Intimacy issues
-                          </Label>
+                          </FormLabel>
                         </div>
                         
                         <div className="flex items-start space-x-2 p-2 border rounded-md">
@@ -281,9 +285,9 @@ export function EnhancedOnboardingQuestionnaire({ onComplete, onBack, initialPre
                               handleChallengeChange();
                             }}
                           />
-                          <Label htmlFor="challenge-other" className="font-normal flex-1 cursor-pointer">
+                          <FormLabel htmlFor="challenge-other" className="font-normal flex-1 cursor-pointer">
                             Other
-                          </Label>
+                          </FormLabel>
                         </div>
                         
                         {selectedChallenges.other && (
@@ -292,9 +296,10 @@ export function EnhancedOnboardingQuestionnaire({ onComplete, onBack, initialPre
                               placeholder="Please specify..."
                               value={otherChallenge}
                               onChange={(e) => {
-                                setOtherChallenge(e.target.value);
-                                // Small delay to ensure state updates
-                                setTimeout(handleChallengeChange, 0);
+                                const newValue = e.target.value;
+                                setOtherChallenge(newValue);
+                                // Pass the current state and updated value to handle the change immediately
+                                handleChallengeChange(selectedChallenges, newValue);
                               }}
                               className="w-full"
                             />
