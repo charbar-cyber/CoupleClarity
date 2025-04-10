@@ -139,9 +139,9 @@ export function EnhancedOnboardingQuestionnaire({ onComplete, onBack, initialPre
                 name="relationshipGoals"
                 render={({ field }) => (
                   <FormItem className="space-y-3">
-                    <FormLabel>What are your relationship goals?</FormLabel>
+                    <FormLabel>What do you hope to build, strengthen, or heal in your relationship?</FormLabel>
                     <FormDescription>
-                      Share what you hope to achieve or improve in your relationship
+                      Share your vision for how you want your relationship to grow
                     </FormDescription>
                     <FormControl>
                       <Textarea

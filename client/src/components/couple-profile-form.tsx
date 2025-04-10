@@ -264,10 +264,10 @@ export function CoupleProfileForm() {
               name="relationshipGoals"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Relationship Goals</FormLabel>
+                  <FormLabel>Relationship Vision</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="What are your goals as a couple?"
+                      placeholder="What do you hope to build, strengthen, or heal in your relationship?"
                       className="resize-none"
                       rows={4}
                       {...field}
@@ -275,7 +275,7 @@ export function CoupleProfileForm() {
                     />
                   </FormControl>
                   <FormDescription>
-                    What are you working towards together? (optional)
+                    Share your vision for how you want your relationship to grow (optional)
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
