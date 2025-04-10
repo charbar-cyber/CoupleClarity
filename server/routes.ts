@@ -41,11 +41,23 @@ import {
   milestoneTypeOptions,
   coupleProfileSchema,
   milestoneSchema,
+  exerciseProgressSchema,
+  exerciseTypeOptions,
+  exerciseStatusOptions,
+  insertExerciseSchema,
+  insertExerciseStepSchema,
+  insertExerciseResponseSchema,
+  insertExerciseTemplateSchema,
   type Therapist,
   type User,
   type EnhancedOnboardingQuestionnaire,
   type Partnership,
-  type Milestone
+  type Milestone,
+  type CommunicationExercise,
+  type ExerciseStep,
+  type ExerciseResponse,
+  type ExerciseTemplate,
+  type ExerciseProgressInput
 } from "@shared/schema";
 
 // Extended WebSocket interface with userId

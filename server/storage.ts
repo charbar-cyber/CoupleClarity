@@ -1647,6 +1647,236 @@ export class MemStorage implements IStorage {
     // Get partner's current emotion
     return this.getCurrentEmotion(partnerId);
   }
+
+  // Communication exercise operations
+  async createExerciseTemplate(template: InsertExerciseTemplate): Promise<ExerciseTemplate> {
+    const id = this.exerciseTemplateIdCounter++;
+    const now = new Date();
+    
+    const newTemplate: ExerciseTemplate = {
+      ...template,
+      id,
+      createdAt: now,
+      updatedAt: now
+    };
+    
+    this.exerciseTemplates.set(id, newTemplate);
+    return newTemplate;
+  }
+  
+  async getExerciseTemplate(id: number): Promise<ExerciseTemplate | undefined> {
+    return this.exerciseTemplates.get(id);
+  }
+  
+  async getExerciseTemplates(type?: string, difficultyLevel?: string): Promise<ExerciseTemplate[]> {
+    let templates = Array.from(this.exerciseTemplates.values());
+    
+    if (type) {
+      templates = templates.filter(template => template.type === type);
+    }
+    
+    if (difficultyLevel) {
+      templates = templates.filter(template => template.difficultyLevel === difficultyLevel);
+    }
+    
+    return templates.sort((a, b) => a.title.localeCompare(b.title));
+  }
+  
+  async createExercise(exercise: InsertExercise): Promise<CommunicationExercise> {
+    const id = this.exerciseIdCounter++;
+    const now = new Date();
+    
+    const newExercise: CommunicationExercise = {
+      ...exercise,
+      id,
+      createdAt: now,
+      lastUpdatedAt: now,
+      completedAt: null,
+      status: exercise.status || 'in_progress',
+      currentStepNumber: exercise.currentStepNumber || 1,
+      currentUserId: exercise.currentUserId || exercise.initiatorId
+    };
+    
+    this.communicationExercises.set(id, newExercise);
+    return newExercise;
+  }
+  
+  async getExerciseById(id: number): Promise<CommunicationExercise | undefined> {
+    return this.communicationExercises.get(id);
+  }
+  
+  async getExercisesByPartnership(partnershipId: number, status?: string): Promise<CommunicationExercise[]> {
+    let exercises = Array.from(this.communicationExercises.values())
+      .filter(exercise => exercise.partnershipId === partnershipId);
+    
+    if (status) {
+      exercises = exercises.filter(exercise => exercise.status === status);
+    }
+    
+    return exercises.sort((a, b) => 
+      new Date(b.lastUpdatedAt).getTime() - new Date(a.lastUpdatedAt).getTime()
+    );
+  }
+  
+  async getExercisesForUser(userId: number, status?: string): Promise<CommunicationExercise[]> {
+    let exercises = Array.from(this.communicationExercises.values())
+      .filter(exercise => 
+        exercise.initiatorId === userId || 
+        exercise.partnerId === userId
+      );
+    
+    if (status) {
+      exercises = exercises.filter(exercise => exercise.status === status);
+    }
+    
+    return exercises.sort((a, b) => 
+      new Date(b.lastUpdatedAt).getTime() - new Date(a.lastUpdatedAt).getTime()
+    );
+  }
+  
+  async updateExerciseStatus(id: number, status: string): Promise<CommunicationExercise> {
+    const exercise = await this.getExerciseById(id);
+    if (!exercise) {
+      throw new Error(`Exercise with id ${id} not found`);
+    }
+    
+    const now = new Date();
+    const updatedExercise: CommunicationExercise = {
+      ...exercise,
+      status: status as typeof exerciseStatusOptions[number],
+      lastUpdatedAt: now,
+      completedAt: status === 'completed' ? now : exercise.completedAt
+    };
+    
+    this.communicationExercises.set(id, updatedExercise);
+    return updatedExercise;
+  }
+  
+  async updateExerciseCurrentStep(id: number, stepNumber: number): Promise<CommunicationExercise> {
+    const exercise = await this.getExerciseById(id);
+    if (!exercise) {
+      throw new Error(`Exercise with id ${id} not found`);
+    }
+    
+    const updatedExercise: CommunicationExercise = {
+      ...exercise,
+      currentStepNumber: stepNumber,
+      lastUpdatedAt: new Date()
+    };
+    
+    this.communicationExercises.set(id, updatedExercise);
+    return updatedExercise;
+  }
+  
+  async updateExerciseCurrentUser(id: number, userId: number): Promise<CommunicationExercise> {
+    const exercise = await this.getExerciseById(id);
+    if (!exercise) {
+      throw new Error(`Exercise with id ${id} not found`);
+    }
+    
+    // Verify that userId belongs to either initiator or partner
+    if (userId !== exercise.initiatorId && userId !== exercise.partnerId) {
+      throw new Error(`User ${userId} is not part of this exercise`);
+    }
+    
+    const updatedExercise: CommunicationExercise = {
+      ...exercise,
+      currentUserId: userId,
+      lastUpdatedAt: new Date()
+    };
+    
+    this.communicationExercises.set(id, updatedExercise);
+    return updatedExercise;
+  }
+  
+  async completeExercise(id: number): Promise<CommunicationExercise> {
+    const exercise = await this.getExerciseById(id);
+    if (!exercise) {
+      throw new Error(`Exercise with id ${id} not found`);
+    }
+    
+    const now = new Date();
+    const updatedExercise: CommunicationExercise = {
+      ...exercise,
+      status: 'completed',
+      completedAt: now,
+      lastUpdatedAt: now
+    };
+    
+    this.communicationExercises.set(id, updatedExercise);
+    return updatedExercise;
+  }
+  
+  async createExerciseStep(step: InsertExerciseStep): Promise<ExerciseStep> {
+    const id = this.exerciseStepIdCounter++;
+    
+    const newStep: ExerciseStep = {
+      ...step,
+      id,
+      instructions: step.instructions || null,
+      timeEstimate: step.timeEstimate || null
+    };
+    
+    this.exerciseSteps.set(id, newStep);
+    return newStep;
+  }
+  
+  async getExerciseStepById(id: number): Promise<ExerciseStep | undefined> {
+    return this.exerciseSteps.get(id);
+  }
+  
+  async getExerciseSteps(exerciseId: number): Promise<ExerciseStep[]> {
+    return Array.from(this.exerciseSteps.values())
+      .filter(step => step.exerciseId === exerciseId)
+      .sort((a, b) => a.stepNumber - b.stepNumber);
+  }
+  
+  async getExerciseStepByNumber(exerciseId: number, stepNumber: number): Promise<ExerciseStep | undefined> {
+    return Array.from(this.exerciseSteps.values())
+      .find(step => step.exerciseId === exerciseId && step.stepNumber === stepNumber);
+  }
+  
+  async createExerciseResponse(response: InsertExerciseResponse): Promise<ExerciseResponse> {
+    const id = this.exerciseResponseIdCounter++;
+    const now = new Date();
+    
+    const newResponse: ExerciseResponse = {
+      ...response,
+      id,
+      createdAt: now,
+      aiAnalysis: response.aiAnalysis || null,
+      isCompleted: response.isCompleted || true
+    };
+    
+    this.exerciseResponses.set(id, newResponse);
+    return newResponse;
+  }
+  
+  async getExerciseResponses(exerciseId: number, userId?: number): Promise<ExerciseResponse[]> {
+    let responses = Array.from(this.exerciseResponses.values())
+      .filter(response => response.exerciseId === exerciseId);
+    
+    if (userId) {
+      responses = responses.filter(response => response.userId === userId);
+    }
+    
+    return responses.sort((a, b) => 
+      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+  }
+  
+  async getExerciseStepResponses(stepId: number): Promise<ExerciseResponse[]> {
+    return Array.from(this.exerciseResponses.values())
+      .filter(response => response.stepId === stepId)
+      .sort((a, b) => 
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
+  }
+  
+  async getUserResponseForStep(stepId: number, userId: number): Promise<ExerciseResponse | undefined> {
+    return Array.from(this.exerciseResponses.values())
+      .find(response => response.stepId === stepId && response.userId === userId);
+  }
 }
 
 export const storage = new MemStorage();
