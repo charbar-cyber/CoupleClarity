@@ -213,11 +213,23 @@ export default function AuthPage() {
     <div className="flex items-center justify-center min-h-screen bg-background p-4">
       <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-8">
         <Card className="w-full">
-          <CardHeader>
-            <CardTitle className="text-3xl font-bold">
-              Welcome to CoupleClarity
+          <CardHeader className="text-center">
+            <div className="flex flex-col items-center gap-4 mb-4">
+              <img 
+                src="/assets/logo-icon.png" 
+                alt="CoupleClarity Logo" 
+                className="h-20 w-auto" 
+              />
+              <img 
+                src="/assets/logo-text.png" 
+                alt="CoupleClarity" 
+                className="h-10 w-auto" 
+              />
+            </div>
+            <CardTitle className="text-3xl font-bold text-primary-blue">
+              Welcome
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-lg">
               Transform emotional expressions into empathetic communication
             </CardDescription>
           </CardHeader>
@@ -333,7 +345,7 @@ export default function AuthPage() {
                   
                   <Button 
                     type="submit" 
-                    className="w-full"
+                    className="w-full couple-btn-primary"
                     disabled={registerMutation.isPending}
                     onClick={() => {
                       console.log("Invitation form button clicked");
@@ -392,7 +404,7 @@ export default function AuthPage() {
                     
                     <Button 
                       type="submit" 
-                      className="w-full"
+                      className="w-full couple-btn-primary"
                       disabled={loginMutation.isPending}
                     >
                       {loginMutation.isPending && (
@@ -541,7 +553,7 @@ export default function AuthPage() {
                     
                     <Button 
                       type="submit" 
-                      className="w-full"
+                      className="w-full couple-btn-primary"
                       disabled={registerMutation.isPending}
                     >
                       {registerMutation.isPending && (
@@ -557,32 +569,48 @@ export default function AuthPage() {
         </Card>
         
         <div className="hidden lg:flex flex-col justify-center">
-          <div className="space-y-4">
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
+          <div className="space-y-6">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-primary-blue to-accent-coral bg-clip-text text-transparent">
               Strengthen Your Connection
             </h1>
             <p className="text-xl">
               CoupleClarity helps you express difficult emotions in a constructive way, 
               transforming potential conflicts into opportunities for deeper connection.
             </p>
-            <ul className="space-y-2">
+            <ul className="space-y-4">
               <li className="flex items-center">
-                <div className="mr-2 h-4 w-4 rounded-full bg-primary" />
+                <div className="mr-3 h-5 w-5 rounded-full bg-primary-blue flex items-center justify-center">
+                  <div className="h-2 w-2 rounded-full bg-white"></div>
+                </div>
                 <span>Express your emotions without fear</span>
               </li>
               <li className="flex items-center">
-                <div className="mr-2 h-4 w-4 rounded-full bg-primary" />
+                <div className="mr-3 h-5 w-5 rounded-full bg-primary-blue flex items-center justify-center">
+                  <div className="h-2 w-2 rounded-full bg-white"></div>
+                </div>
                 <span>Transform raw feelings into empathetic messages</span>
               </li>
               <li className="flex items-center">
-                <div className="mr-2 h-4 w-4 rounded-full bg-primary" />
+                <div className="mr-3 h-5 w-5 rounded-full bg-primary-blue flex items-center justify-center">
+                  <div className="h-2 w-2 rounded-full bg-white"></div>
+                </div>
                 <span>Share your heart in a way your partner can receive</span>
               </li>
               <li className="flex items-center">
-                <div className="mr-2 h-4 w-4 rounded-full bg-primary" />
+                <div className="mr-3 h-5 w-5 rounded-full bg-primary-blue flex items-center justify-center">
+                  <div className="h-2 w-2 rounded-full bg-white"></div>
+                </div>
                 <span>Build a foundation of understanding and trust</span>
               </li>
             </ul>
+            
+            <div className="mt-4 p-4 bg-gradient-to-r from-primary-blue/10 to-accent-coral/10 rounded-lg">
+              <p className="text-primary-blue font-medium">
+                "CoupleClarity transformed how we communicate during difficult moments. 
+                It's like having a relationship translator."
+              </p>
+              <p className="text-sm mt-2 text-muted-foreground">— Sarah & Michael, using CoupleClarity for 6 months</p>
+            </div>
           </div>
         </div>
       </div>
