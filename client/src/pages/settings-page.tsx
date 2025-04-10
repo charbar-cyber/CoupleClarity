@@ -33,7 +33,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, Sun, Moon, Bell, User, MessageSquare, PaintBucket, UserCog, LogOut, Users, Mail, Send, ImageIcon, Heart as HeartIcon } from "lucide-react";
+import { 
+  Loader2, Sun, Moon, Bell, User, MessageSquare, PaintBucket, UserCog, 
+  LogOut, Users, Mail, Send, ImageIcon, Heart as HeartIcon, 
+  RefreshCw, UserMinus, MoreVertical
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { UserPreferences } from "@shared/schema";
 import { ChangePasswordForm } from "@/components/change-password-form";
 import { ChangeUsernameForm } from "@/components/change-username-form";
@@ -169,6 +181,81 @@ export default function SettingsPage() {
   const handlePartnerInviteSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     invitePartnerMutation.mutate(partnerInviteForm);
+  };
+
+  // Regenerate invitation mutation
+  const regenerateInviteMutation = useMutation({
+    mutationFn: async (partnershipId: number) => {
+      const res = await apiRequest("POST", `/api/partnerships/${partnershipId}/regenerate-invite`, {});
+      return await res.json();
+    },
+    onSuccess: (data) => {
+      // Construct the full invitation link with the invitation token
+      const baseUrl = window.location.origin;
+      const inviteLink = `${baseUrl}/auth?token=${data.token}`;
+      
+      // Display the link in a dialog or copy to clipboard
+      navigator.clipboard.writeText(inviteLink)
+        .then(() => {
+          toast({
+            title: "New invitation link created!",
+            description: "The link has been copied to your clipboard. Share it with your partner.",
+          });
+        })
+        .catch(() => {
+          toast({
+            title: "New invitation link created!",
+            description: `Share this link with your partner: ${inviteLink}`,
+          });
+        });
+      
+      // Refresh partnerships
+      queryClient.invalidateQueries({ queryKey: ["/api/users", user?.id, "partnerships"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Failed to regenerate invitation link",
+        description: error.message,
+      });
+    },
+  });
+
+  // Remove partner mutation
+  const removePartnerMutation = useMutation({
+    mutationFn: async (partnershipId: number) => {
+      const res = await apiRequest("DELETE", `/api/partnerships/${partnershipId}`, {});
+      return await res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Partnership removed",
+        description: "Your partnership has been ended. You can now invite a new partner.",
+      });
+      // Refresh partnerships
+      queryClient.invalidateQueries({ queryKey: ["/api/users", user?.id, "partnerships"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Failed to remove partnership",
+        description: error.message,
+      });
+    },
+  });
+
+  // Handle regenerate invitation
+  const handleRegenerateInvite = (partnershipId: number) => {
+    if (confirm("Are you sure you want to generate a new invitation link? The previous link will no longer work.")) {
+      regenerateInviteMutation.mutate(partnershipId);
+    }
+  };
+
+  // Handle remove partner
+  const handleRemovePartner = (partnershipId: number) => {
+    if (confirm("Are you sure you want to remove this partner? This action cannot be undone.")) {
+      removePartnerMutation.mutate(partnershipId);
+    }
   };
 
   // Handle logout
