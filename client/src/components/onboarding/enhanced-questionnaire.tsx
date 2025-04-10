@@ -267,8 +267,9 @@ export function EnhancedOnboardingQuestionnaire({ onComplete, onBack, initialPre
                             id="challenge-intimacy" 
                             checked={selectedChallenges.intimacy}
                             onCheckedChange={(checked) => {
-                              setSelectedChallenges({...selectedChallenges, intimacy: checked === true});
-                              handleChallengeChange();
+                              const newChallenges = {...selectedChallenges, intimacy: checked === true};
+                              setSelectedChallenges(newChallenges);
+                              handleChallengeChange(newChallenges, otherChallenge);
                             }}
                           />
                           <FormLabel htmlFor="challenge-intimacy" className="font-normal flex-1 cursor-pointer">
@@ -281,8 +282,9 @@ export function EnhancedOnboardingQuestionnaire({ onComplete, onBack, initialPre
                             id="challenge-other" 
                             checked={selectedChallenges.other}
                             onCheckedChange={(checked) => {
-                              setSelectedChallenges({...selectedChallenges, other: checked === true});
-                              handleChallengeChange();
+                              const newChallenges = {...selectedChallenges, other: checked === true};
+                              setSelectedChallenges(newChallenges);
+                              handleChallengeChange(newChallenges, otherChallenge);
                             }}
                           />
                           <FormLabel htmlFor="challenge-other" className="font-normal flex-1 cursor-pointer">
