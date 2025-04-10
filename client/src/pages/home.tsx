@@ -17,7 +17,6 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { useAuth } from "@/hooks/use-auth";
-import { useCelebrationAnimations, useAnimations } from "@/hooks/use-animations";
 
 export default function Home() {
   const { toast } = useToast();
@@ -27,8 +26,6 @@ export default function Home() {
   const [transformedResponse, setTransformedResponse] = useState<TransformationResponse | null>(null);
   const [shareWithPartner, setShareWithPartner] = useState(false);
   const { connected, sendMessage } = useWebSocket();
-  const { celebrateMessageSent } = useCelebrationAnimations();
-  const { triggerAnimation } = useAnimations();
   
   // Get user info
   const userId = user?.id;
@@ -79,24 +76,11 @@ export default function Home() {
           title: "Message shared",
           description: "Your message has been shared with your partner.",
         });
-        
-        // Trigger celebration animation with hearts for sharing with partner
-        celebrateMessageSent();
       } else {
         toast({
           title: "Message transformed successfully",
           description: "Your emotional message has been transformed into empathetic communication.",
         });
-        
-        // Show a positive message animation when transforming a message
-        setTimeout(() => {
-          // Small delay so the toast and animation don't compete
-          triggerAnimation('message', {
-            message: "Your emotional message has been expertly transformed!",
-            messageType: 'relationship',
-            duration: 4000
-          });
-        }, 500);
       }
     },
     onError: (error) => {

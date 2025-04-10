@@ -6,7 +6,6 @@ import { format } from "date-fns";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { useCelebrationAnimations } from "@/hooks/use-animations";
 
 import {
   Dialog,
@@ -129,8 +128,7 @@ export function MilestoneDialog({
     }
   };
 
-  // Use celebration animations
-  const { celebrateMilestone } = useCelebrationAnimations();
+  // Animation will be implemented later
 
   // Submit mutation
   const submitMutation = useMutation({
@@ -162,11 +160,8 @@ export function MilestoneDialog({
       });
       queryClient.invalidateQueries({ queryKey: ["/api/partnership/milestones"] });
 
-      // Trigger confetti celebration animation after successful submission
-      if (!isEditing) {
-        // Only show confetti for new milestones
-        celebrateMilestone(`You've added an important moment to your relationship journey!`);
-      }
+      // Animation will be implemented later
+      // We'll add celebration confetti here in the future
 
       onOpenChange(false);
     },
