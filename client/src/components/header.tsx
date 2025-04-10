@@ -42,12 +42,16 @@ export default function Header() {
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
         <Link href="/">
           <div className="flex items-center cursor-pointer">
-            <div className="h-10 w-10 rounded-full bg-gradient-to-r from-primary to-blue-600 flex items-center justify-center mr-3">
-              <span className="text-white text-xl font-bold">CC</span>
-            </div>
-            <h1 className="text-xl font-semibold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
-              CoupleClarity
-            </h1>
+            <img 
+              src="/assets/logo-icon.png" 
+              alt="CoupleClarity Logo" 
+              className="h-10 w-auto mr-3" 
+            />
+            <img 
+              src="/assets/logo-text.png" 
+              alt="CoupleClarity" 
+              className="h-8 w-auto" 
+            />
           </div>
         </Link>
         
@@ -61,7 +65,7 @@ export default function Header() {
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>
                 <div className="flex items-center gap-2">
-                  <div className="h-8 w-8 rounded-full bg-primary text-white flex items-center justify-center">
+                  <div className="h-8 w-8 rounded-full bg-primary-blue text-white flex items-center justify-center">
                     <span className="font-medium text-sm">{getInitials()}</span>
                   </div>
                   <div>
@@ -144,7 +148,7 @@ export default function Header() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="h-8 w-8 rounded-full p-0">
-                  <div className="h-8 w-8 rounded-full bg-primary text-white flex items-center justify-center">
+                  <div className="h-8 w-8 rounded-full bg-primary-blue text-white flex items-center justify-center">
                     <span className="font-medium text-sm">{getInitials()}</span>
                   </div>
                 </Button>
