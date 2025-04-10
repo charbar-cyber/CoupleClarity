@@ -1578,6 +1578,109 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: 'Failed to fetch exercise template' });
     }
   });
+
+  // Check if a user exists by email
+  app.get('/api/users/check-email/:email', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      const { email } = req.params;
+      if (!email) {
+        return res.status(400).json({ error: "Email is required" });
+      }
+      
+      const existingUser = await storage.getUserByEmail(email);
+      
+      // Don't return user details, just whether the user exists
+      res.json({ 
+        exists: !!existingUser,
+        // Only send the id if the user exists
+        userId: existingUser ? existingUser.id : null,
+        // Only include name if the user exists
+        name: existingUser ? `${existingUser.firstName} ${existingUser.lastName}` : null
+      });
+    } catch (error) {
+      console.error("Error checking user email:", error);
+      res.status(500).json({ error: "Failed to check user email" });
+    }
+  });
+
+  // Connect with existing user
+  app.post('/api/partnerships/connect', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      const { partnerEmail } = req.body;
+      
+      if (!partnerEmail) {
+        return res.status(400).json({ error: "Partner email is required" });
+      }
+      
+      // Check if the partner exists
+      const partnerUser = await storage.getUserByEmail(partnerEmail);
+      if (!partnerUser) {
+        return res.status(404).json({ error: "No user found with this email" });
+      }
+      
+      // Check if a partnership already exists between these users
+      const existingPartnership = await storage.getPartnershipByUsers(req.user.id, partnerUser.id);
+      if (existingPartnership) {
+        return res.status(400).json({ error: "A partnership already exists with this user" });
+      }
+      
+      // Create partnership
+      const partnership = await storage.createPartnership({
+        user1Id: req.user.id,
+        user2Id: partnerUser.id,
+        status: "pending",
+        relationshipType: null,
+        anniversaryDate: null,
+        meetingStory: null,
+        coupleNickname: null,
+        sharedPicture: null,
+        relationshipGoals: null,
+        privacyLevel: "standard"
+      });
+      
+      // Notify the partner that they've been invited to a partnership
+      const client = clients.get(partnerUser.id);
+      if (client && client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify({
+          type: 'partner_request',
+          data: {
+            partnershipId: partnership.id,
+            fromUser: {
+              id: req.user.id,
+              name: `${req.user.firstName} ${req.user.lastName}`
+            }
+          }
+        }));
+      }
+      
+      // Also send a notification if configured
+      const partnerPrefs = await storage.getNotificationPreferences(partnerUser.id);
+      if (partnerPrefs) {
+        await sendNotification(partnerUser.id, {
+          title: 'New Partnership Request',
+          body: `${req.user.firstName} ${req.user.lastName} wants to connect with you on CoupleClarity`,
+          url: '/dashboard',
+          type: 'directMessages' // Using existing notification type that's most relevant
+        });
+      }
+      
+      res.status(201).json({
+        success: true,
+        partnership
+      });
+    } catch (error) {
+      console.error("Error connecting with partner:", error);
+      res.status(500).json({ error: "Failed to connect with partner" });
+    }
+  });
   
   // Create a new exercise from template
   app.post('/api/exercises', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
