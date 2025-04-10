@@ -1809,7 +1809,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Check if the partner exists
+      console.log(`Looking for partner with email: ${partnerEmail}`);
       const partnerUser = await storage.getUserByEmail(partnerEmail);
+      console.log(`Partner user search result:`, partnerUser ? `Found user: ${partnerUser.username}` : 'No user found');
+      
       if (!partnerUser) {
         return res.status(404).json({ error: "No user found with this email" });
       }
