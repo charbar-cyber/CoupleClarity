@@ -1531,7 +1531,8 @@ export class MemStorage implements IStorage {
       directMessages: preferences.directMessages !== undefined ? preferences.directMessages : true,
       conflictUpdates: preferences.conflictUpdates !== undefined ? preferences.conflictUpdates : true,
       weeklyCheckIns: preferences.weeklyCheckIns !== undefined ? preferences.weeklyCheckIns : true,
-      appreciations: preferences.appreciations !== undefined ? preferences.appreciations : true
+      appreciations: preferences.appreciations !== undefined ? preferences.appreciations : true,
+      exerciseNotifications: preferences.exerciseNotifications !== undefined ? preferences.exerciseNotifications : true
     };
     
     this.notificationPrefs.set(id, newPreferences);
@@ -1559,7 +1560,8 @@ export class MemStorage implements IStorage {
         directMessages: preferences.directMessages !== undefined ? preferences.directMessages : existingPrefs.directMessages,
         conflictUpdates: preferences.conflictUpdates !== undefined ? preferences.conflictUpdates : existingPrefs.conflictUpdates,
         weeklyCheckIns: preferences.weeklyCheckIns !== undefined ? preferences.weeklyCheckIns : existingPrefs.weeklyCheckIns,
-        appreciations: preferences.appreciations !== undefined ? preferences.appreciations : existingPrefs.appreciations
+        appreciations: preferences.appreciations !== undefined ? preferences.appreciations : existingPrefs.appreciations,
+        exerciseNotifications: preferences.exerciseNotifications !== undefined ? preferences.exerciseNotifications : (existingPrefs.exerciseNotifications ?? true)
       };
       
       this.notificationPrefs.set(existingPrefs.id, updatedPrefs);
@@ -1573,7 +1575,8 @@ export class MemStorage implements IStorage {
         directMessages: preferences.directMessages ?? true,
         conflictUpdates: preferences.conflictUpdates ?? true,
         weeklyCheckIns: preferences.weeklyCheckIns ?? true,
-        appreciations: preferences.appreciations ?? true
+        appreciations: preferences.appreciations ?? true,
+        exerciseNotifications: preferences.exerciseNotifications ?? true
       });
     }
   }

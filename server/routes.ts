@@ -2145,13 +2145,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Create the template
+      const stepsArray = Array.isArray(steps) ? steps : [];
+      const totalSteps = stepsArray.length;
+      
       const template = await storage.createExerciseTemplate({
         title,
         type: type as any,
-        description: description || null,
+        description: description || '',
         difficultyLevel: difficultyLevel || 'beginner',
         estimatedTimeMinutes: estimatedTimeMinutes || 15,
-        steps: JSON.stringify(steps),
+        totalSteps,
+        steps: JSON.stringify(stepsArray),
         templateData: JSON.stringify({})
       });
       

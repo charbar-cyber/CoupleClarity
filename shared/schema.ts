@@ -582,6 +582,7 @@ export const communicationExercises = pgTable("communication_exercises", {
   type: text("type", { enum: exerciseTypeOptions }).notNull(),
   status: text("status", { enum: exerciseStatusOptions }).default("not_started").notNull(),
   currentStep: integer("current_step").default(1).notNull(),
+  currentStepNumber: integer("current_step_number").default(1).notNull(),
   totalSteps: integer("total_steps").notNull(),
   currentUserId: integer("current_user_id").references(() => users.id),
   scheduledFor: timestamp("scheduled_for").defaultNow(),
@@ -589,6 +590,7 @@ export const communicationExercises = pgTable("communication_exercises", {
   user1Progress: text("user1_progress").default("{}").notNull(),
   user2Progress: text("user2_progress").default("{}").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  lastUpdatedAt: timestamp("last_updated_at").defaultNow().notNull(),
 });
 
 export const insertExerciseSchema = createInsertSchema(communicationExercises).omit({
@@ -613,6 +615,7 @@ export const exerciseSteps = pgTable("exercise_steps", {
   options: text("options").default("[]"), // JSON array of options for multiple choice
   requiredForCompletion: boolean("required_for_completion").default(true).notNull(),
   userRole: text("user_role").default("both").notNull(), // user1, user2, both
+  timeEstimate: integer("time_estimate"), // estimated time in minutes to complete this step
 });
 
 export const insertExerciseStepSchema = createInsertSchema(exerciseSteps).omit({
@@ -630,6 +633,8 @@ export const exerciseResponses = pgTable("exercise_responses", {
   responseText: text("response_text"),
   responseOption: text("response_option"),
   audioUrl: text("audio_url"),
+  aiAnalysis: text("ai_analysis"),
+  isCompleted: boolean("is_completed").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
