@@ -265,11 +265,15 @@ function InvitePartnerCard() {
   const { toast } = useToast();
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
   const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
+  const [isExistingAccountDialogOpen, setIsExistingAccountDialogOpen] = useState(false);
   const [partnerForm, setPartnerForm] = useState({
     partnerFirstName: '',
     partnerLastName: '',
     partnerEmail: ''
   });
+  const [existingPartnerEmail, setExistingPartnerEmail] = useState('');
+  const [existingPartnerInfo, setExistingPartnerInfo] = useState<{exists: boolean, name: string | null, userId: number | null} | null>(null);
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
   const [inviteLink, setInviteLink] = useState('');
   
   // Get and create an invitation link
