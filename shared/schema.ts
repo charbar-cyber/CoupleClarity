@@ -552,6 +552,127 @@ export const therapists = pgTable("therapists", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Communication exercises schema
+export const exerciseTypeOptions = [
+  'active_listening',
+  'emotion_awareness',
+  'needs_expression',
+  'conflict_resolution',
+  'appreciation_sharing',
+  'future_planning',
+  'empathy_building'
+] as const;
+
+export const exerciseStatusOptions = [
+  'not_started',
+  'in_progress',
+  'completed',
+  'partner_turn'
+] as const;
+
+export const communicationExercises = pgTable("communication_exercises", {
+  id: serial("id").primaryKey(),
+  partnershipId: integer("partnership_id").notNull().references(() => partnerships.id),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  type: text("type", { enum: exerciseTypeOptions }).notNull(),
+  status: text("status", { enum: exerciseStatusOptions }).default("not_started").notNull(),
+  currentStep: integer("current_step").default(1).notNull(),
+  totalSteps: integer("total_steps").notNull(),
+  currentUserId: integer("current_user_id").references(() => users.id),
+  scheduledFor: timestamp("scheduled_for").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  user1Progress: text("user1_progress").default("{}").notNull(),
+  user2Progress: text("user2_progress").default("{}").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertExerciseSchema = createInsertSchema(communicationExercises).omit({
+  id: true,
+  status: true,
+  currentStep: true,
+  completedAt: true,
+  createdAt: true,
+});
+
+export type InsertExercise = z.infer<typeof insertExerciseSchema>;
+export type CommunicationExercise = typeof communicationExercises.$inferSelect;
+
+export const exerciseSteps = pgTable("exercise_steps", {
+  id: serial("id").primaryKey(),
+  exerciseId: integer("exercise_id").notNull().references(() => communicationExercises.id),
+  stepNumber: integer("step_number").notNull(),
+  title: text("title").notNull(),
+  instructions: text("instructions").notNull(),
+  promptText: text("prompt_text").notNull(),
+  expectedResponseType: text("expected_response_type").notNull(), // text, multiple_choice, audio, etc.
+  options: text("options").default("[]"), // JSON array of options for multiple choice
+  requiredForCompletion: boolean("required_for_completion").default(true).notNull(),
+  userRole: text("user_role").default("both").notNull(), // user1, user2, both
+});
+
+export const insertExerciseStepSchema = createInsertSchema(exerciseSteps).omit({
+  id: true,
+});
+
+export type InsertExerciseStep = z.infer<typeof insertExerciseStepSchema>;
+export type ExerciseStep = typeof exerciseSteps.$inferSelect;
+
+export const exerciseResponses = pgTable("exercise_responses", {
+  id: serial("id").primaryKey(),
+  exerciseId: integer("exercise_id").notNull().references(() => communicationExercises.id),
+  stepId: integer("step_id").notNull().references(() => exerciseSteps.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  responseText: text("response_text"),
+  responseOption: text("response_option"),
+  audioUrl: text("audio_url"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertExerciseResponseSchema = createInsertSchema(exerciseResponses).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertExerciseResponse = z.infer<typeof insertExerciseResponseSchema>;
+export type ExerciseResponse = typeof exerciseResponses.$inferSelect;
+
+// Exercise template for predefined exercises
+export const exerciseTemplates = pgTable("exercise_templates", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  type: text("type", { enum: exerciseTypeOptions }).notNull(),
+  totalSteps: integer("total_steps").notNull(),
+  difficultyLevel: text("difficulty_level").notNull(), // beginner, intermediate, advanced
+  estimatedTimeMinutes: integer("estimated_time_minutes").notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  templateData: text("template_data").notNull(), // JSON data with steps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertExerciseTemplateSchema = createInsertSchema(exerciseTemplates).omit({
+  id: true,
+  isActive: true,
+  createdAt: true,
+});
+
+export type InsertExerciseTemplate = z.infer<typeof insertExerciseTemplateSchema>;
+export type ExerciseTemplate = typeof exerciseTemplates.$inferSelect;
+
+// Exercise progress update schema
+export const exerciseProgressSchema = z.object({
+  exerciseId: z.number(),
+  stepId: z.number(),
+  responseText: z.string().optional(),
+  responseOption: z.string().optional(),
+  audioUrl: z.string().optional(),
+  moveToNextStep: z.boolean().optional(),
+  completeExercise: z.boolean().optional(),
+});
+
+export type ExerciseProgressInput = z.infer<typeof exerciseProgressSchema>;
+
 export const insertTherapistSchema = createInsertSchema(therapists)
   .omit({ id: true, createdAt: true })
   .extend({
