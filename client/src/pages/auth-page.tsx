@@ -210,27 +210,23 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background p-4">
-      <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <Card className="w-full">
-          <CardHeader className="text-center">
-            <div className="flex flex-col items-center gap-4 mb-4">
-              <img 
-                src="/assets/logo-icon.png" 
-                alt="CoupleClarity Logo" 
-                className="h-20 w-auto" 
-              />
-              <img 
-                src="/assets/logo-text.png" 
-                alt="CoupleClarity" 
-                className="h-10 w-auto" 
-              />
-            </div>
-            <CardTitle className="text-3xl font-bold text-primary-blue">
-              Welcome
-            </CardTitle>
-            <CardDescription className="text-lg">
-              Transform emotional expressions into empathetic communication
+  <div className="flex items-center justify-center min-h-screen bg-background p-6">
+  <div className="w-full max-w-xl mx-auto">
+    <Card className="w-full shadow-xl rounded-2xl p-8">
+      <CardHeader className="text-center mb-6">
+        <div className="flex flex-col items-center justify-center gap-2 mb-4">
+          {/* Combined logo layout */}
+          <img 
+            src="/assets/logo-text.png" 
+            alt="CoupleClarity" 
+            className="h-48 w-auto" 
+          />
+        </div>
+        <CardTitle className="text-3xl font-semibold text-primary mb-1">
+          Welcome
+        </CardTitle>
+        <CardDescription className="text-md text-muted-foreground">
+          When it matters most, speak with clarity.
             </CardDescription>
           </CardHeader>
           <CardContent>
