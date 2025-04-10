@@ -330,10 +330,77 @@ function InvitePartnerCard() {
     }
   });
 
+  // Check if a user exists by email
+  const checkUserExistsMutation = useMutation({
+    mutationFn: async (email: string) => {
+      setIsCheckingEmail(true);
+      try {
+        const res = await fetch(`/api/users/check-email/${encodeURIComponent(email)}`);
+        if (!res.ok) {
+          throw new Error('Failed to check user email');
+        }
+        return await res.json();
+      } finally {
+        setIsCheckingEmail(false);
+      }
+    },
+    onSuccess: (data) => {
+      setExistingPartnerInfo(data);
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Error checking email",
+        description: error.message || "Please try again.",
+      });
+      setExistingPartnerInfo(null);
+    }
+  });
+
+  // Connect with existing user
+  const connectWithExistingUserMutation = useMutation({
+    mutationFn: async (email: string) => {
+      const res = await apiRequest("POST", "/api/partnerships/connect", { partnerEmail: email });
+      return await res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Connection request sent!",
+        description: "Your partner will be notified about your connection request.",
+      });
+      setIsExistingAccountDialogOpen(false);
+      setExistingPartnerEmail('');
+      setExistingPartnerInfo(null);
+      // Refresh partnership data
+      queryClient.invalidateQueries({ queryKey: ['/api/partnerships'] });
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Failed to connect",
+        description: error.message || "Please check the email address and try again.",
+      });
+    }
+  });
+
   // Handle email form submission
   const handleEmailSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     invitePartnerMutation.mutate(partnerForm);
+  };
+
+  // Handle checking if user exists
+  const handleCheckUserEmail = () => {
+    if (existingPartnerEmail.trim()) {
+      checkUserExistsMutation.mutate(existingPartnerEmail.trim());
+    }
+  };
+
+  // Handle connect with existing user
+  const handleConnectExistingUser = () => {
+    if (existingPartnerEmail.trim() && existingPartnerInfo?.exists) {
+      connectWithExistingUserMutation.mutate(existingPartnerEmail.trim());
+    }
   };
 
   // Copy invitation link to clipboard
@@ -423,6 +490,24 @@ function InvitePartnerCard() {
             </TooltipTrigger>
             <TooltipContent>
               <p>Create a link you can share directly with your partner</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="secondary" 
+                className="w-full" 
+                onClick={() => setIsExistingAccountDialogOpen(true)}
+              >
+                <UserPlus2 className="mr-2 h-4 w-4" />
+                Connect Existing Account
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Connect with a partner who already has a CoupleClarity account</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -539,6 +624,101 @@ function InvitePartnerCard() {
               </Button>
             </DialogClose>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Existing Account Connection Dialog */}
+      <Dialog open={isExistingAccountDialogOpen} onOpenChange={setIsExistingAccountDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Connect with Existing Account</DialogTitle>
+            <DialogDescription>
+              Connect with your partner who already has a CoupleClarity account.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="existingPartnerEmail">Partner's Email Address</Label>
+              <div className="flex space-x-2">
+                <Input 
+                  id="existingPartnerEmail" 
+                  type="email"
+                  value={existingPartnerEmail}
+                  onChange={(e) => {
+                    setExistingPartnerEmail(e.target.value);
+                    setExistingPartnerInfo(null); // Reset when email changes
+                  }}
+                  placeholder="partner@example.com"
+                />
+                <Button 
+                  type="button" 
+                  variant="outline"
+                  onClick={handleCheckUserEmail}
+                  disabled={isCheckingEmail || !existingPartnerEmail.trim()}
+                >
+                  {isCheckingEmail ? (
+                    <Activity className="h-4 w-4 animate-spin" />
+                  ) : (
+                    'Check'
+                  )}
+                </Button>
+              </div>
+            </div>
+            
+            {existingPartnerInfo && (
+              <div className="p-4 border rounded-md bg-background">
+                {existingPartnerInfo.exists ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center text-green-600">
+                      <div className="mr-2 h-6 w-6 rounded-full bg-green-100 flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                        </svg>
+                      </div>
+                      <p className="font-medium">User found</p>
+                    </div>
+                    <p>We found an account for: <span className="font-semibold">{existingPartnerInfo.name}</span></p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex items-center text-destructive">
+                      <div className="mr-2 h-6 w-6 rounded-full bg-destructive/10 flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </div>
+                      <p className="font-medium">User not found</p>
+                    </div>
+                    <p>No account exists with this email address. Try a different email or invite them to create an account.</p>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            <DialogFooter className="sm:justify-between">
+              <DialogClose asChild>
+                <Button type="button" variant="outline">Cancel</Button>
+              </DialogClose>
+              <Button 
+                type="button" 
+                onClick={handleConnectExistingUser}
+                disabled={!existingPartnerInfo?.exists || connectWithExistingUserMutation.isPending}
+              >
+                {connectWithExistingUserMutation.isPending ? (
+                  <>
+                    <Activity className="mr-2 h-4 w-4 animate-spin" />
+                    Connecting...
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    Connect
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
