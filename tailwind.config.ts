@@ -24,6 +24,7 @@ export default {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
+          blue: "#4A90E2", // Soft Blue - Trust-building tone
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
@@ -36,10 +37,20 @@ export default {
         accent: {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
+          coral: "#F67280", // Coral Rose - Emotional warmth
         },
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
+        },
+        surface: {
+          DEFAULT: "#2F3542", // Slate Gray - Reflection forms, cards
+        },
+        palette: {
+          lightBg: "#FAFAFA", // Neutral Cream - Soft light mode background
+          darkBg: "#0D0D0D", // Clean, minimalist dark mode
+          lightText: "#F1F1F1", // Light text on dark surfaces
+          darkText: "#1C1C1C", // Primary dark text
         },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

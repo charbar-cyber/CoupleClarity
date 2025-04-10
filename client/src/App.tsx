@@ -22,6 +22,7 @@ import DirectMessagePage from "@/pages/direct-message-page";
 import ForgotPasswordPage from "@/pages/forgot-password-page";
 import ResetPasswordPage from "@/pages/reset-password-page";
 import CoupleProfilePage from "@/pages/couple-profile-page";
+import StyleGuide from "@/components/style-guide";
 import Header from "./components/header";
 import Footer from "./components/footer";
 import { ProtectedRoute } from "@/components/protected-route";
@@ -41,6 +42,9 @@ function Router() {
         </Route>
         <Route path="/reset-password">
           <ResetPasswordPage />
+        </Route>
+        <Route path="/style-guide">
+          <StyleGuide />
         </Route>
         <ProtectedRoute path="/onboarding" component={OnboardingPage} />
         <ProtectedRoute path="/" component={Home} />
