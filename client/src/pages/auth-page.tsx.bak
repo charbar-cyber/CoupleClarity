@@ -28,7 +28,10 @@ const registrationSchema = z.object({
   partnerEmail: z.string().email("Please enter a valid email").optional().or(z.literal("")),
   partnerFirstName: z.string().optional().or(z.literal("")),
   partnerLastName: z.string().optional().or(z.literal("")),
-  inviteToken: z.string().optional(),
+  inviteToken: z.string().optional().or(z.literal("")),
+}).refine(data => data.password === data.confirmPassword, {
+  message: "Passwords do not match",
+  path: ["confirmPassword"],
 });
 
 // Invite registration schema
@@ -39,7 +42,10 @@ const inviteSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   email: z.string().email("Please enter a valid email"),
-  inviteToken: z.string(),
+  inviteToken: z.string().min(1, "Invite token is required"),
+}).refine(data => data.password === data.confirmPassword, {
+  message: "Passwords do not match",
+  path: ["confirmPassword"],
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -49,7 +55,6 @@ type InviteRegistrationValues = z.infer<typeof inviteSchema>;
 export default function AuthPage() {
   const [activeTab, setActiveTab] = useState("login");
   const [isInviteRegistration, setIsInviteRegistration] = useState(false);
-  const [showConnectExistingOption, setShowConnectExistingOption] = useState(false);
   const [inviteDetails, setInviteDetails] = useState<{
     partnerFirstName?: string;
     partnerLastName?: string;
@@ -104,10 +109,6 @@ export default function AuthPage() {
                   error: errorData.error,
                   showConnectOption: errorData.showConnectOption || false
                 });
-                
-                if (errorData.error && errorData.error.includes("already been used")) {
-                  setShowConnectExistingOption(true);
-                }
               } else {
                 setInviteDetails({
                   error: "Failed to fetch invite details"
@@ -180,48 +181,7 @@ export default function AuthPage() {
   }, [inviteDetails, inviteForm]);
   
   const onLoginSubmit = (data: LoginFormValues) => {
-    if (inviteToken) {
-      // If there's an invite token and user is logging in,
-      // we'll connect their existing account with the partner
-      loginMutation.mutate(data, {
-        onSuccess: async () => {
-          try {
-            // Connect with partner using the invitation token
-            const response = await fetch('/api/partnerships/connect-by-token', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ inviteToken }),
-              credentials: 'include'
-            });
-            
-            if (response.ok) {
-              const data = await response.json();
-              console.log("Successfully connected with partner:", data);
-              // Redirect to home page or show success message
-              setLocation("/");
-            } else {
-              let errorMessage = "Failed to connect with partner";
-              try {
-                const errorData = await response.json();
-                errorMessage = errorData.error || errorMessage;
-              } catch (e) {
-                // If the response isn't JSON, just use the generic error message
-              }
-              console.error('Failed to connect with partner:', errorMessage);
-              alert(`Error: ${errorMessage}`);
-            }
-          } catch (error) {
-            console.error('Error connecting with partner:', error);
-            alert(`Error: ${error instanceof Error ? error.message : "Unknown error occurred"}`);
-          }
-        }
-      });
-    } else {
-      // Regular login
-      loginMutation.mutate(data);
-    }
+    loginMutation.mutate(data);
   };
   
   const onRegisterSubmit = (data: RegistrationFormValues) => {
@@ -275,66 +235,24 @@ export default function AuthPage() {
     }
   };
 
-  // Function to connect an existing user account with an invitation token
-  const connectExistingAccount = async () => {
-    try {
-      if (!user) {
-        // User needs to log in first
-        setIsInviteRegistration(false);
-        setActiveTab("login");
-        return;
-      }
-      
-      // Connect with partner using the invitation token
-      const response = await fetch('/api/partnerships/connect-by-token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ inviteToken }),
-        credentials: 'include'
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log("Successfully connected with partner:", data);
-        // Redirect to home page or show success message
-        setLocation("/");
-      } else {
-        let errorMessage = "Failed to connect with partner";
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorMessage;
-        } catch (e) {
-          // If the response isn't JSON, just use the generic error message
-        }
-        console.error('Failed to connect with partner:', errorMessage);
-        alert(`Error: ${errorMessage}`);
-      }
-    } catch (error) {
-      console.error('Error connecting with partner:', error);
-      alert(`Error: ${error instanceof Error ? error.message : "Unknown error occurred"}`);
-    }
-  };
-
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background p-6">
-      <div className="w-full max-w-xl mx-auto">
-        <Card className="w-full shadow-xl rounded-2xl p-8">
-          <CardHeader className="text-center mb-6">
-            <div className="flex flex-col items-center justify-center gap-2 mb-4">
-              {/* Combined logo layout */}
-              <img 
-                src="/assets/logo-text.png" 
-                alt="CoupleClarity" 
-                className="h-48 w-auto" 
-              />
-            </div>
-            <CardTitle className="text-3xl font-semibold text-primary mb-1">
-              Welcome
-            </CardTitle>
-            <CardDescription className="text-md text-muted-foreground">
-              When it matters most, speak with clarity.
+  <div className="flex items-center justify-center min-h-screen bg-background p-6">
+  <div className="w-full max-w-xl mx-auto">
+    <Card className="w-full shadow-xl rounded-2xl p-8">
+      <CardHeader className="text-center mb-6">
+        <div className="flex flex-col items-center justify-center gap-2 mb-4">
+          {/* Combined logo layout */}
+          <img 
+            src="/assets/logo-text.png" 
+            alt="CoupleClarity" 
+            className="h-48 w-auto" 
+          />
+        </div>
+        <CardTitle className="text-3xl font-semibold text-primary mb-1">
+          Welcome
+        </CardTitle>
+        <CardDescription className="text-md text-muted-foreground">
+          When it matters most, speak with clarity.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -352,7 +270,7 @@ export default function AuthPage() {
                       </p>
                     </div>
                     
-                    {showConnectExistingOption && (
+                    {inviteDetails.showConnectOption && (
                       <div className="mt-4 pt-4 border-t border-red-200">
                         <h3 className="text-lg font-medium">Already have an account?</h3>
                         <p className="mt-1 mb-4 text-gray-600">
@@ -409,144 +327,143 @@ export default function AuthPage() {
                     </div>
                     
                     <form onSubmit={inviteForm.handleSubmit(onInviteSubmit)} className="space-y-4">
-                      <input type="hidden" {...inviteForm.register("inviteToken")} />
-                      
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="firstName">First Name</Label>
-                          <Input
-                            id="firstName"
-                            {...inviteForm.register("firstName")}
-                          />
-                          {inviteForm.formState.errors.firstName && (
-                            <p className="text-sm text-destructive">{inviteForm.formState.errors.firstName.message}</p>
-                          )}
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <Label htmlFor="lastName">Last Name</Label>
-                          <Input
-                            id="lastName"
-                            {...inviteForm.register("lastName")}
-                          />
-                          {inviteForm.formState.errors.lastName && (
-                            <p className="text-sm text-destructive">{inviteForm.formState.errors.lastName.message}</p>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="email">Email</Label>
-                        <Input
-                          id="email"
-                          type="email"
-                          disabled={inviteDetails?.partnerEmail ? true : false}
-                          {...inviteForm.register("email")}
-                        />
-                        {inviteForm.formState.errors.email && (
-                          <p className="text-sm text-destructive">{inviteForm.formState.errors.email.message}</p>
-                        )}
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="username">Username</Label>
-                        <Input
-                          id="username"
-                          {...inviteForm.register("username")}
-                        />
-                        {inviteForm.formState.errors.username && (
-                          <p className="text-sm text-destructive">{inviteForm.formState.errors.username.message}</p>
-                        )}
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="password">Password</Label>
-                          <div className="relative">
-                            <Input
-                              id="password"
-                              type={showInvitePassword ? "text" : "password"}
-                              {...inviteForm.register("password")}
-                            />
-                            <button
-                              type="button"
-                              className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                              onClick={() => setShowInvitePassword(!showInvitePassword)}
-                            >
-                              {showInvitePassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                            </button>
-                          </div>
-                          {inviteForm.formState.errors.password && (
-                            <p className="text-sm text-destructive">{inviteForm.formState.errors.password.message}</p>
-                          )}
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <Label htmlFor="confirmPassword">Confirm Password</Label>
-                          <div className="relative">
-                            <Input
-                              id="confirmPassword"
-                              type={showInviteConfirmPassword ? "text" : "password"}
-                              {...inviteForm.register("confirmPassword")}
-                            />
-                            <button
-                              type="button"
-                              className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                              onClick={() => setShowInviteConfirmPassword(!showInviteConfirmPassword)}
-                            >
-                              {showInviteConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                            </button>
-                          </div>
-                          {inviteForm.formState.errors.confirmPassword && (
-                            <p className="text-sm text-destructive">{inviteForm.formState.errors.confirmPassword.message}</p>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <Button 
-                        type="submit" 
-                        className="w-full couple-btn-primary"
-                        disabled={registerMutation.isPending}
-                      >
-                        {registerMutation.isPending && (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        )}
-                        Accept Invitation & Register
-                      </Button>
-                    </form>
-                  </>
-                )}
-              </div>
-            ) : (
-              // Regular Login/Register Tabs
-              <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid w-full grid-cols-2 mb-6">
-                  <TabsTrigger value="login">Login</TabsTrigger>
-                  <TabsTrigger value="register">Register</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="login" className="space-y-4">
-                  <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
+                  <input type="hidden" {...inviteForm.register("inviteToken")} />
+                  
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="login-username">Username</Label>
-                      <Input id="login-username" {...loginForm.register("username")} />
-                      {loginForm.formState.errors.username && (
-                        <p className="text-sm text-destructive">
-                          {loginForm.formState.errors.username.message}
-                        </p>
+                      <Label htmlFor="firstName">First Name</Label>
+                      <Input
+                        id="firstName"
+                        {...inviteForm.register("firstName")}
+                      />
+                      {inviteForm.formState.errors.firstName && (
+                        <p className="text-sm text-destructive">{inviteForm.formState.errors.firstName.message}</p>
                       )}
                     </div>
                     
                     <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="login-password">Password</Label>
-                        <Link className="text-sm text-primary hover:underline" href="/forgot-password">
-                          Forgot password?
-                        </Link>
-                      </div>
+                      <Label htmlFor="lastName">Last Name</Label>
+                      <Input
+                        id="lastName"
+                        {...inviteForm.register("lastName")}
+                      />
+                      {inviteForm.formState.errors.lastName && (
+                        <p className="text-sm text-destructive">{inviteForm.formState.errors.lastName.message}</p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      disabled={inviteDetails?.partnerEmail ? true : false}
+                      {...inviteForm.register("email")}
+                    />
+                    {inviteForm.formState.errors.email && (
+                      <p className="text-sm text-destructive">{inviteForm.formState.errors.email.message}</p>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="username">Username</Label>
+                    <Input
+                      id="username"
+                      {...inviteForm.register("username")}
+                    />
+                    {inviteForm.formState.errors.username && (
+                      <p className="text-sm text-destructive">{inviteForm.formState.errors.username.message}</p>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="password">Password</Label>
                       <div className="relative">
                         <Input
-                          id="login-password"
+                          id="password"
+                          type={showInvitePassword ? "text" : "password"}
+                          {...inviteForm.register("password")}
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                          onClick={() => setShowInvitePassword(!showInvitePassword)}
+                        >
+                          {showInvitePassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
+                      {inviteForm.formState.errors.password && (
+                        <p className="text-sm text-destructive">{inviteForm.formState.errors.password.message}</p>
+                      )}
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="confirmPassword">Confirm Password</Label>
+                      <div className="relative">
+                        <Input
+                          id="confirmPassword"
+                          type={showInviteConfirmPassword ? "text" : "password"}
+                          {...inviteForm.register("confirmPassword")}
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                          onClick={() => setShowInviteConfirmPassword(!showInviteConfirmPassword)}
+                        >
+                          {showInviteConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
+                      {inviteForm.formState.errors.confirmPassword && (
+                        <p className="text-sm text-destructive">{inviteForm.formState.errors.confirmPassword.message}</p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <Button 
+                    type="submit" 
+                    className="w-full couple-btn-primary"
+                    disabled={registerMutation.isPending}
+                    onClick={() => {
+                      console.log("Invitation form button clicked");
+                      console.log("Form data:", inviteForm.getValues());
+                      console.log("Form errors:", inviteForm.formState.errors);
+                    }}
+                  >
+                    {registerMutation.isPending && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    Accept Invitation & Register
+                  </Button>
+                </form>
+              </div>
+            ) : (
+              // Regular Login/Register Tabs
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="login">Login</TabsTrigger>
+                  <TabsTrigger value="register">Register</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="login">
+                  <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="username">Username</Label>
+                      <Input
+                        id="username"
+                        {...loginForm.register("username")}
+                      />
+                      {loginForm.formState.errors.username && (
+                        <p className="text-sm text-destructive">{loginForm.formState.errors.username.message}</p>
+                      )}
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="password">Password</Label>
+                      <div className="relative">
+                        <Input
+                          id="password"
                           type={showLoginPassword ? "text" : "password"}
                           {...loginForm.register("password")}
                         />
@@ -559,29 +476,34 @@ export default function AuthPage() {
                         </button>
                       </div>
                       {loginForm.formState.errors.password && (
-                        <p className="text-sm text-destructive">
-                          {loginForm.formState.errors.password.message}
-                        </p>
+                        <p className="text-sm text-destructive">{loginForm.formState.errors.password.message}</p>
                       )}
                     </div>
                     
-                    <Button
-                      type="submit"
+                    <Button 
+                      type="submit" 
                       className="w-full couple-btn-primary"
                       disabled={loginMutation.isPending}
                     >
                       {loginMutation.isPending && (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       )}
-                      {inviteToken ? "Log in & Connect with Partner" : "Log in"}
+                      Login
                     </Button>
+                    
+                    <div className="text-center mt-4">
+                      <Link 
+                        href="/forgot-password" 
+                        className="text-sm text-primary hover:underline"
+                      >
+                        Forgot your password?
+                      </Link>
+                    </div>
                   </form>
                 </TabsContent>
                 
-                <TabsContent value="register" className="space-y-4">
+                <TabsContent value="register">
                   <form onSubmit={registrationForm.handleSubmit(onRegisterSubmit)} className="space-y-4">
-                    <input type="hidden" {...registrationForm.register("inviteToken")} />
-                    
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="firstName">First Name</Label>
@@ -593,6 +515,7 @@ export default function AuthPage() {
                           <p className="text-sm text-destructive">{registrationForm.formState.errors.firstName.message}</p>
                         )}
                       </div>
+                      
                       <div className="space-y-2">
                         <Label htmlFor="lastName">Last Name</Label>
                         <Input
@@ -672,10 +595,10 @@ export default function AuthPage() {
                       </div>
                     </div>
                     
-                    <div className="border-t border-gray-200 pt-4 mt-4">
-                      <h3 className="text-md font-medium mb-2">Partner Information (Optional)</h3>
+                    <div className="pt-4 border-t">
+                      <h3 className="text-lg font-medium mb-2">Invite Your Partner (Optional)</h3>
                       <p className="text-sm text-muted-foreground mb-4">
-                        Enter your partner's details to invite them to join you.
+                        Want to invite your partner to join CoupleClarity? Provide their details below, and we'll send them an invitation.
                       </p>
                       
                       <div className="grid grid-cols-2 gap-4">
@@ -685,9 +608,6 @@ export default function AuthPage() {
                             id="partnerFirstName"
                             {...registrationForm.register("partnerFirstName")}
                           />
-                          {registrationForm.formState.errors.partnerFirstName && (
-                            <p className="text-sm text-destructive">{registrationForm.formState.errors.partnerFirstName.message}</p>
-                          )}
                         </div>
                         
                         <div className="space-y-2">
@@ -696,9 +616,6 @@ export default function AuthPage() {
                             id="partnerLastName"
                             {...registrationForm.register("partnerLastName")}
                           />
-                          {registrationForm.formState.errors.partnerLastName && (
-                            <p className="text-sm text-destructive">{registrationForm.formState.errors.partnerLastName.message}</p>
-                          )}
                         </div>
                       </div>
                       
@@ -709,21 +626,18 @@ export default function AuthPage() {
                           type="email"
                           {...registrationForm.register("partnerEmail")}
                         />
-                        {registrationForm.formState.errors.partnerEmail && (
-                          <p className="text-sm text-destructive">{registrationForm.formState.errors.partnerEmail.message}</p>
-                        )}
                       </div>
                     </div>
                     
-                    <Button
-                      type="submit"
+                    <Button 
+                      type="submit" 
                       className="w-full couple-btn-primary"
                       disabled={registerMutation.isPending}
                     >
                       {registerMutation.isPending && (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       )}
-                      Create Account
+                      Register
                     </Button>
                   </form>
                 </TabsContent>
@@ -731,6 +645,52 @@ export default function AuthPage() {
             )}
           </CardContent>
         </Card>
+        
+        <div className="hidden lg:flex flex-col justify-center">
+          <div className="space-y-6">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-primary-blue to-accent-coral bg-clip-text text-transparent">
+              Strengthen Your Connection
+            </h1>
+            <p className="text-xl">
+              CoupleClarity helps you express difficult emotions in a constructive way, 
+              transforming potential conflicts into opportunities for deeper connection.
+            </p>
+            <ul className="space-y-4">
+              <li className="flex items-center">
+                <div className="mr-3 h-5 w-5 rounded-full bg-primary-blue flex items-center justify-center">
+                  <div className="h-2 w-2 rounded-full bg-white"></div>
+                </div>
+                <span>Express your emotions without fear</span>
+              </li>
+              <li className="flex items-center">
+                <div className="mr-3 h-5 w-5 rounded-full bg-primary-blue flex items-center justify-center">
+                  <div className="h-2 w-2 rounded-full bg-white"></div>
+                </div>
+                <span>Transform raw feelings into empathetic messages</span>
+              </li>
+              <li className="flex items-center">
+                <div className="mr-3 h-5 w-5 rounded-full bg-primary-blue flex items-center justify-center">
+                  <div className="h-2 w-2 rounded-full bg-white"></div>
+                </div>
+                <span>Share your heart in a way your partner can receive</span>
+              </li>
+              <li className="flex items-center">
+                <div className="mr-3 h-5 w-5 rounded-full bg-primary-blue flex items-center justify-center">
+                  <div className="h-2 w-2 rounded-full bg-white"></div>
+                </div>
+                <span>Build a foundation of understanding and trust</span>
+              </li>
+            </ul>
+            
+            <div className="mt-4 p-4 bg-gradient-to-r from-primary-blue/10 to-accent-coral/10 rounded-lg">
+              <p className="text-primary-blue font-medium">
+                "CoupleClarity transformed how we communicate during difficult moments. 
+                It's like having a relationship translator."
+              </p>
+              <p className="text-sm mt-2 text-muted-foreground">— Sarah & Michael, using CoupleClarity for 6 months</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

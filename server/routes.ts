@@ -1608,6 +1608,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Connect with existing user
+  // Connect with existing partner using invitation token
+  app.post('/api/partnerships/connect-by-token', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      const { inviteToken } = req.body;
+      
+      if (!inviteToken) {
+        return res.status(400).json({ error: "Invite token is required" });
+      }
+      
+      // Find the invite
+      const invite = await storage.getInviteByToken(inviteToken);
+      
+      if (!invite) {
+        return res.status(404).json({ error: "Invalid invitation token" });
+      }
+      
+      // Get the inviter 
+      const inviter = await storage.getUser(invite.fromUserId);
+      
+      if (!inviter) {
+        return res.status(404).json({ error: "Inviter not found" });
+      }
+      
+      // Check if a partnership already exists
+      const existingPartnership = await storage.getPartnershipByUsers(invite.fromUserId, req.user.id);
+      
+      if (existingPartnership) {
+        return res.status(400).json({ error: "Partnership already exists between these users" });
+      }
+      
+      // Mark the invite as accepted
+      await storage.updateInviteAccepted(invite.id);
+      
+      // Create a new partnership
+      const partnership = await storage.createPartnership({
+        user1Id: invite.fromUserId,
+        user2Id: req.user.id,
+        status: "pending",
+        relationshipType: null,
+        anniversaryDate: null,
+        meetingStory: null,
+        coupleNickname: null,
+        sharedPicture: null,
+        relationshipGoals: null,
+        privacyLevel: "standard"
+      });
+      
+      // Notify the partner of the connection being successful
+      const client = clients.get(invite.fromUserId);
+      if (client) {
+        client.send(JSON.stringify({
+          type: 'connection_accepted',
+          data: {
+            userId: req.user.id,
+            partnerName: `${req.user.firstName} ${req.user.lastName}`,
+            timestamp: new Date()
+          }
+        }));
+      }
+      
+      res.status(201).json({ 
+        message: "Successfully connected with partner",
+        partnerName: `${inviter.firstName} ${inviter.lastName}`,
+        partnership
+      });
+    } catch (error) {
+      console.error("Error connecting by token:", error);
+      res.status(500).json({ error: "Error connecting with partner" });
+    }
+  });
+
   app.post('/api/partnerships/connect', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
     try {
       if (!req.user) {
