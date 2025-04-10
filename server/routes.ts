@@ -1266,6 +1266,119 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // ====== Partner Management API ======
+  
+  // Remove partnership
+  app.delete('/api/partnerships/:id', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      const partnershipId = parseInt(req.params.id);
+      if (isNaN(partnershipId)) {
+        return res.status(400).json({ error: 'Invalid partnership ID' });
+      }
+      
+      // Get the partnership
+      const partnership = await storage.getPartnership(partnershipId);
+      if (!partnership) {
+        return res.status(404).json({ error: 'Partnership not found' });
+      }
+      
+      // Verify that the user is part of this partnership
+      if (partnership.user1Id !== req.user.id && partnership.user2Id !== req.user.id) {
+        return res.status(403).json({ error: 'You do not have permission to remove this partnership' });
+      }
+      
+      // Get the partner's ID
+      const partnerId = partnership.user1Id === req.user.id ? partnership.user2Id : partnership.user1Id;
+      
+      // Update the partnership status to "removed"
+      await storage.updatePartnershipStatus(partnershipId, "removed");
+      
+      // Notify the partner about the partnership removal if they are online
+      const client = clients.get(partnerId);
+      if (client && client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify({
+          type: 'partnership_removed',
+          data: {
+            partnershipId,
+            partnerId: req.user.id,
+            message: 'Your partner has ended the relationship in CoupleClarity'
+          }
+        }));
+      }
+      
+      // Send a notification to the partner if they have enabled notifications
+      const partnerPrefs = await storage.getNotificationPreferences(partnerId);
+      if (partnerPrefs) {
+        await sendNotification(partnerId, {
+          title: 'Partnership Ended',
+          body: 'Your partner has ended the relationship in CoupleClarity',
+          url: '/settings?tab=partner',
+          type: 'partnershipUpdates'
+        });
+      }
+      
+      res.json({ message: 'Partnership successfully removed' });
+    } catch (error) {
+      console.error('Error removing partnership:', error);
+      res.status(500).json({ error: 'Failed to remove partnership' });
+    }
+  });
+  
+  // Regenerate invitation for partner
+  app.post('/api/partnerships/:id/regenerate-invite', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      const partnershipId = parseInt(req.params.id);
+      if (isNaN(partnershipId)) {
+        return res.status(400).json({ error: 'Invalid partnership ID' });
+      }
+      
+      // Get the partnership
+      const partnership = await storage.getPartnership(partnershipId);
+      if (!partnership) {
+        return res.status(404).json({ error: 'Partnership not found' });
+      }
+      
+      // Verify that the user is part of this partnership
+      if (partnership.user1Id !== req.user.id && partnership.user2Id !== req.user.id) {
+        return res.status(403).json({ error: 'You do not have permission to regenerate invite for this partnership' });
+      }
+      
+      // Only allow regenerating invites for pending partnerships
+      if (partnership.status !== 'pending') {
+        return res.status(400).json({ error: 'Can only regenerate invites for pending partnerships' });
+      }
+      
+      // Generate a new token for the invite
+      const token = uuidv4();
+      
+      // Create a new invite
+      const invite = await storage.createInvite({
+        fromUserId: req.user.id,
+        partnerFirstName: "",
+        partnerLastName: "",
+        partnerEmail: "",
+      }, token);
+      
+      res.status(201).json({
+        id: invite.id,
+        token,
+        partnershipId,
+        message: "New invitation link generated successfully"
+      });
+    } catch (error) {
+      console.error('Error regenerating invite:', error);
+      res.status(500).json({ error: 'Failed to regenerate invitation' });
+    }
+  });
+  
   // ====== Couple Profile and Settings API ======
   
   // Get couple profile

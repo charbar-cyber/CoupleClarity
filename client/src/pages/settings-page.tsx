@@ -379,26 +379,75 @@ export default function SettingsPage() {
                   <h3 className="text-lg font-medium">Your Partner</h3>
                   {partnerships.map((partnership: any) => (
                     <div key={partnership.id} className="border rounded-md p-4">
-                      <div className="flex items-start gap-4">
-                        <Avatar>
-                          <AvatarFallback className="bg-primary text-primary-foreground">
-                            {partnership.partner?.firstName?.[0]}{partnership.partner?.lastName?.[0]}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="space-y-1">
-                          <h4 className="font-medium">{partnership.partner?.firstName} {partnership.partner?.lastName}</h4>
-                          <p className="text-sm text-muted-foreground">
-                            Status: {partnership.status === 'active' ? 
-                              <span className="text-green-600 font-medium">Active</span> : 
-                              <span className="text-amber-600 font-medium">Pending</span>
-                            }
-                          </p>
-                          {partnership.status !== 'active' && (
-                            <p className="text-xs text-muted-foreground">
-                              Partner has been invited but hasn't accepted yet.
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-4">
+                          <Avatar>
+                            {partnership.partner?.avatarUrl ? (
+                              <AvatarImage src={partnership.partner.avatarUrl} alt={partnership.partner?.firstName} />
+                            ) : (
+                              <AvatarFallback className="bg-primary text-primary-foreground">
+                                {partnership.partner?.firstName?.[0]}{partnership.partner?.lastName?.[0]}
+                              </AvatarFallback>
+                            )}
+                          </Avatar>
+                          <div className="space-y-1">
+                            <h4 className="font-medium">{partnership.partner?.firstName} {partnership.partner?.lastName}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              Status: {partnership.status === 'active' ? 
+                                <span className="text-green-600 font-medium">Active</span> : 
+                                <span className="text-amber-600 font-medium">Pending</span>
+                              }
                             </p>
-                          )}
+                            {partnership.status !== 'active' && (
+                              <p className="text-xs text-muted-foreground">
+                                Partner has been invited but hasn't accepted yet.
+                              </p>
+                            )}
+                          </div>
                         </div>
+                        
+                        {partnership.status !== 'active' && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleRegenerateInvite(partnership.id)}>
+                                <RefreshCw className="h-4 w-4 mr-2" />
+                                Regenerate Invitation
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                className="text-destructive focus:text-destructive" 
+                                onClick={() => handleRemovePartner(partnership.id)}
+                              >
+                                <UserMinus className="h-4 w-4 mr-2" />
+                                Remove Partner
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                        
+                        {partnership.status === 'active' && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem 
+                                className="text-destructive focus:text-destructive" 
+                                onClick={() => handleRemovePartner(partnership.id)}
+                              >
+                                <UserMinus className="h-4 w-4 mr-2" />
+                                Remove Partner
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
                       </div>
                     </div>
                   ))}
