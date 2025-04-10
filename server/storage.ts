@@ -17,6 +17,11 @@ import {
   notificationPreferences, type NotificationPreferences, type InsertNotificationPreferences,
   currentEmotions, type CurrentEmotion, type InsertCurrentEmotion,
   relationshipMilestones, type Milestone, type InsertMilestone,
+  communicationExercises, type CommunicationExercise, type InsertExercise,
+  exerciseSteps, type ExerciseStep, type InsertExerciseStep,
+  exerciseResponses, type ExerciseResponse, type InsertExerciseResponse,
+  exerciseTemplates, type ExerciseTemplate, type InsertExerciseTemplate,
+  exerciseTypeOptions, exerciseStatusOptions,
   conflictStatusOptions,
   memoryTypes,
   therapistSpecialties,
@@ -164,6 +169,30 @@ export interface IStorage {
   setCurrentEmotion(emotion: InsertCurrentEmotion): Promise<CurrentEmotion>;
   updateCurrentEmotion(userId: number, emotion: Partial<InsertCurrentEmotion>): Promise<CurrentEmotion>;
   getPartnerCurrentEmotion(userId: number): Promise<CurrentEmotion | undefined>;
+  
+  // Communication exercise operations
+  createExerciseTemplate(template: InsertExerciseTemplate): Promise<ExerciseTemplate>;
+  getExerciseTemplate(id: number): Promise<ExerciseTemplate | undefined>;
+  getExerciseTemplates(type?: string, difficultyLevel?: string): Promise<ExerciseTemplate[]>;
+  
+  createExercise(exercise: InsertExercise): Promise<CommunicationExercise>;
+  getExerciseById(id: number): Promise<CommunicationExercise | undefined>;
+  getExercisesByPartnership(partnershipId: number, status?: string): Promise<CommunicationExercise[]>;
+  getExercisesForUser(userId: number, status?: string): Promise<CommunicationExercise[]>;
+  updateExerciseStatus(id: number, status: string): Promise<CommunicationExercise>;
+  updateExerciseCurrentStep(id: number, stepNumber: number): Promise<CommunicationExercise>;
+  updateExerciseCurrentUser(id: number, userId: number): Promise<CommunicationExercise>;
+  completeExercise(id: number): Promise<CommunicationExercise>;
+  
+  createExerciseStep(step: InsertExerciseStep): Promise<ExerciseStep>;
+  getExerciseStepById(id: number): Promise<ExerciseStep | undefined>;
+  getExerciseSteps(exerciseId: number): Promise<ExerciseStep[]>;
+  getExerciseStepByNumber(exerciseId: number, stepNumber: number): Promise<ExerciseStep | undefined>;
+  
+  createExerciseResponse(response: InsertExerciseResponse): Promise<ExerciseResponse>;
+  getExerciseResponses(exerciseId: number, userId?: number): Promise<ExerciseResponse[]>;
+  getExerciseStepResponses(stepId: number): Promise<ExerciseResponse[]>;
+  getUserResponseForStep(stepId: number, userId: number): Promise<ExerciseResponse | undefined>;
 
   // Session store
   sessionStore: SessionStore;
@@ -187,6 +216,11 @@ export class MemStorage implements IStorage {
   private pushSubscriptions: Map<number, PushSubscription>;
   private notificationPrefs: Map<number, NotificationPreferences>;
   private currentEmotions: Map<number, CurrentEmotion>;
+  private relationshipMilestones: Map<number, Milestone>;
+  private communicationExercises: Map<number, CommunicationExercise>;
+  private exerciseSteps: Map<number, ExerciseStep>;
+  private exerciseResponses: Map<number, ExerciseResponse>;
+  private exerciseTemplates: Map<number, ExerciseTemplate>;
   private userIdCounter: number;
   private messageIdCounter: number;
   private partnershipIdCounter: number;
@@ -203,6 +237,11 @@ export class MemStorage implements IStorage {
   private therapistIdCounter: number;
   private pushSubscriptionIdCounter: number;
   private notificationPrefsIdCounter: number;
+  private milestoneIdCounter: number;
+  private exerciseIdCounter: number;
+  private exerciseStepIdCounter: number;
+  private exerciseResponseIdCounter: number;
+  private exerciseTemplateIdCounter: number;
   sessionStore: session.Store;
 
   constructor() {
@@ -230,6 +269,10 @@ export class MemStorage implements IStorage {
     this.notificationPrefs = new Map();
     this.currentEmotions = new Map();
     this.relationshipMilestones = new Map();
+    this.communicationExercises = new Map();
+    this.exerciseSteps = new Map();
+    this.exerciseResponses = new Map();
+    this.exerciseTemplates = new Map();
     this.userIdCounter = 1;
     this.messageIdCounter = 1;
     this.partnershipIdCounter = 1;
@@ -247,6 +290,10 @@ export class MemStorage implements IStorage {
     this.pushSubscriptionIdCounter = 1;
     this.notificationPrefsIdCounter = 1;
     this.milestoneIdCounter = 1;
+    this.exerciseIdCounter = 1;
+    this.exerciseStepIdCounter = 1;
+    this.exerciseResponseIdCounter = 1;
+    this.exerciseTemplateIdCounter = 1;
     
     // Create default users with hashed passwords
     // The hash of 'password' using our algorithm
@@ -552,8 +599,6 @@ export class MemStorage implements IStorage {
   }
   
   // Milestone operations
-  private relationshipMilestones: Map<number, Milestone> = new Map();
-  private milestoneIdCounter: number = 1;
   
   async createMilestone(milestone: InsertMilestone): Promise<Milestone> {
     const id = this.milestoneIdCounter++;
