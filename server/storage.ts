@@ -11,6 +11,7 @@ import {
   conflictThreads, type ConflictThread, type InsertConflictThread,
   conflictMessages, type ConflictMessage, type InsertConflictMessage,
   directMessages, type DirectMessage, type InsertDirectMessage,
+  journalEntries, type JournalEntry, type InsertJournalEntry,
   memories, type Memory, type InsertMemory,
   therapists, type Therapist, type InsertTherapist,
   pushSubscriptions, type PushSubscription, type InsertPushSubscription,
@@ -219,6 +220,7 @@ export class MemStorage implements IStorage {
   private conflictThreads: Map<number, ConflictThread>;
   private conflictMessages: Map<number, ConflictMessage>;
   private directMessages: Map<number, DirectMessage>;
+  private journalEntries: Map<number, JournalEntry>;
   private memories: Map<number, Memory>;
   private therapists: Map<number, Therapist>;
   private pushSubscriptions: Map<number, PushSubscription>;
@@ -241,6 +243,7 @@ export class MemStorage implements IStorage {
   private conflictThreadIdCounter: number;
   private conflictMessageIdCounter: number;
   private directMessageIdCounter: number;
+  private journalEntryIdCounter: number;
   private memoryIdCounter: number;
   private therapistIdCounter: number;
   private pushSubscriptionIdCounter: number;
@@ -271,6 +274,7 @@ export class MemStorage implements IStorage {
     this.conflictThreads = new Map();
     this.conflictMessages = new Map();
     this.directMessages = new Map();
+    this.journalEntries = new Map();
     this.memories = new Map();
     this.therapists = new Map();
     this.pushSubscriptions = new Map();
@@ -293,6 +297,7 @@ export class MemStorage implements IStorage {
     this.conflictThreadIdCounter = 1;
     this.conflictMessageIdCounter = 1;
     this.directMessageIdCounter = 1;
+    this.journalEntryIdCounter = 1;
     this.memoryIdCounter = 1;
     this.therapistIdCounter = 1;
     this.pushSubscriptionIdCounter = 1;
