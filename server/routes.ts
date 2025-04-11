@@ -2702,6 +2702,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Mark a journal entry as resolved
+  app.post('/api/journal/:id/mark-resolved', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid journal entry ID' });
+      }
+      
+      const entry = await storage.getJournalEntry(id);
+      
+      if (!entry) {
+        return res.status(404).json({ error: 'Journal entry not found' });
+      }
+      
+      // Check that it's the user's entry
+      if (entry.userId !== req.user.id) {
+        return res.status(403).json({ error: 'You do not have permission to modify this journal entry' });
+      }
+      
+      // Update the entry to mark it as resolved
+      const updatedEntry = await storage.updateJournalEntry(id, {
+        ...entry,
+        hasPartnerResponse: true
+      });
+      
+      // Get partnership to notify partner
+      const partnership = await storage.getPartnershipByUser(req.user.id);
+      if (partnership && partnership.status === 'active') {
+        const partnerId = partnership.user1Id === req.user.id ? partnership.user2Id : partnership.user1Id;
+        
+        // Send notification to partner about the journal entry being resolved
+        await sendNotificationToUser(
+          partnerId,
+          {
+            title: "Journal Entry Updated",
+            body: `${req.user.displayName || req.user.username} has marked a journal entry as resolved`,
+            url: `/journal?entry=${id}`,
+            tag: `journal_entry_${id}`
+          }
+        );
+      }
+      
+      res.json(updatedEntry);
+    } catch (error) {
+      console.error('Error marking journal entry as resolved:', error);
+      res.status(500).json({ error: 'Failed to mark journal entry as resolved' });
+    }
+  });
+  
   app.post('/api/journal', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
     try {
       if (!req.user) {

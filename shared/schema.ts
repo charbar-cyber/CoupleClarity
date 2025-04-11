@@ -427,6 +427,7 @@ export const journalEntries = pgTable("journal_entries", {
   isPrivate: boolean("is_private").notNull().default(true),
   isShared: boolean("is_shared").notNull().default(false),
   partnerId: integer("partner_id").references(() => users.id),
+  hasPartnerResponse: boolean("has_partner_response").default(false),
   aiSummary: text("ai_summary"),
   aiRefinedContent: text("ai_refined_content"),
   emotions: text("emotions").array(),
@@ -457,6 +458,7 @@ export const journalEntrySchema = z.object({
   isPrivate: z.boolean().default(true),
   isShared: z.boolean().default(false),
   partnerId: z.number().optional(),
+  hasPartnerResponse: z.boolean().optional().default(false),
   emotions: z.array(z.string()).optional(),
   // AI analysis fields
   aiSummary: z.string().optional(),
