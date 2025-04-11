@@ -12,6 +12,7 @@ import {
   conflictMessages, type ConflictMessage, type InsertConflictMessage,
   directMessages, type DirectMessage, type InsertDirectMessage,
   journalEntries, type JournalEntry, type InsertJournalEntry,
+  journalResponses, type JournalResponse, type InsertJournalResponse,
   memories, type Memory, type InsertMemory,
   therapists, type Therapist, type InsertTherapist,
   pushSubscriptions, type PushSubscription, type InsertPushSubscription,
@@ -138,6 +139,12 @@ export interface IStorage {
   updateJournalEntry(id: number, data: Partial<InsertJournalEntry>): Promise<JournalEntry>;
   deleteJournalEntry(id: number): Promise<void>;
   
+  // Journal response operations
+  createJournalResponse(response: InsertJournalResponse): Promise<JournalResponse>;
+  getJournalResponse(id: number): Promise<JournalResponse | undefined>;
+  getJournalResponsesByEntryId(entryId: number): Promise<JournalResponse[]>;
+  deleteJournalResponse(id: number): Promise<void>;
+  
   // Memory operations
   createMemory(memory: InsertMemory): Promise<Memory>;
   getMemory(id: number): Promise<Memory | undefined>;
@@ -221,6 +228,7 @@ export class MemStorage implements IStorage {
   private conflictMessages: Map<number, ConflictMessage>;
   private directMessages: Map<number, DirectMessage>;
   private journalEntries: Map<number, JournalEntry>;
+  private journalResponses: Map<number, JournalResponse>;
   private memories: Map<number, Memory>;
   private therapists: Map<number, Therapist>;
   private pushSubscriptions: Map<number, PushSubscription>;
@@ -244,6 +252,7 @@ export class MemStorage implements IStorage {
   private conflictMessageIdCounter: number;
   private directMessageIdCounter: number;
   private journalEntryIdCounter: number;
+  private journalResponseIdCounter: number;
   private memoryIdCounter: number;
   private therapistIdCounter: number;
   private pushSubscriptionIdCounter: number;
@@ -275,6 +284,7 @@ export class MemStorage implements IStorage {
     this.conflictMessages = new Map();
     this.directMessages = new Map();
     this.journalEntries = new Map();
+    this.journalResponses = new Map();
     this.memories = new Map();
     this.therapists = new Map();
     this.pushSubscriptions = new Map();
@@ -298,6 +308,7 @@ export class MemStorage implements IStorage {
     this.conflictMessageIdCounter = 1;
     this.directMessageIdCounter = 1;
     this.journalEntryIdCounter = 1;
+    this.journalResponseIdCounter = 1;
     this.memoryIdCounter = 1;
     this.therapistIdCounter = 1;
     this.pushSubscriptionIdCounter = 1;
@@ -1371,6 +1382,52 @@ export class MemStorage implements IStorage {
     }
     
     this.journalEntries.delete(id);
+  }
+  
+  // Journal response operations
+  async createJournalResponse(response: InsertJournalResponse): Promise<JournalResponse> {
+    const id = this.journalResponseIdCounter++;
+    const now = new Date();
+    
+    const journalResponse: JournalResponse = {
+      ...response,
+      id,
+      createdAt: now,
+      updatedAt: now
+    };
+    
+    this.journalResponses.set(id, journalResponse);
+    
+    // Update the journal entry to mark it as having a response
+    const journalEntry = await this.getJournalEntry(response.journalEntryId);
+    if (journalEntry) {
+      await this.updateJournalEntry(journalEntry.id, {
+        hasPartnerResponse: true
+      });
+    }
+    
+    return journalResponse;
+  }
+  
+  async getJournalResponse(id: number): Promise<JournalResponse | undefined> {
+    return this.journalResponses.get(id);
+  }
+  
+  async getJournalResponsesByEntryId(entryId: number): Promise<JournalResponse[]> {
+    return Array.from(this.journalResponses.values())
+      .filter(response => response.journalEntryId === entryId)
+      .sort((a, b) => {
+        // Sort by createdAt in descending order (newest first)
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+  }
+  
+  async deleteJournalResponse(id: number): Promise<void> {
+    if (!this.journalResponses.has(id)) {
+      throw new Error(`Journal response with id ${id} not found`);
+    }
+    
+    this.journalResponses.delete(id);
   }
   
   // Memory operations
