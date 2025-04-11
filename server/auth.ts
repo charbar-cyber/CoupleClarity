@@ -187,9 +187,13 @@ export function setupAuth(app: Express) {
         
         await storage.createInvite(invite, inviteToken);
         
-        // Here you would send an email with the invitation link
-        // For now, we'll just log it
-        console.log(`Invitation link: ${process.env.HOST || 'http://localhost:3000'}/auth?token=${inviteToken}`);
+        // Send partner invitation email
+        const { emailService } = require('./email-service');
+        await emailService.sendPartnerInviteEmail(
+          newUser, 
+          req.body.partnerEmail, 
+          inviteToken
+        );
       }
       
       // Log in the newly created user
@@ -336,9 +340,13 @@ export function setupAuth(app: Express) {
         partnerEmail,
       }, inviteToken);
       
-      // In a real production app, we would send an email to the partner with the invite link
-      // For now, we'll just return the invite details with the token
-      console.log(`Invitation link: ${process.env.HOST || 'http://localhost:3000'}/auth?token=${inviteToken}`);
+      // Send partner invitation email
+      const { emailService } = require('./email-service');
+      await emailService.sendPartnerInviteEmail(
+        req.user, 
+        partnerEmail, 
+        inviteToken
+      );
       
       res.status(201).json({
         id: invite.id,
@@ -428,26 +436,40 @@ export function setupAuth(app: Express) {
         return res.status(400).json({ error: "Email is required" });
       }
       
+      console.log(`Password reset requested for email: ${email}`);
+      
       // Generate and store a password reset token
       const tokenData = await storage.createPasswordResetToken(email);
       
       if (!tokenData) {
+        console.log(`No user found with email: ${email}`);
         // We return success even if email not found to prevent user enumeration
         return res.status(200).json({
           message: "If your email exists in our system, you will receive a password reset link"
         });
       }
       
-      // In a real production app, send an email with the reset link
-      // Here we just log the token for development purposes
-      console.log(`Password reset link: ${process.env.HOST || 'http://localhost:3000'}/reset-password?token=${tokenData.token}`);
+      // Get the user for email sending
+      const user = await storage.getUser(tokenData.userId);
+      if (!user) {
+        console.error(`User with ID ${tokenData.userId} not found!`);
+        return res.status(500).json({ error: "Unexpected error occurred" });
+      }
+      
+      // Send the password reset email (this will log to console in development)
+      const { emailService } = require('./email-service');
+      await emailService.sendPasswordResetEmail(user, tokenData.token);
+      
+      // In development mode, we'll include the token in the response for easier testing
+      const isDevelopment = process.env.NODE_ENV !== 'production';
       
       res.status(200).json({
         message: "If your email exists in our system, you will receive a password reset link",
         // Only include token in development, remove in production
-        token: tokenData.token
+        ...(isDevelopment && { token: tokenData.token })
       });
     } catch (error) {
+      console.error("Password reset error:", error);
       next(error);
     }
   });
