@@ -3224,37 +3224,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Generate a therapy session based on recent journals and conflict threads
   // Therapy session endpoints moved below to avoid duplication
 
-  // Get a specific therapy session
-  app.get('/api/therapy-sessions/:id', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
-    try {
-      if (!req.user) {
-        return res.status(401).json({ error: 'Not authenticated' });
-      }
-      
-      const id = parseInt(req.params.id);
-      if (isNaN(id)) {
-        return res.status(400).json({ error: 'Invalid therapy session ID' });
-      }
-      
-      // Get the therapy session
-      const session = await storage.getTherapySession(id);
-      
-      if (!session) {
-        return res.status(404).json({ error: 'Therapy session not found' });
-      }
-      
-      // Check if the user has access to this session (belongs to their partnership)
-      const partnership = await storage.getPartnershipByUser(req.user.id);
-      if (!partnership || partnership.id !== session.partnershipId) {
-        return res.status(403).json({ error: 'You do not have permission to access this therapy session' });
-      }
-      
-      res.json(session);
-    } catch (error) {
-      console.error('Error fetching therapy session:', error);
-      res.status(500).json({ error: 'Failed to fetch therapy session' });
-    }
-  });
+  // Get a specific therapy session - implemented below to avoid duplication
 
   app.delete('/api/journal/:id', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
     try {

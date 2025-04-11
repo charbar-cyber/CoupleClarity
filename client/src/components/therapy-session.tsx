@@ -20,9 +20,9 @@ export default function TherapySession() {
   
   // Fetch existing therapy sessions
   const { 
-    data: therapySessions,
+    data: therapySessions = [],
     isLoading: isLoadingSessions,
-  } = useQuery({
+  } = useQuery<TherapySessionType[]>({
     queryKey: ['/api/therapy-sessions'],
     enabled: !!user,
   });
@@ -125,12 +125,16 @@ export default function TherapySession() {
     const [isEditingNotes, setIsEditingNotes] = useState(false);
     
     const handleSaveNotes = () => {
-      addNotesMutation.mutate({ id: session.id, notes });
-      setIsEditingNotes(false);
+      if (session.id !== undefined) {
+        addNotesMutation.mutate({ id: session.id, notes });
+        setIsEditingNotes(false);
+      }
     };
     
     const handleMarkAsReviewed = () => {
-      markAsReviewedMutation.mutate(session.id);
+      if (session.id !== undefined) {
+        markAsReviewedMutation.mutate(session.id);
+      }
     };
     
     return (
