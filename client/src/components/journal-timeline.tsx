@@ -181,8 +181,9 @@ export function JournalTimeline({ limit }: JournalTimelineProps) {
   // Loading state
   if (isLoading || isLoadingShared) {
     return (
-      <div className="flex justify-center items-center p-6">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+      <div className="flex justify-center items-center p-6 flex-col gap-2">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Loading journal entries...</p>
       </div>
     );
   }
@@ -221,8 +222,29 @@ export function JournalTimeline({ limit }: JournalTimelineProps) {
 
       <ScrollArea className="h-[400px] pr-4">
         {displayEntries.length === 0 ? (
-          <div className="text-center p-8 text-muted-foreground">
-            <p>No journal entries found.</p>
+          <div className="flex flex-col items-center justify-center p-8 text-muted-foreground space-y-4">
+            <div className="rounded-full bg-muted p-3">
+              <PencilLine className="h-8 w-8 text-primary" />
+            </div>
+            <div className="text-center space-y-1">
+              <p className="font-medium">No journal entries found</p>
+              <p className="text-sm">
+                {activeFilter === "all" 
+                  ? "Start writing to build your journal history."
+                  : activeFilter === "private" 
+                    ? "Create private entries for personal reflection."
+                    : "Share entries with your partner for deeper connection."
+                }
+              </p>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setActiveFilter("all")}
+              className="mt-2"
+            >
+              {activeFilter !== "all" ? "Show all entries" : "Create an entry"}
+            </Button>
           </div>
         ) : (
           <div className="space-y-4">
@@ -258,6 +280,28 @@ export function JournalTimeline({ limit }: JournalTimelineProps) {
                     <p className="text-sm line-clamp-2">
                       {entry.content}
                     </p>
+                    
+                    {entry.emotions && entry.emotions.length > 0 && (
+                      <div className="mt-2">
+                        <p className="text-xs text-muted-foreground mb-1">Emotions:</p>
+                        <div className="flex flex-wrap gap-1">
+                          {entry.emotions.slice(0, 3).map(emotion => (
+                            <Badge 
+                              key={emotion} 
+                              variant="outline" 
+                              className="capitalize text-xs px-2 py-0"
+                            >
+                              {emotion}
+                            </Badge>
+                          ))}
+                          {entry.emotions.length > 3 && (
+                            <Badge variant="outline" className="text-xs px-2 py-0">
+                              +{entry.emotions.length - 3} more
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                   <CardFooter className="flex justify-start gap-2 pt-0">
                     <TooltipProvider>
@@ -365,27 +409,102 @@ export function JournalTimeline({ limit }: JournalTimelineProps) {
               {selectedEntry.aiSummary && (
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">AI Analysis</CardTitle>
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Brain className="h-4 w-4 text-primary" />
+                      AI Analysis
+                    </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-2">
-                    <div>
-                      <h4 className="text-xs font-medium text-muted-foreground">Summary</h4>
-                      <p className="text-sm">{selectedEntry.aiSummary}</p>
-                    </div>
-                    
-                    {selectedEntry.emotionalInsight && (
-                      <div>
-                        <h4 className="text-xs font-medium text-muted-foreground">Emotional Insight</h4>
-                        <p className="text-sm">{selectedEntry.emotionalInsight}</p>
-                      </div>
-                    )}
-                    
-                    {selectedEntry.patternCategory && (
-                      <div>
-                        <h4 className="text-xs font-medium text-muted-foreground">Pattern Detected</h4>
-                        <p className="text-sm capitalize">{selectedEntry.patternCategory.replace(/_/g, " ")}</p>
-                      </div>
-                    )}
+                  <CardContent>
+                    <Tabs defaultValue="insights" className="w-full">
+                      <TabsList className="grid w-full grid-cols-3">
+                        <TabsTrigger value="insights">Insights</TabsTrigger>
+                        <TabsTrigger value="refined">Refined Version</TabsTrigger>
+                        <TabsTrigger value="suggestions">Suggestions</TabsTrigger>
+                      </TabsList>
+                      
+                      <TabsContent value="insights" className="space-y-3 mt-4">
+                        <div>
+                          <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                            <PencilLine className="h-3 w-3" /> Summary
+                          </h4>
+                          <p className="text-sm">{selectedEntry.aiSummary}</p>
+                        </div>
+                        
+                        {selectedEntry.emotionalInsight && (
+                          <div>
+                            <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                              <HeartHandshake className="h-3 w-3" /> Emotional Insight
+                            </h4>
+                            <p className="text-sm">{selectedEntry.emotionalInsight}</p>
+                          </div>
+                        )}
+                        
+                        {selectedEntry.patternCategory && (
+                          <div>
+                            <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                              <Brain className="h-3 w-3" /> Pattern Detected
+                            </h4>
+                            <p className="text-sm capitalize">{selectedEntry.patternCategory.replace(/_/g, " ")}</p>
+                            
+                            {selectedEntry.emotionalScore && (
+                              <div className="mt-2">
+                                <h4 className="text-xs font-medium text-muted-foreground">Emotional Intensity</h4>
+                                <div className="w-full bg-muted rounded-full h-2 mt-1">
+                                  <div
+                                    className="bg-primary rounded-full h-2"
+                                    style={{ width: `${selectedEntry.emotionalScore * 10}%` }}
+                                  />
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {selectedEntry.emotionalScore < 4 ? 'Low' : 
+                                   selectedEntry.emotionalScore < 7 ? 'Moderate' : 
+                                   'High'} intensity ({selectedEntry.emotionalScore}/10)
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </TabsContent>
+                      
+                      <TabsContent value="refined" className="space-y-3 mt-4">
+                        {selectedEntry.aiRefinedContent ? (
+                          <div className="p-3 bg-muted/50 rounded-md">
+                            <p className="text-sm italic whitespace-pre-wrap">{selectedEntry.aiRefinedContent}</p>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">No refined version available.</p>
+                        )}
+                      </TabsContent>
+                      
+                      <TabsContent value="suggestions" className="space-y-3 mt-4">
+                        {selectedEntry.suggestedResponse && (
+                          <div>
+                            <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                              <MessageSquareIcon className="h-3 w-3" /> Suggested Partner Response
+                            </h4>
+                            <p className="text-sm">{selectedEntry.suggestedResponse}</p>
+                          </div>
+                        )}
+                        
+                        {selectedEntry.suggestedBoundary && (
+                          <div>
+                            <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                              <Shield className="h-3 w-3" /> Suggested Boundary
+                            </h4>
+                            <p className="text-sm">{selectedEntry.suggestedBoundary}</p>
+                          </div>
+                        )}
+                        
+                        {selectedEntry.reflectionPrompt && (
+                          <div>
+                            <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                              <HelpCircle className="h-3 w-3" /> Reflection Question
+                            </h4>
+                            <p className="text-sm italic">"{selectedEntry.reflectionPrompt}"</p>
+                          </div>
+                        )}
+                      </TabsContent>
+                    </Tabs>
                   </CardContent>
                 </Card>
               )}
