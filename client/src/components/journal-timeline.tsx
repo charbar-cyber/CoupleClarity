@@ -567,6 +567,36 @@ export function JournalTimeline({ limit }: JournalTimelineProps) {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Response dialog */}
+      <Dialog open={isRespondDialogOpen} onOpenChange={setIsRespondDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Respond to Journal Entry</DialogTitle>
+            <DialogDescription>
+              {selectedEntry && 
+                `Share your thoughts about "${selectedEntry.title}" with your partner`
+              }
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedEntry && (
+            <JournalResponseForm 
+              journalEntry={selectedEntry}
+              onSuccess={() => {
+                setIsRespondDialogOpen(false);
+                toast({
+                  title: "Response submitted",
+                  description: "Your response has been sent to your partner.",
+                });
+                // Invalidate both journal queries to refresh the list
+                queryClient.invalidateQueries({ queryKey: ["/api/journal"] });
+                queryClient.invalidateQueries({ queryKey: ["/api/journal/shared"] });
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

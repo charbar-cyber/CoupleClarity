@@ -82,7 +82,7 @@ export function JournalResponseForm({ journalEntry, onSuccess }: JournalResponse
       const data = await response.json();
       setGeneratedResponse(data.response);
       form.setValue('content', data.response);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating response:', error);
       toast({
         title: "Error generating response",
@@ -115,7 +115,7 @@ export function JournalResponseForm({ journalEntry, onSuccess }: JournalResponse
       });
       
       onSuccess();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting response:', error);
       toast({
         title: "Error submitting response",
