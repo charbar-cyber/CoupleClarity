@@ -2606,6 +2606,286 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: 'Failed to save check-in responses' });
     }
   });
+  
+  // Journal entries endpoints
+  app.get('/api/journal', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      const isPrivateStr = req.query.isPrivate as string | undefined;
+      let isPrivate: boolean | undefined = undefined;
+      
+      if (isPrivateStr) {
+        isPrivate = isPrivateStr === 'true';
+      }
+      
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      
+      const entries = await storage.getUserJournalEntries(req.user.id, isPrivate, limit);
+      res.json(entries);
+    } catch (error) {
+      console.error('Error fetching journal entries:', error);
+      res.status(500).json({ error: 'Failed to fetch journal entries' });
+    }
+  });
+  
+  app.get('/api/journal/shared', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      // Get the partnership to find partner ID
+      const partnership = await storage.getPartnershipByUser(req.user.id);
+      if (!partnership || partnership.status !== 'active') {
+        return res.status(404).json({ error: 'No active partnership found' });
+      }
+      
+      const partnerId = partnership.user1Id === req.user.id ? partnership.user2Id : partnership.user1Id;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      
+      const entries = await storage.getSharedJournalEntries(req.user.id, partnerId, limit);
+      res.json(entries);
+    } catch (error) {
+      console.error('Error fetching shared journal entries:', error);
+      res.status(500).json({ error: 'Failed to fetch shared journal entries' });
+    }
+  });
+  
+  app.get('/api/journal/:id', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid journal entry ID' });
+      }
+      
+      const entry = await storage.getJournalEntry(id);
+      
+      if (!entry) {
+        return res.status(404).json({ error: 'Journal entry not found' });
+      }
+      
+      // Check if the user has access to this entry
+      if (entry.userId !== req.user.id) {
+        // If it's not the user's entry, check if it's a shared entry from their partner
+        const partnership = await storage.getPartnershipByUser(req.user.id);
+        if (!partnership || partnership.status !== 'active') {
+          return res.status(403).json({ error: 'You do not have permission to access this journal entry' });
+        }
+        
+        const partnerId = partnership.user1Id === req.user.id ? partnership.user2Id : partnership.user1Id;
+        
+        if (entry.userId !== partnerId || !entry.isShared) {
+          return res.status(403).json({ error: 'You do not have permission to access this journal entry' });
+        }
+      }
+      
+      res.json(entry);
+    } catch (error) {
+      console.error('Error fetching journal entry:', error);
+      res.status(500).json({ error: 'Failed to fetch journal entry' });
+    }
+  });
+  
+  app.post('/api/journal', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      // Validate request data
+      const journalData = journalEntrySchema.parse(req.body);
+      
+      // Check if this should be shared with partner
+      let partnerId = null;
+      if (journalData.isShared) {
+        const partnership = await storage.getPartnershipByUser(req.user.id);
+        if (partnership && partnership.status === 'active') {
+          partnerId = partnership.user1Id === req.user.id ? partnership.user2Id : partnership.user1Id;
+        }
+      }
+      
+      // Create journal entry
+      const entry = await storage.createJournalEntry({
+        userId: req.user.id,
+        title: journalData.title,
+        content: journalData.content,
+        rawContent: journalData.rawContent || journalData.content,
+        isPrivate: journalData.isPrivate !== undefined ? journalData.isPrivate : true,
+        isShared: journalData.isShared !== undefined ? journalData.isShared : false,
+        partnerId: partnerId,
+        aiSummary: journalData.aiSummary || null,
+        aiRefinedContent: journalData.aiRefinedContent || null,
+        emotions: journalData.emotions || null
+      });
+      
+      // If this is shared, notify the partner
+      if (journalData.isShared && partnerId) {
+        // Send WebSocket notification if partner is connected
+        const client = clients.get(partnerId);
+        if (client && client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify({
+            type: 'journal_entry',
+            userId: req.user.id,
+            entryId: entry.id,
+            title: entry.title
+          }));
+        }
+        
+        // Send push notification if enabled
+        const partnerPrefs = await storage.getNotificationPreferences(partnerId);
+        if (partnerPrefs && partnerPrefs.weeklyCheckIns) { // Using weeklyCheckIns for now, could add journal-specific preference
+          await sendNotification(partnerId, {
+            title: 'New Journal Entry',
+            body: `${req.user.firstName} shared a journal entry with you: ${entry.title}`,
+            url: `/journal/${entry.id}`,
+            type: 'weeklyCheckIns'
+          });
+        }
+      }
+      
+      res.status(201).json(entry);
+    } catch (error) {
+      console.error('Error creating journal entry:', error);
+      if ((error as any).name === 'ZodError') {
+        return res.status(400).json({ error: 'Invalid journal entry data', details: (error as any).errors });
+      }
+      res.status(500).json({ error: 'Failed to create journal entry' });
+    }
+  });
+  
+  app.put('/api/journal/:id', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid journal entry ID' });
+      }
+      
+      // Get the existing entry
+      const existingEntry = await storage.getJournalEntry(id);
+      if (!existingEntry) {
+        return res.status(404).json({ error: 'Journal entry not found' });
+      }
+      
+      // Verify ownership
+      if (existingEntry.userId !== req.user.id) {
+        return res.status(403).json({ error: 'You do not have permission to update this journal entry' });
+      }
+      
+      // Validate update data
+      const journalData = journalEntrySchema.parse(req.body);
+      
+      // Check if sharing status changed and partner info is needed
+      let partnerId = existingEntry.partnerId;
+      if (!existingEntry.isShared && journalData.isShared) {
+        const partnership = await storage.getPartnershipByUser(req.user.id);
+        if (partnership && partnership.status === 'active') {
+          partnerId = partnership.user1Id === req.user.id ? partnership.user2Id : partnership.user1Id;
+        }
+      }
+      
+      // Update the entry
+      const updatedEntry = await storage.updateJournalEntry(id, {
+        title: journalData.title,
+        content: journalData.content,
+        rawContent: journalData.rawContent || journalData.content,
+        isPrivate: journalData.isPrivate,
+        isShared: journalData.isShared,
+        partnerId: partnerId,
+        aiSummary: journalData.aiSummary,
+        aiRefinedContent: journalData.aiRefinedContent,
+        emotions: journalData.emotions
+      });
+      
+      // Notify partner if entry was newly shared
+      if (!existingEntry.isShared && updatedEntry.isShared && partnerId) {
+        // Send WebSocket notification if partner is connected
+        const client = clients.get(partnerId);
+        if (client && client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify({
+            type: 'journal_entry_update',
+            userId: req.user.id,
+            entryId: updatedEntry.id,
+            title: updatedEntry.title
+          }));
+        }
+        
+        // Send push notification if enabled
+        const partnerPrefs = await storage.getNotificationPreferences(partnerId);
+        if (partnerPrefs && partnerPrefs.weeklyCheckIns) { // Using weeklyCheckIns for now
+          await sendNotification(partnerId, {
+            title: 'Journal Entry Shared',
+            body: `${req.user.firstName} shared a journal entry with you: ${updatedEntry.title}`,
+            url: `/journal/${updatedEntry.id}`,
+            type: 'weeklyCheckIns'
+          });
+        }
+      }
+      
+      res.json(updatedEntry);
+    } catch (error) {
+      console.error('Error updating journal entry:', error);
+      if ((error as any).name === 'ZodError') {
+        return res.status(400).json({ error: 'Invalid journal entry data', details: (error as any).errors });
+      }
+      res.status(500).json({ error: 'Failed to update journal entry' });
+    }
+  });
+  
+  app.delete('/api/journal/:id', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid journal entry ID' });
+      }
+      
+      // Get the existing entry
+      const existingEntry = await storage.getJournalEntry(id);
+      if (!existingEntry) {
+        return res.status(404).json({ error: 'Journal entry not found' });
+      }
+      
+      // Verify ownership
+      if (existingEntry.userId !== req.user.id) {
+        return res.status(403).json({ error: 'You do not have permission to delete this journal entry' });
+      }
+      
+      // Delete the entry
+      await storage.deleteJournalEntry(id);
+      
+      // If it was shared, notify the partner
+      if (existingEntry.isShared && existingEntry.partnerId) {
+        // Send WebSocket notification if partner is connected
+        const client = clients.get(existingEntry.partnerId);
+        if (client && client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify({
+            type: 'journal_entry_deleted',
+            userId: req.user.id,
+            entryId: id
+          }));
+        }
+      }
+      
+      res.json({ success: true, message: 'Journal entry deleted successfully' });
+    } catch (error) {
+      console.error('Error deleting journal entry:', error);
+      res.status(500).json({ error: 'Failed to delete journal entry' });
+    }
+  });
 
   return httpServer;
 }
