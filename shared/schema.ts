@@ -417,6 +417,45 @@ export const insertDirectMessageSchema = createInsertSchema(directMessages).omit
 export type InsertDirectMessage = z.infer<typeof insertDirectMessageSchema>;
 export type DirectMessage = typeof directMessages.$inferSelect;
 
+// Journal entries schema
+export const journalEntries = pgTable("journal_entries", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  rawContent: text("raw_content").notNull(),
+  isPrivate: boolean("is_private").notNull().default(true),
+  isShared: boolean("is_shared").notNull().default(false),
+  partnerId: integer("partner_id").references(() => users.id),
+  aiSummary: text("ai_summary"),
+  aiRefinedContent: text("ai_refined_content"),
+  emotions: text("emotions").array(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertJournalEntrySchema = createInsertSchema(journalEntries).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertJournalEntry = z.infer<typeof insertJournalEntrySchema>;
+export type JournalEntry = typeof journalEntries.$inferSelect;
+
+// Journal entry form schema
+export const journalEntrySchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  content: z.string().min(1, "Content is required"),
+  rawContent: z.string(),
+  isPrivate: z.boolean().default(true),
+  isShared: z.boolean().default(false),
+  partnerId: z.number().optional(),
+  emotions: z.array(z.string()).optional(),
+});
+
+export type JournalEntryInput = z.infer<typeof journalEntrySchema>;
+
 // Schema for detailed conflict initiation form
 export const conflictInitiationSchema = z.object({
   topic: z.string().min(1, "Please provide a topic for this conflict"),

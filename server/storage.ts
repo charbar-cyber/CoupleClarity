@@ -129,6 +129,14 @@ export interface IStorage {
   markDirectMessageAsRead(id: number): Promise<DirectMessage>;
   getUnreadDirectMessageCount(userId: number): Promise<number>;
   
+  // Journal entry operations
+  createJournalEntry(entry: InsertJournalEntry): Promise<JournalEntry>;
+  getJournalEntry(id: number): Promise<JournalEntry | undefined>;
+  getUserJournalEntries(userId: number, isPrivate?: boolean, limit?: number): Promise<JournalEntry[]>;
+  getSharedJournalEntries(userId: number, partnerId: number, limit?: number): Promise<JournalEntry[]>;
+  updateJournalEntry(id: number, data: Partial<InsertJournalEntry>): Promise<JournalEntry>;
+  deleteJournalEntry(id: number): Promise<void>;
+  
   // Memory operations
   createMemory(memory: InsertMemory): Promise<Memory>;
   getMemory(id: number): Promise<Memory | undefined>;
