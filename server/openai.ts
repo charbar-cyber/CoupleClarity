@@ -55,6 +55,16 @@ export interface JournalResponseGenerationResult {
   response: string;
 }
 
+export interface TherapySessionResult {
+  transcript: string;
+  audioUrl?: string;
+  summary: {
+    emotionalPatterns: string[];
+    coreIssues: string[];
+    recommendations: string[];
+  };
+}
+
 // Initialize OpenAI client
 // Ensure API key is provided
 if (!process.env.OPENAI_API_KEY) {
@@ -471,6 +481,100 @@ interface PreviousEntry {
  * @param responseType The type of response to generate (empathetic, supportive, curious, appreciative)
  * @returns A thoughtful, emotionally intelligent response
  */
+/**
+ * Generates a therapy session script based on journal entries, conflict threads, and partner interactions.
+ * @param userEntries Array of the user's recent journal entries
+ * @param partnerEntries Array of the partner's shared journal entries or responses
+ * @param conflictThreads Array of recent conflict threads between the partners
+ * @returns Transcript and summary of the AI-generated therapy session
+ */
+export async function generateTherapySession(
+  userEntries: Array<{title: string, content: string, emotions?: string[], date: Date}>,
+  partnerEntries: Array<{title: string, content: string, emotions?: string[], date: Date}>,
+  conflictThreads: Array<{topic: string, messages: Array<{author: string, content: string, date: Date}>}>
+): Promise<TherapySessionResult> {
+  try {
+    // Format entries and conflicts for the prompt
+    const userEntriesFormatted = userEntries.map(entry => 
+      `Title: ${entry.title}\nDate: ${entry.date.toLocaleDateString()}\nEmotions: ${entry.emotions?.join(', ') || 'Not specified'}\nContent: ${entry.content}`
+    ).join('\n\n---\n\n');
+
+    const partnerEntriesFormatted = partnerEntries.map(entry => 
+      `Title: ${entry.title}\nDate: ${entry.date.toLocaleDateString()}\nEmotions: ${entry.emotions?.join(', ') || 'Not specified'}\nContent: ${entry.content}`
+    ).join('\n\n---\n\n');
+
+    const conflictsFormatted = conflictThreads.map(thread => {
+      const messagesFormatted = thread.messages.map(msg => 
+        `${msg.author} (${msg.date.toLocaleDateString()}): ${msg.content}`
+      ).join('\n');
+      
+      return `Topic: ${thread.topic}\n\nMessages:\n${messagesFormatted}`;
+    }).join('\n\n---\n\n');
+
+    // Construct the prompt for the OpenAI API
+    const systemPrompt = `You are a team of two compassionate and insightful couples therapists named Dr. Sofia and Dr. Michael. You are creating a 5-7 minute conversational therapy session script for a couple based on their recent journal entries, shared messages, and conflict threads.
+
+Your task is to:
+1. Carefully analyze the shared data to identify emotional patterns, core issues, and relationship dynamics.
+2. Create a realistic therapy-style script where you (Dr. Sofia and Dr. Michael) take turns discussing your observations, insights, and suggestions for the couple.
+3. Validate both partners' feelings and perspectives without taking sides.
+4. Provide constructive guidance and practical next steps that are specific to the couple's situation.
+5. Maintain a calm, supportive, and professional tone throughout.
+
+USER'S JOURNAL ENTRIES:
+${userEntriesFormatted || "No recent journal entries available."}
+
+PARTNER'S SHARED ENTRIES:
+${partnerEntriesFormatted || "No recent partner entries available."}
+
+CONFLICT THREADS:
+${conflictsFormatted || "No recent conflict threads available."}
+
+Respond with a JSON object containing:
+1. "transcript": A realistic therapy script with dialog between Dr. Sofia and Dr. Michael, addressing the couple's specific situation (800-1000 words).
+2. "summary": An object containing:
+   - "emotionalPatterns": An array of 3-5 key emotional patterns identified in the relationship (e.g., "Withdrawal during conflict", "Difficulty expressing vulnerability").
+   - "coreIssues": An array of 2-4 underlying issues that appear to be causing tension (e.g., "Unmet expectations around household responsibilities", "Different communication styles").
+   - "recommendations": An array of 3-5 specific, actionable recommendations for the couple.`;
+
+    // Call the OpenAI API
+    // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o", 
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: "Please generate a therapy session script based on this couple's data." }
+      ],
+      response_format: { type: "json_object" },
+      max_tokens: 2000
+    });
+
+    // Parse the response
+    const result = JSON.parse(response.choices[0].message.content || "{}");
+    
+    return {
+      transcript: result.transcript || "We couldn't generate a therapy session transcript due to insufficient data. Consider sharing more journal entries or resolving some conflict threads together.",
+      summary: {
+        emotionalPatterns: result.summary?.emotionalPatterns || ["Insufficient data to identify clear patterns"],
+        coreIssues: result.summary?.coreIssues || ["Insufficient data to identify core issues"],
+        recommendations: result.summary?.recommendations || ["Continue journaling and sharing entries to build more insights"]
+      }
+    };
+  } catch (error) {
+    console.error("Error generating therapy session:", error);
+    
+    // Provide a fallback response in case of an error
+    return {
+      transcript: "We apologize, but we couldn't generate a therapy session at this time. Please try again later.",
+      summary: {
+        emotionalPatterns: ["Error occurred during analysis"],
+        coreIssues: ["Please try again later"],
+        recommendations: ["Continue using journal features and try requesting a therapy session again later"]
+      }
+    };
+  }
+}
+
 export async function generateJournalResponse(
   journalContent: string,
   responseType: string

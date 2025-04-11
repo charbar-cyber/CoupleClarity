@@ -2,6 +2,21 @@ import { pgTable, text, serial, integer, boolean, timestamp } from "drizzle-orm/
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Therapy Session Schema
+export const therapySessionSchema = z.object({
+  id: z.number().optional(),
+  partnershipId: z.number(),
+  createdAt: z.date().optional().default(() => new Date()),
+  transcript: z.string(),
+  emotionalPatterns: z.array(z.string()),
+  coreIssues: z.array(z.string()),
+  recommendations: z.array(z.string()),
+  audioUrl: z.string().optional().nullable(),
+  isReviewed: z.boolean().optional().default(false),
+  reviewedAt: z.date().optional().nullable(),
+  userNotes: z.string().optional().nullable()
+});
+
 // Preference option types
 export const loveLanguageOptions = ['words_of_affirmation', 'quality_time', 'acts_of_service', 'physical_touch', 'gifts', 'not_sure'] as const;
 export const conflictStyleOptions = ['avoid', 'emotional', 'talk_calmly', 'need_space', 'not_sure'] as const;
