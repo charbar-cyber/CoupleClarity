@@ -12,8 +12,9 @@ import { useWebSocket } from "@/hooks/use-websocket";
 import { z } from "zod";
 import { 
   Heart, Sparkles, MessageSquare, Wrench, RefreshCw,
-  Clock, Gift, MessageCircleHeart, HandHeart
+  Clock, Gift, MessageCircleHeart, HandHeart, Book
 } from "lucide-react";
+import { JournalSection } from "./journal-section";
 
 // Message and response interfaces
 interface Message {
@@ -266,6 +267,7 @@ export default function PartnerDashboard({ userId, partnerId, partnerName = "Par
           <TabsTrigger value="shared">Shared Messages</TabsTrigger>
           <TabsTrigger value="responses">Responses</TabsTrigger>
           <TabsTrigger value="preferences">Partner Preferences</TabsTrigger>
+          <TabsTrigger value="journal">Journal</TabsTrigger>
         </TabsList>
         
         <TabsContent value="shared">
