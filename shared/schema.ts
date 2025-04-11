@@ -450,6 +450,25 @@ export const insertJournalEntrySchema = createInsertSchema(journalEntries).omit(
 export type InsertJournalEntry = z.infer<typeof insertJournalEntrySchema>;
 export type JournalEntry = typeof journalEntries.$inferSelect;
 
+// Journal responses schema
+export const journalResponses = pgTable("journal_responses", {
+  id: serial("id").primaryKey(),
+  journalEntryId: integer("journal_entry_id").notNull().references(() => journalEntries.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertJournalResponseSchema = createInsertSchema(journalResponses).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertJournalResponse = z.infer<typeof insertJournalResponseSchema>;
+export type JournalResponse = typeof journalResponses.$inferSelect;
+
 // Journal entry form schema
 export const journalEntrySchema = z.object({
   title: z.string().min(1, "Title is required"),

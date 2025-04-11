@@ -21,8 +21,10 @@ import {
   transcribeAudio, 
   generateAvatar, 
   analyzeLoveLanguage,
-  analyzeJournalEntry, 
-  type JournalAnalysisResponse 
+  analyzeJournalEntry,
+  generateJournalResponse,
+  type JournalAnalysisResponse,
+  type JournalResponseGenerationResult
 } from "./openai";
 import * as anthropic from "./anthropic";
 import { hashPassword, setupAuth } from "./auth";
@@ -2953,6 +2955,117 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error analyzing journal entry:', error);
       res.status(500).json({ error: 'Failed to analyze journal entry' });
+    }
+  });
+  
+  // Generate AI-assisted response to a journal entry
+  app.post('/api/journal/generate-response', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      const { journalEntryId, journalContent, prompt } = req.body;
+      
+      if (!journalContent) {
+        return res.status(400).json({ error: 'Journal content is required' });
+      }
+      
+      if (!prompt) {
+        return res.status(400).json({ error: 'Response prompt type is required' });
+      }
+      
+      // Call OpenAI to generate a response
+      const generatedResponse = await generateJournalResponse(journalContent, prompt);
+      
+      res.json(generatedResponse);
+    } catch (error) {
+      console.error('Error generating journal response:', error);
+      res.status(500).json({ error: 'Failed to generate response' });
+    }
+  });
+  
+  // Submit a response to a shared journal entry
+  app.post('/api/journal/:id/respond', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      const entryId = parseInt(req.params.id);
+      const { content } = req.body;
+      
+      if (!content) {
+        return res.status(400).json({ error: 'Response content is required' });
+      }
+      
+      // Get the journal entry
+      const journalEntry = await storage.getJournalEntry(entryId);
+      
+      if (!journalEntry) {
+        return res.status(404).json({ error: 'Journal entry not found' });
+      }
+      
+      // Verify this is a shared entry from the partner
+      const partnership = await storage.getPartnershipById(journalEntry.partnershipId);
+      
+      if (!partnership) {
+        return res.status(400).json({ error: 'Invalid partnership' });
+      }
+      
+      // Check if the user is the partner (not the creator) of this entry
+      if (journalEntry.userId === req.user.id) {
+        return res.status(400).json({ error: 'You cannot respond to your own journal entry' });
+      }
+      
+      // Check if this is a shared entry
+      if (!journalEntry.isShared) {
+        return res.status(400).json({ error: 'This journal entry is not shared with you' });
+      }
+      
+      // Create the response
+      const response = await storage.createJournalResponse({
+        journalEntryId: entryId,
+        userId: req.user.id,
+        content,
+        createdAt: new Date(),
+      });
+      
+      // Update the journal entry to mark it as having a response
+      await storage.updateJournalEntry(entryId, {
+        ...journalEntry,
+        hasPartnerResponse: true
+      });
+      
+      // Send a notification to the journal entry creator
+      await sendNotificationToUser(
+        journalEntry.userId,
+        {
+          title: "New Journal Response",
+          body: `Your partner has responded to your journal entry: "${journalEntry.title}"`,
+          url: "/journal"
+        }
+      );
+      
+      // Send a WebSocket notification
+      const eventData = {
+        type: "journal_response",
+        journalEntryId: entryId,
+        journalTitle: journalEntry.title,
+        responderId: req.user.id,
+        responderName: req.user.username
+      };
+      
+      // Notify the journal creator
+      await sendNotification(journalEntry.userId, {
+        type: "journal_response",
+        data: eventData
+      });
+      
+      res.status(201).json(response);
+    } catch (error) {
+      console.error('Error creating journal response:', error);
+      res.status(500).json({ error: 'Failed to submit response' });
     }
   });
 
