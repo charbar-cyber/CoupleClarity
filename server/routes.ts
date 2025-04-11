@@ -41,6 +41,8 @@ import {
   milestoneTypeOptions,
   coupleProfileSchema,
   milestoneSchema,
+  journalEntrySchema,
+  insertJournalEntrySchema,
   exerciseProgressSchema,
   exerciseTypeOptions,
   exerciseStatusOptions,

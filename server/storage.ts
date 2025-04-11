@@ -1293,6 +1293,86 @@ export class MemStorage implements IStorage {
       .length;
   }
   
+  // Journal entry operations
+  async createJournalEntry(entry: InsertJournalEntry): Promise<JournalEntry> {
+    const id = this.journalEntryIdCounter++;
+    const now = new Date();
+    
+    const journalEntry: JournalEntry = {
+      ...entry,
+      id,
+      createdAt: now,
+      updatedAt: now,
+      aiSummary: entry.aiSummary || null,
+      aiRefinedContent: entry.aiRefinedContent || null,
+      emotions: entry.emotions || null,
+      isPrivate: entry.isPrivate !== undefined ? entry.isPrivate : true,
+      isShared: entry.isShared !== undefined ? entry.isShared : false,
+      partnerId: entry.partnerId || null
+    };
+    
+    this.journalEntries.set(id, journalEntry);
+    return journalEntry;
+  }
+  
+  async getJournalEntry(id: number): Promise<JournalEntry | undefined> {
+    return this.journalEntries.get(id);
+  }
+  
+  async getUserJournalEntries(userId: number, isPrivate?: boolean, limit: number = 50): Promise<JournalEntry[]> {
+    let entries = Array.from(this.journalEntries.values())
+      .filter(entry => entry.userId === userId);
+    
+    // If isPrivate is specified, filter by that
+    if (isPrivate !== undefined) {
+      entries = entries.filter(entry => entry.isPrivate === isPrivate);
+    }
+    
+    return entries
+      .sort((a, b) => {
+        // Sort by createdAt in descending order (newest first)
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      })
+      .slice(0, limit);
+  }
+  
+  async getSharedJournalEntries(userId: number, partnerId: number, limit: number = 50): Promise<JournalEntry[]> {
+    return Array.from(this.journalEntries.values())
+      .filter(entry => 
+        (entry.userId === userId || entry.userId === partnerId) && 
+        entry.isShared === true
+      )
+      .sort((a, b) => {
+        // Sort by createdAt in descending order (newest first)
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      })
+      .slice(0, limit);
+  }
+  
+  async updateJournalEntry(id: number, data: Partial<InsertJournalEntry>): Promise<JournalEntry> {
+    const entry = await this.getJournalEntry(id);
+    if (!entry) {
+      throw new Error(`Journal entry with id ${id} not found`);
+    }
+    
+    const updatedEntry = {
+      ...entry,
+      ...data,
+      updatedAt: new Date()
+    };
+    
+    this.journalEntries.set(id, updatedEntry);
+    return updatedEntry;
+  }
+  
+  async deleteJournalEntry(id: number): Promise<void> {
+    if (!this.journalEntries.has(id)) {
+      throw new Error(`Journal entry with id ${id} not found`);
+    }
+    
+    this.journalEntries.delete(id);
+  }
+  
   // Memory operations
   async createMemory(memory: InsertMemory): Promise<Memory> {
     const id = this.memoryIdCounter++;
