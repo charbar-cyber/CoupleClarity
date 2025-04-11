@@ -50,6 +50,11 @@ export interface JournalAnalysisResponse {
   emotions: string[];
 }
 
+// Interface for journal response generation result
+export interface JournalResponseGenerationResult {
+  response: string;
+}
+
 // Initialize OpenAI client
 // Ensure API key is provided
 if (!process.env.OPENAI_API_KEY) {
@@ -457,6 +462,62 @@ interface PreviousEntry {
   title: string;
   content: string;
   date: string;
+}
+
+/**
+ * Generate a response to a partner's journal entry
+ * 
+ * @param journalContent The content of the journal entry
+ * @param responseType The type of response to generate (empathetic, supportive, curious, appreciative)
+ * @returns A thoughtful, emotionally intelligent response
+ */
+export async function generateJournalResponse(
+  journalContent: string,
+  responseType: string
+): Promise<JournalResponseGenerationResult> {
+  try {
+    // Construct the prompt for the OpenAI API
+    const systemPrompt = `You are an expert in relationship psychology and emotional intelligence.
+    Your task is to help a person craft a thoughtful response to their partner's journal entry.
+    
+    The journal entry they are responding to is: "${journalContent}"
+    
+    Based on the tone requested (${responseType}), generate a kind, constructive response that:
+    1. Validates their partner's feelings
+    2. Shows understanding and empathy
+    3. Maintains a supportive tone
+    4. Doesn't offer solutions unless specifically asked
+    5. Uses "I" language where appropriate
+    6. Is authentic and doesn't sound robotic
+    
+    Response type requested: ${responseType.toUpperCase()}
+    
+    The response should be 3-5 sentences long and feel personal, not generic.`;
+
+    // Call the OpenAI API
+    // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: "Please help me craft a response to my partner's journal entry." }
+      ]
+    });
+
+    // Get the generated response text
+    const generatedResponse = response.choices[0].message.content || "";
+    
+    return {
+      response: generatedResponse.trim()
+    };
+  } catch (error) {
+    console.error("Error generating journal response:", error);
+    
+    // Provide a fallback response in case of an error
+    return {
+      response: "I appreciate you sharing this with me. It helps me understand your perspective better. I'm here for you and value your thoughts and feelings."
+    };
+  }
 }
 
 export async function analyzeJournalEntry(
