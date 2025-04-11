@@ -185,6 +185,13 @@ export default function Homebase({ userId, partnerId, userName, partnerName }: H
               <InvitePartnerCard />
             )}
           </div>
+          
+          {/* Quick Access Cards */}
+          <Separator className="my-6" />
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Quick Access</h3>
+            <QuickAccessCards userId={userId} partnerId={partnerId} />
+          </div>
         </div>
 
         {/* Love Languages Comparison */}

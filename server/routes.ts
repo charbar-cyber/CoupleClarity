@@ -2619,6 +2619,168 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Journal entries endpoints
+  // Get recent journal entries for quick access card
+  app.get('/api/journal/recent', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+      const entries = await storage.getJournalEntriesByUserId(req.user.id, {
+        startDate: oneWeekAgo,
+        limit: 5
+      });
+
+      res.json({
+        count: entries.length,
+        entries: entries.map(entry => ({
+          id: entry.id,
+          title: entry.title,
+          date: entry.createdAt
+        }))
+      });
+    } catch (error) {
+      console.error("Error fetching recent journal entries:", error);
+      res.status(500).json({ error: "Failed to fetch recent journal entries" });
+    }
+  });
+
+  // Get partner journal activities for quick access card
+  app.get('/api/journal/partner-activity', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      // Get partnership info
+      const partnership = await storage.getPartnershipByUserId(req.user.id);
+      if (!partnership) {
+        return res.status(404).json({ error: "Partnership not found" });
+      }
+
+      const partnerId = partnership.user1Id === req.user.id ? partnership.user2Id : partnership.user1Id;
+
+      // Get shared entries from partner that user hasn't responded to
+      const sharedEntries = await storage.getSharedJournalEntriesByUserId(partnerId, req.user.id);
+      
+      // Count unread entries (those without a response)
+      const unreadEntries = sharedEntries.filter(entry => !entry.hasPartnerResponse);
+
+      res.json({
+        unreadCount: unreadEntries.length,
+        latestEntry: unreadEntries.length > 0 ? {
+          id: unreadEntries[0].id,
+          title: unreadEntries[0].title,
+          date: unreadEntries[0].createdAt
+        } : null
+      });
+    } catch (error) {
+      console.error("Error fetching partner journal activity:", error);
+      res.status(500).json({ error: "Failed to fetch partner journal activity" });
+    }
+  });
+
+  // Get emotion trends for quick access card
+  app.get('/api/emotions/trends', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      // Get user's recent journal entries to analyze emotion trends
+      const twoWeeksAgo = new Date();
+      twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+      
+      const entries = await storage.getJournalEntriesByUserId(req.user.id, {
+        startDate: twoWeeksAgo
+      });
+
+      // If we have no entries, return default insight
+      if (entries.length === 0) {
+        return res.json({
+          dominant: null,
+          trend: 'neutral',
+          insight: 'Start journaling to receive emotional insights'
+        });
+      }
+
+      // Extract emotions from entries and analyze trends
+      const emotions: string[] = [];
+      entries.forEach(entry => {
+        if (entry.emotions) {
+          emotions.push(...entry.emotions);
+        }
+      });
+
+      // Count emotion occurrences
+      const emotionCounts: Record<string, number> = {};
+      emotions.forEach(emotion => {
+        emotionCounts[emotion] = (emotionCounts[emotion] || 0) + 1;
+      });
+
+      // Find dominant emotion
+      let dominantEmotion = 'neutral';
+      let maxCount = 0;
+      
+      Object.entries(emotionCounts).forEach(([emotion, count]) => {
+        if (count > maxCount) {
+          maxCount = count;
+          dominantEmotion = emotion;
+        }
+      });
+
+      // Simple trend analysis - compare older vs newer entries
+      const midPoint = Math.floor(entries.length / 2);
+      const olderEntries = entries.slice(0, midPoint);
+      const newerEntries = entries.slice(midPoint);
+      
+      let olderScoreSum = 0;
+      let newerScoreSum = 0;
+      
+      olderEntries.forEach(entry => {
+        olderScoreSum += entry.emotionalScore || 5;
+      });
+      
+      newerEntries.forEach(entry => {
+        newerScoreSum += entry.emotionalScore || 5;
+      });
+      
+      const olderAvg = olderEntries.length > 0 ? olderScoreSum / olderEntries.length : 5;
+      const newerAvg = newerEntries.length > 0 ? newerScoreSum / newerEntries.length : 5;
+      
+      let trend: 'improving' | 'declining' | 'stable';
+      if (newerAvg - olderAvg > 0.5) {
+        trend = 'improving';
+      } else if (olderAvg - newerAvg > 0.5) {
+        trend = 'declining';
+      } else {
+        trend = 'stable';
+      }
+      
+      // Generate insight text based on trend and dominant emotion
+      let insight = '';
+      if (trend === 'improving') {
+        insight = `Your emotional well-being seems to be improving. You've been expressing ${dominantEmotion} more frequently.`;
+      } else if (trend === 'declining') {
+        insight = `You've been experiencing more ${dominantEmotion} lately. Consider exploring what might be contributing to this.`;
+      } else {
+        insight = `Your emotional patterns have been consistent, with ${dominantEmotion} being your most expressed emotion.`;
+      }
+      
+      res.json({
+        dominant: dominantEmotion,
+        trend,
+        insight
+      });
+    } catch (error) {
+      console.error("Error analyzing emotion trends:", error);
+      res.status(500).json({ error: "Failed to analyze emotion trends" });
+    }
+  });
+
   app.get('/api/journal', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
     try {
       if (!req.user) {

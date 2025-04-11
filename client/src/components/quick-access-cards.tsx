@@ -65,17 +65,17 @@ export function QuickAccessCards({ userId, partnerId }: QuickAccessCardsProps) {
 
   // Navigate to journal entry form
   const handleNewJournalEntry = () => {
-    navigate("/journal/new");
+    setLocation("/journal/new");
   };
 
   // Navigate to response form for a shared entry
   const handleRespond = (entryId: number) => {
-    navigate(`/journal/${entryId}/respond`);
+    setLocation(`/journal/${entryId}/respond`);
   };
 
   // Navigate to send appreciation form
   const handleSendAppreciation = () => {
-    navigate("/appreciation/new");
+    setLocation("/appreciation/new");
   };
 
   return (
