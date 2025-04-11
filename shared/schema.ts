@@ -430,6 +430,12 @@ export const journalEntries = pgTable("journal_entries", {
   aiSummary: text("ai_summary"),
   aiRefinedContent: text("ai_refined_content"),
   emotions: text("emotions").array(),
+  emotionalInsight: text("emotional_insight"),
+  emotionalScore: integer("emotional_score"),
+  suggestedResponse: text("suggested_response"),
+  suggestedBoundary: text("suggested_boundary"),
+  reflectionPrompt: text("reflection_prompt"),
+  patternCategory: text("pattern_category"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -452,6 +458,15 @@ export const journalEntrySchema = z.object({
   isShared: z.boolean().default(false),
   partnerId: z.number().optional(),
   emotions: z.array(z.string()).optional(),
+  // AI analysis fields
+  aiSummary: z.string().optional(),
+  aiRefinedContent: z.string().optional(),
+  emotionalInsight: z.string().optional(),
+  emotionalScore: z.number().optional(),
+  suggestedResponse: z.string().optional(),
+  suggestedBoundary: z.string().optional(),
+  reflectionPrompt: z.string().optional(),
+  patternCategory: z.string().optional(),
 });
 
 export type JournalEntryInput = z.infer<typeof journalEntrySchema>;

@@ -37,6 +37,19 @@ export interface LoveLanguageAnalysisResponse {
   appUsageSuggestions: string[];
 }
 
+// Interface for journal entry analysis response
+export interface JournalAnalysisResponse {
+  aiSummary: string;
+  aiRefinedContent: string;
+  emotionalInsight: string;
+  emotionalScore: number;
+  suggestedResponse: string;
+  suggestedBoundary: string;
+  reflectionPrompt: string;
+  patternCategory: string;
+  emotions: string[];
+}
+
 // Initialize OpenAI client
 // Ensure API key is provided
 if (!process.env.OPENAI_API_KEY) {
@@ -430,4 +443,88 @@ function getLoveLanguageDescription(loveLanguage: string): string {
   };
   
   return descriptions[loveLanguage] || "unique expressions of love";
+}
+
+/**
+ * Analyzes a journal entry to provide emotional insights, pattern detection, and communication suggestions
+ * @param journalEntry The journal entry content to analyze
+ * @param title The title of the journal entry
+ * @param userId The ID of the user who wrote the entry
+ * @param previousEntries Optional array of previous journal entries for context
+ * @returns Comprehensive analysis of the journal entry with emotional insights and suggestions
+ */
+export async function analyzeJournalEntry(
+  journalEntry: string,
+  title: string,
+  userId: number,
+  previousEntries?: Array<{title: string, content: string, date: string}>
+): Promise<JournalAnalysisResponse> {
+  try {
+    // Construct the prompt for the OpenAI API
+    const systemPrompt = `You are an expert in relationship psychology and emotional intelligence.
+    Your task is to analyze a user's journal entry about their relationship and provide deep insights.
+    
+    Journal Title: ${title}
+    Journal Entry: ${journalEntry}
+    
+    ${previousEntries && previousEntries.length > 0 ? 
+      `Previous Entries for Context (newest first):
+      ${previousEntries.map(entry => `Date: ${entry.date}
+      Title: ${entry.title}
+      Content: ${entry.content}
+      ---`).join('\n')}` 
+      : ''}
+    
+    Respond with a JSON object containing:
+    1. "aiSummary": A concise 2-3 sentence summary of the key points and emotions in this entry
+    2. "aiRefinedContent": A rewritten version that maintains the core message but expresses it with greater emotional awareness (preserve the first-person perspective)
+    3. "emotionalInsight": An insightful paragraph about the emotional patterns detected in this entry
+    4. "emotionalScore": A number from 1-10 representing the emotional intensity (10 being most intense)
+    5. "suggestedResponse": A constructive response if this entry were shared with a partner
+    6. "suggestedBoundary": A healthy boundary that might be needed based on the content
+    7. "reflectionPrompt": A thoughtful question for the user to reflect on related to this entry
+    8. "patternCategory": A single category that best describes this pattern (e.g., "avoidance", "people-pleasing", "self-criticism", "trust issues", etc.)
+    9. "emotions": An array of 3-5 specific emotions detected in this entry (e.g., "frustrated", "hopeful", "anxious")`;
+
+    // Call the OpenAI API
+    // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: "Please analyze this journal entry with emotional intelligence and relationship psychology expertise." }
+      ],
+      response_format: { type: "json_object" }
+    });
+
+    // Parse the response
+    const result = JSON.parse(response.choices[0].message.content || "{}");
+    
+    return {
+      aiSummary: result.aiSummary || `This entry discusses feelings about ${title}. There are some emotional elements that could benefit from reflection.`,
+      aiRefinedContent: result.aiRefinedContent || journalEntry,
+      emotionalInsight: result.emotionalInsight || "There appears to be a mix of emotions in this entry that reveal your perspective on the situation. Consider how these emotions influence your reactions and communication.",
+      emotionalScore: result.emotionalScore || 5,
+      suggestedResponse: result.suggestedResponse || "I appreciate you sharing this with me. I can see this matters to you, and I'd like to understand more about your perspective.",
+      suggestedBoundary: result.suggestedBoundary || "It's important to express these feelings while also making space for different perspectives.",
+      reflectionPrompt: result.reflectionPrompt || "What underlying needs might be driving these feelings, and how could you express them constructively?",
+      patternCategory: result.patternCategory || "mixed_emotions",
+      emotions: result.emotions || ["concerned", "thoughtful", "hopeful"]
+    };
+  } catch (error) {
+    console.error("Error analyzing journal entry:", error);
+    
+    // Provide a fallback response in case of an error
+    return {
+      aiSummary: `This entry discusses feelings about ${title}.`,
+      aiRefinedContent: journalEntry,
+      emotionalInsight: "There appears to be important emotional content in this entry that would benefit from reflection.",
+      emotionalScore: 5,
+      suggestedResponse: "Thank you for sharing this with me. I'd like to understand more about your perspective.",
+      suggestedBoundary: "It's important to communicate openly while respecting each other's feelings.",
+      reflectionPrompt: "How might expressing these feelings help strengthen your relationship?",
+      patternCategory: "reflection",
+      emotions: ["thoughtful", "concerned", "hopeful"]
+    };
+  }
 }
