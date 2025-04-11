@@ -6,6 +6,7 @@ import { journalEntrySchema } from "@shared/schema";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { ClarityCoach } from "./clarity-coach";
 
 // Type for the journal analysis response
 interface JournalAnalysis {
@@ -48,7 +49,17 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Loader2, Brain, PencilLine, Shield, HelpCircle, AlertCircle, HeartHandshake } from "lucide-react";
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
+import { Loader2, Brain, PencilLine, Shield, HelpCircle, AlertCircle, HeartHandshake, BrainCog, Sparkles } from "lucide-react";
 
 // Extended schema for client-side validation
 const clientJournalSchema = journalEntrySchema.extend({
@@ -79,6 +90,7 @@ export function JournalEntryForm({
   const [analysis, setAnalysis] = useState<JournalAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showAnalysisSection, setShowAnalysisSection] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -174,6 +186,18 @@ export function JournalEntryForm({
     }
     
     analysisMutation.mutate();
+  };
+  
+  // Function to handle inserting a prompt from Clarity Coach
+  const handleInsertPrompt = (prompt: string) => {
+    const currentContent = form.getValues('content');
+    const newContent = currentContent ? `${currentContent}\n\n${prompt}` : prompt;
+    form.setValue('content', newContent);
+    
+    toast({
+      title: "Prompt Added",
+      description: "The suggested prompt has been added to your journal entry.",
+    });
   };
   
   // Create or update journal entry
@@ -475,11 +499,59 @@ export function JournalEntryForm({
                     </AccordionItem>
                   </Accordion>
                 </CardContent>
+                <CardFooter>
+                  <Button 
+                    onClick={() => setIsDrawerOpen(true)} 
+                    variant="outline"
+                    className="w-full"
+                  >
+                    <BrainCog className="mr-2 h-4 w-4" />
+                    Open Clarity Coach
+                  </Button>
+                </CardFooter>
               </Card>
             )}
           </form>
         </Form>
       </Tabs>
+      
+      {/* Clarity Coach Drawer */}
+      {analysis && (
+        <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
+          <DrawerContent className="max-h-[90vh]">
+            <DrawerHeader className="text-center">
+              <DrawerTitle className="flex items-center justify-center">
+                <Sparkles className="mr-2 h-5 w-5 text-primary" />
+                Clarity Coach
+              </DrawerTitle>
+              <DrawerDescription>
+                Personalized emotional guidance and writing prompts
+              </DrawerDescription>
+            </DrawerHeader>
+            <div className="px-4 py-2 overflow-y-auto max-h-[60vh]">
+              {analysis && (
+                <ClarityCoach 
+                  journalEntry={{
+                    id: existingEntry?.id || 0,
+                    title: form.getValues('title'),
+                    content: form.getValues('content'),
+                    emotions: analysis.emotions,
+                    emotionalScore: analysis.emotionalScore,
+                    reflectionPrompt: analysis.reflectionPrompt,
+                    patternCategory: analysis.patternCategory
+                  }}
+                  onSharePrompt={handleInsertPrompt}
+                />
+              )}
+            </div>
+            <DrawerFooter>
+              <DrawerClose asChild>
+                <Button variant="outline">Close</Button>
+              </DrawerClose>
+            </DrawerFooter>
+          </DrawerContent>
+        </Drawer>
+      )}
     </div>
   );
 }

@@ -89,6 +89,28 @@ export function ClarityCoach({ journalEntry, onSharePrompt }: ClarityCoachProps)
         type: 'insight',
         text: `I notice a pattern of "${patternText}" in your journal entries. This might be something to explore more deeply.`
       });
+      
+      // Add pattern-specific suggestion
+      if (entry.patternCategory.includes('avoidance')) {
+        suggestions.push({
+          type: 'action',
+          text: "Avoidance patterns can create distance. Would you like help drafting a conversation starter?",
+          actionText: "Create conversation starter",
+          actionHandler: () => onSharePrompt && onSharePrompt("I've noticed we might be avoiding talking about some important topics. I'd like to create some time for us to talk openly about...")
+        });
+      } else if (entry.patternCategory.includes('criticism')) {
+        suggestions.push({
+          type: 'prompt',
+          text: "Critical thoughts can sometimes mask deeper needs. Can you identify what needs aren't being met?",
+          actionText: "Explore unmet needs",
+          actionHandler: () => onSharePrompt && onSharePrompt("When I feel frustrated, I'm realizing it might be because I need more...")
+        });
+      } else if (entry.patternCategory.includes('defensive')) {
+        suggestions.push({
+          type: 'insight',
+          text: "Defensiveness often comes from feeling threatened or misunderstood. Consider what might help you feel safer in conversations."
+        });
+      }
     }
     
     // Add prompt based on emotional insight if available
@@ -98,6 +120,16 @@ export function ClarityCoach({ journalEntry, onSharePrompt }: ClarityCoachProps)
         text: `Based on your emotional insight: Would you like to explore why you felt ${entry.emotions?.slice(0, 2).join(" and ")}?`,
         actionText: "Share reflection prompt",
         actionHandler: () => onSharePrompt && onSharePrompt(`I've been reflecting on why I felt ${entry.emotions?.slice(0, 2).join(" and ")}. I'd appreciate hearing your perspective.`)
+      });
+    }
+    
+    // Add reflection prompt if available
+    if (entry.reflectionPrompt) {
+      suggestions.push({
+        type: 'prompt',
+        text: `Suggested reflection: ${entry.reflectionPrompt}`,
+        actionText: "Use this reflection prompt",
+        actionHandler: () => onSharePrompt && onSharePrompt(entry.reflectionPrompt)
       });
     }
 
