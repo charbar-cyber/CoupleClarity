@@ -25,6 +25,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatPreference } from "@/lib/utils";
 import AppreciationLog from "./appreciation-log";
+import { QuickAccessCards } from "./quick-access-cards";
 
 interface HomebaseProps {
   userId?: number;
