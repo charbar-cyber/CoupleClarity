@@ -3006,11 +3006,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: 'Journal entry not found' });
       }
       
-      // Verify this is a shared entry from the partner
-      const partnership = await storage.getPartnershipById(journalEntry.partnershipId);
+      // Verify the user has access to this entry
+      const partnership = await storage.getPartnershipByUser(req.user.id);
       
       if (!partnership) {
-        return res.status(400).json({ error: 'Invalid partnership' });
+        return res.status(400).json({ error: 'You are not in a partnership' });
       }
       
       // Check if the user is the partner (not the creator) of this entry
@@ -3027,40 +3027,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const response = await storage.createJournalResponse({
         journalEntryId: entryId,
         userId: req.user.id,
-        content,
-        createdAt: new Date(),
-      });
-      
-      // Update the journal entry to mark it as having a response
-      await storage.updateJournalEntry(entryId, {
-        ...journalEntry,
-        hasPartnerResponse: true
+        content
       });
       
       // Send a notification to the journal entry creator
-      await sendNotificationToUser(
-        journalEntry.userId,
-        {
-          title: "New Journal Response",
-          body: `Your partner has responded to your journal entry: "${journalEntry.title}"`,
-          url: "/journal"
-        }
-      );
-      
-      // Send a WebSocket notification
-      const eventData = {
-        type: "journal_response",
-        journalEntryId: entryId,
-        journalTitle: journalEntry.title,
-        responderId: req.user.id,
-        responderName: req.user.username
-      };
-      
-      // Notify the journal creator
-      await sendNotification(journalEntry.userId, {
-        type: "journal_response",
-        data: eventData
-      });
+      try {
+        // Send a WebSocket notification
+        const eventData = {
+          type: "journal_response",
+          journalEntryId: entryId,
+          journalTitle: journalEntry.title,
+          responderId: req.user.id,
+          responderName: req.user.username
+        };
+        
+        // Notify the journal creator
+        await sendNotification(journalEntry.userId, {
+          type: "appreciations", // Using an existing type for now
+          data: eventData
+        });
+      } catch (error) {
+        console.error("Error sending notification:", error);
+        // Continue even if notification fails
+      }
       
       res.status(201).json(response);
     } catch (error) {

@@ -1,28 +1,22 @@
-import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { useToast } from "@/hooks/use-toast";
-import { Loader2, Sparkles, MessageSquare } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { 
-  Card, 
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle 
-} from "@/components/ui/card";
-import { JournalEntry } from "@shared/schema";
-import { 
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { apiRequest } from '@/lib/queryClient';
+import { JournalEntry } from '@shared/schema';
+import { Button } from '@/components/ui/button';
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useToast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
+
+const journalResponseSchema = z.object({
+  content: z.string().min(10, "Your response must be at least 10 characters")
+});
+
+type JournalResponseFormValues = z.infer<typeof journalResponseSchema>;
 
 interface JournalResponseFormProps {
   journalEntry: JournalEntry;
@@ -36,290 +30,251 @@ interface ResponsePrompt {
 
 const RESPONSE_PROMPTS: ResponsePrompt[] = [
   {
-    text: "What I hear you saying is...",
-    description: "Show empathy by reflecting their message back"
+    text: "I understand how you feel",
+    description: "Express empathy for your partner's emotions"
   },
   {
-    text: "That makes sense because...",
-    description: "Validate their perspective and feelings"
+    text: "Thank you for sharing this with me",
+    description: "Show appreciation for their vulnerability"
   },
   {
-    text: "Here's how I felt in that moment...",
-    description: "Share your own perspective with care"
+    text: "I'd like to know more about",
+    description: "Express curiosity to understand their perspective better"
   },
   {
-    text: "I appreciate you sharing this because...",
-    description: "Express gratitude for their vulnerability"
-  },
-  {
-    text: "I'd like to understand more about...",
-    description: "Show curiosity about their experience"
+    text: "I love that you",
+    description: "Highlight something positive you noticed"
   }
 ];
 
 export function JournalResponseForm({ journalEntry, onSuccess }: JournalResponseFormProps) {
+  const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isAiHelpOpen, setIsAiHelpOpen] = useState(false);
-  const [aiGeneratedResponse, setAiGeneratedResponse] = useState("");
-  const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState<string>("write");
+  const [generatedResponse, setGeneratedResponse] = useState<string | null>(null);
   
-  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm({
+  const form = useForm<JournalResponseFormValues>({
+    resolver: zodResolver(journalResponseSchema),
     defaultValues: {
-      response: ""
+      content: ""
     }
   });
 
-  const responseValue = watch("response");
-  
-  // Handle submit of the response
-  const onSubmit = async (data: { response: string }) => {
-    if (!data.response.trim()) {
-      toast({
-        title: "Response required",
-        description: "Please enter a response before submitting.",
-        variant: "destructive"
-      });
-      return;
-    }
+  async function generateResponse(type: string) {
+    setIsGenerating(true);
+    setGeneratedResponse(null);
     
     try {
-      setIsSubmitting(true);
-      
-      // Submit the partner response
-      const res = await fetch(`/api/journal/${journalEntry.id}/respond`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          content: data.response
-        }),
-        credentials: "include"
-      });
-      
-      if (!res.ok) {
-        throw new Error("Failed to submit response");
-      }
-      
-      toast({
-        title: "Response submitted",
-        description: "Your response has been shared with your partner."
-      });
-      
-      onSuccess();
-    } catch (error) {
-      console.error("Error submitting response:", error);
-      toast({
-        title: "Error",
-        description: "Failed to submit your response. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-  
-  // Generate AI response
-  const generateAiResponse = async (prompt: string) => {
-    try {
-      setIsGenerating(true);
-      
-      const res = await fetch("/api/journal/generate-response", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          journalEntryId: journalEntry.id,
+      const response = await apiRequest(
+        "POST", 
+        `/api/journal/generate-response`, 
+        {
           journalContent: journalEntry.content,
-          prompt
-        }),
-        credentials: "include"
-      });
+          responseType: type
+        }
+      );
       
-      if (!res.ok) {
-        throw new Error("Failed to generate response");
+      if (!response.ok) {
+        throw new Error('Failed to generate response');
       }
       
-      const data = await res.json();
-      setAiGeneratedResponse(data.response);
-      setIsAiHelpOpen(false);
-      
-      // Update the form with the generated response
-      setValue("response", data.response);
-      
+      const data = await response.json();
+      setGeneratedResponse(data.response);
+      form.setValue('content', data.response);
     } catch (error) {
-      console.error("Error generating AI response:", error);
+      console.error('Error generating response:', error);
       toast({
-        title: "Generation failed",
-        description: "Unable to generate a response. Please try again or write your own.",
+        title: "Error generating response",
+        description: "There was a problem generating your response. Please try again or write your own.",
         variant: "destructive"
       });
     } finally {
       setIsGenerating(false);
     }
-  };
-  
-  // Apply a prompt template to current response
-  const applyPrompt = (promptText: string) => {
-    const currentText = responseValue || '';
-    setValue("response", `${promptText} ${currentText}`);
-  };
-  
-  return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <div>
-        <div className="flex justify-between items-center mb-2">
-          <h3 className="text-lg font-medium">Your Response</h3>
-          
-          <Dialog open={isAiHelpOpen} onOpenChange={setIsAiHelpOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm" type="button">
-                <Sparkles className="h-4 w-4 mr-2" />
-                AI Help
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>AI Response Help</DialogTitle>
-                <DialogDescription>
-                  Get help crafting a thoughtful response to your partner's journal entry.
-                </DialogDescription>
-              </DialogHeader>
-              
-              <Tabs defaultValue="prompts">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="prompts">Quick Prompts</TabsTrigger>
-                  <TabsTrigger value="generate">Generate Full Response</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="prompts" className="space-y-4 mt-4">
-                  <p className="text-sm text-muted-foreground">
-                    These prompts can help you start a response in a constructive way:
-                  </p>
-                  
-                  <div className="grid gap-2">
-                    {RESPONSE_PROMPTS.map((prompt, index) => (
-                      <Card key={index}>
-                        <CardHeader className="py-2 px-3">
-                          <CardTitle className="text-sm">{prompt.text}</CardTitle>
-                          <CardDescription className="text-xs">{prompt.description}</CardDescription>
-                        </CardHeader>
-                        <CardFooter className="py-2 px-3 flex justify-end">
-                          <Button 
-                            variant="secondary" 
-                            size="sm"
-                            onClick={() => applyPrompt(prompt.text)}
-                            type="button"
-                          >
-                            Use This
-                          </Button>
-                        </CardFooter>
-                      </Card>
-                    ))}
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="generate" className="space-y-4 mt-4">
-                  <p className="text-sm text-muted-foreground">
-                    Choose a style for your response, and the AI will help craft a thoughtful message:
-                  </p>
-                  
-                  <div className="grid gap-2">
-                    <Button
-                      variant="outline"
-                      className="justify-start"
-                      onClick={() => generateAiResponse("empathetic")}
-                      disabled={isGenerating}
-                      type="button"
-                    >
-                      {isGenerating ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <MessageSquare className="h-4 w-4 mr-2" />
-                      )}
-                      Empathetic & Understanding
-                    </Button>
-                    
-                    <Button
-                      variant="outline"
-                      className="justify-start"
-                      onClick={() => generateAiResponse("supportive")}
-                      disabled={isGenerating}
-                      type="button"
-                    >
-                      {isGenerating ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <MessageSquare className="h-4 w-4 mr-2" />
-                      )}
-                      Supportive & Encouraging
-                    </Button>
-                    
-                    <Button
-                      variant="outline"
-                      className="justify-start"
-                      onClick={() => generateAiResponse("curious")}
-                      disabled={isGenerating}
-                      type="button"
-                    >
-                      {isGenerating ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <MessageSquare className="h-4 w-4 mr-2" />
-                      )}
-                      Curious & Exploring
-                    </Button>
-                    
-                    <Button
-                      variant="outline"
-                      className="justify-start"
-                      onClick={() => generateAiResponse("appreciative")}
-                      disabled={isGenerating}
-                      type="button"
-                    >
-                      {isGenerating ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <MessageSquare className="h-4 w-4 mr-2" />
-                      )}
-                      Appreciative & Grateful
-                    </Button>
-                  </div>
-                </TabsContent>
-              </Tabs>
-              
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAiHelpOpen(false)}>Cancel</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
-        
-        <Textarea
-          {...register("response", { required: "Please enter your response" })}
-          placeholder="Share your thoughts and feelings in response to this journal entry..."
-          className="min-h-[150px]"
-          disabled={isSubmitting}
-        />
-        {errors.response && (
-          <p className="text-sm text-destructive mt-1">{errors.response.message}</p>
-        )}
-      </div>
+  }
+
+  async function onSubmit(values: JournalResponseFormValues) {
+    setIsSubmitting(true);
+    
+    try {
+      const response = await apiRequest(
+        "POST", 
+        `/api/journal/${journalEntry.id}/respond`, 
+        values
+      );
       
-      <div className="flex justify-end space-x-2">
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Submitting...
-            </>
-          ) : (
-            "Submit Response"
-          )}
-        </Button>
-      </div>
-    </form>
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to submit response');
+      }
+      
+      toast({
+        title: "Response submitted",
+        description: "Your response has been sent to your partner.",
+      });
+      
+      onSuccess();
+    } catch (error) {
+      console.error('Error submitting response:', error);
+      toast({
+        title: "Error submitting response",
+        description: error.message || "There was a problem submitting your response. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  function insertPrompt(prompt: string) {
+    const currentContent = form.getValues().content;
+    const newContent = currentContent 
+      ? `${currentContent}\n\n${prompt} ` 
+      : `${prompt} `;
+    
+    form.setValue('content', newContent, { shouldValidate: true });
+  }
+
+  return (
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle>Respond to "{journalEntry.title}"</CardTitle>
+        <CardDescription>
+          Your partner has shared this journal entry with you. Write a thoughtful response.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid grid-cols-2 mb-4">
+            <TabsTrigger value="write">Write Response</TabsTrigger>
+            <TabsTrigger value="ai-assist">AI Assistance</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="write" className="space-y-4">
+            <div className="bg-muted p-4 rounded-md mb-4">
+              <h4 className="font-medium mb-2">Response Prompts</h4>
+              <div className="flex flex-wrap gap-2">
+                {RESPONSE_PROMPTS.map((prompt, index) => (
+                  <Button 
+                    key={index} 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => insertPrompt(prompt.text)}
+                    title={prompt.description}
+                  >
+                    {prompt.text}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="content"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Your Response</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Write your response here..." 
+                          className="min-h-[200px]" 
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <Button 
+                  type="submit" 
+                  className="w-full"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Sending Response...
+                    </>
+                  ) : (
+                    "Send Response"
+                  )}
+                </Button>
+              </form>
+            </Form>
+          </TabsContent>
+          
+          <TabsContent value="ai-assist" className="space-y-4">
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <Button 
+                variant="outline"
+                onClick={() => generateResponse('empathetic')}
+                disabled={isGenerating}
+              >
+                Empathetic Response
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={() => generateResponse('supportive')}
+                disabled={isGenerating}
+              >
+                Supportive Response
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={() => generateResponse('curious')}
+                disabled={isGenerating}
+              >
+                Curious Response
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={() => generateResponse('appreciative')}
+                disabled={isGenerating}
+              >
+                Appreciative Response
+              </Button>
+            </div>
+            
+            {isGenerating ? (
+              <div className="py-8 flex justify-center items-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="ml-3 text-muted-foreground">Generating thoughtful response...</p>
+              </div>
+            ) : generatedResponse ? (
+              <div className="space-y-4">
+                <div className="border rounded-md p-4">
+                  <p className="whitespace-pre-wrap">{generatedResponse}</p>
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setGeneratedResponse(null)}
+                  >
+                    Discard
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      form.setValue('content', generatedResponse);
+                      setActiveTab('write');
+                    }}
+                  >
+                    Use This Response
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="py-8 text-center text-muted-foreground">
+                <p>Select a response type above to generate an AI-assisted response.</p>
+                <p className="mt-2 text-sm">The AI will craft a thoughtful message based on your partner's journal entry.</p>
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
+      </CardContent>
+    </Card>
   );
 }
