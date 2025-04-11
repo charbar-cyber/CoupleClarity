@@ -14,7 +14,16 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 import { storage } from "./storage";
-import { transformEmotionalMessage, summarizeResponse, transformConflictMessage, transcribeAudio, generateAvatar, analyzeLoveLanguage } from "./openai";
+import { 
+  transformEmotionalMessage, 
+  summarizeResponse, 
+  transformConflictMessage, 
+  transcribeAudio, 
+  generateAvatar, 
+  analyzeLoveLanguage,
+  analyzeJournalEntry, 
+  type JournalAnalysisResponse 
+} from "./openai";
 import * as anthropic from "./anthropic";
 import { hashPassword, setupAuth } from "./auth";
 import { 
@@ -2842,6 +2851,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Journal analysis endpoint
+  app.post('/api/journal/analyze', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+
+      const { journalEntry, title, entryId } = req.body;
+
+      if (!journalEntry || !title) {
+        return res.status(400).json({ error: 'Journal entry text and title are required' });
+      }
+
+      // Get previous entries for context (last 3)
+      let previousEntries = [];
+      if (entryId) {
+        const userId = req.user.id;
+        const entries = await storage.getUserJournalEntries(userId, undefined, 5); // Get last 5 entries
+        
+        // Filter out current entry and format for the AI
+        previousEntries = entries
+          .filter((entry) => entry.id !== parseInt(entryId))
+          .slice(0, 3) // Take just the last 3 for context
+          .map((entry) => ({
+            title: entry.title,
+            content: entry.content,
+            date: entry.createdAt.toISOString()
+          }));
+      }
+
+      // Call OpenAI for analysis
+      const analysisResult = await analyzeJournalEntry(
+        journalEntry,
+        title,
+        req.user.id,
+        previousEntries
+      );
+
+      res.json(analysisResult);
+    } catch (error) {
+      console.error('Error analyzing journal entry:', error);
+      res.status(500).json({ error: 'Failed to analyze journal entry' });
+    }
+  });
+
   app.delete('/api/journal/:id', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
     try {
       if (!req.user) {
