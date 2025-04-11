@@ -22,6 +22,7 @@ import DirectMessagePage from "@/pages/direct-message-page";
 import ForgotPasswordPage from "@/pages/forgot-password-page";
 import ResetPasswordPage from "@/pages/reset-password-page";
 import CoupleProfilePage from "@/pages/couple-profile-page";
+import TherapySessionPage from "@/pages/therapy-session-page";
 import StyleGuide from "@/components/style-guide";
 import Header from "./components/header";
 import Footer from "./components/footer";
@@ -59,6 +60,7 @@ function Router() {
         <ProtectedRoute path="/settings/avatar" component={AvatarSettingsPage} />
         <ProtectedRoute path="/couple-profile" component={CoupleProfilePage} />
         <ProtectedRoute path="/messages/direct/:partnerId" component={DirectMessagePage} />
+        <ProtectedRoute path="/therapy-sessions" component={TherapySessionPage} />
         <Route>
           <NotFound />
         </Route>

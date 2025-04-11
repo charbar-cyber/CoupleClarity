@@ -23,6 +23,7 @@ import {
   exerciseSteps, type ExerciseStep, type InsertExerciseStep,
   exerciseResponses, type ExerciseResponse, type InsertExerciseResponse,
   exerciseTemplates, type ExerciseTemplate, type InsertExerciseTemplate,
+  type TherapySession, type InsertTherapySession,
   exerciseTypeOptions, exerciseStatusOptions,
   conflictStatusOptions,
   memoryTypes,
