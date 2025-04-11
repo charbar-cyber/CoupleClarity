@@ -472,6 +472,10 @@ export default function PartnerDashboard({ userId, partnerId, partnerName = "Par
             )}
           </div>
         </TabsContent>
+
+        <TabsContent value="journal">
+          <JournalSection />
+        </TabsContent>
       </Tabs>
     </div>
   );
