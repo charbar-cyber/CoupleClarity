@@ -453,11 +453,17 @@ function getLoveLanguageDescription(loveLanguage: string): string {
  * @param previousEntries Optional array of previous journal entries for context
  * @returns Comprehensive analysis of the journal entry with emotional insights and suggestions
  */
+interface PreviousEntry {
+  title: string;
+  content: string;
+  date: string;
+}
+
 export async function analyzeJournalEntry(
   journalEntry: string,
   title: string,
   userId: number,
-  previousEntries?: Array<{title: string, content: string, date: string}>
+  previousEntries?: PreviousEntry[]
 ): Promise<JournalAnalysisResponse> {
   try {
     // Construct the prompt for the OpenAI API

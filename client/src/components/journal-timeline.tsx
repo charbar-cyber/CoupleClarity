@@ -11,7 +11,13 @@ import {
   UsersIcon,
   FilterIcon,
   LockIcon,
-  ShareIcon
+  ShareIcon,
+  Brain,
+  PencilLine,
+  HeartHandshake,
+  Shield,
+  HelpCircle,
+  Loader2
 } from "lucide-react";
 import { type JournalEntry } from "@shared/schema";
 

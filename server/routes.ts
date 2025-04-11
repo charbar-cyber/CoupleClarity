@@ -2737,13 +2737,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const partnerId = partnership.user1Id === req.user.id ? partnership.user2Id : partnership.user1Id;
         
         // Send notification to partner about the journal entry being resolved
-        await sendNotificationToUser(
+        await sendNotification(
           partnerId,
           {
             title: "Journal Entry Updated",
             body: `${req.user.displayName || req.user.username} has marked a journal entry as resolved`,
             url: `/journal?entry=${id}`,
-            tag: `journal_entry_${id}`
+            type: 'weeklyCheckIns'
           }
         );
       }
@@ -2917,8 +2917,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Journal entry text and title are required' });
       }
 
+      // Define the type for previous entries
+      interface PreviousEntry {
+        title: string;
+        content: string;
+        date: string;
+      }
+      
       // Get previous entries for context (last 3)
-      let previousEntries = [];
+      let previousEntries: PreviousEntry[] = [];
       if (entryId) {
         const userId = req.user.id;
         const entries = await storage.getUserJournalEntries(userId, undefined, 5); // Get last 5 entries

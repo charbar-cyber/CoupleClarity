@@ -12,9 +12,10 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { JournalEntryForm } from "./journal-entry-form";
 import { JournalEntriesList } from "./journal-entries-list";
+import { JournalTimeline } from "./journal-timeline";
 
 export function JournalSection() {
-  const [activeTab, setActiveTab] = useState<"write" | "read">("read");
+  const [activeTab, setActiveTab] = useState<"write" | "read" | "timeline">("read");
   const [isNewEntryDialogOpen, setIsNewEntryDialogOpen] = useState(false);
   const [defaultJournalTab, setDefaultJournalTab] = useState<"private" | "shared">("private");
   
@@ -63,11 +64,12 @@ export function JournalSection() {
           
           <Tabs 
             defaultValue={activeTab} 
-            onValueChange={(value) => setActiveTab(value as "write" | "read")}
+            onValueChange={(value) => setActiveTab(value as "write" | "read" | "timeline")}
           >
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="read">Read Journal</TabsTrigger>
               <TabsTrigger value="write">Write Journal</TabsTrigger>
+              <TabsTrigger value="timeline">Timeline</TabsTrigger>
             </TabsList>
             
             <TabsContent value="read" className="mt-4">
@@ -76,6 +78,10 @@ export function JournalSection() {
             
             <TabsContent value="write" className="mt-4">
               <JournalEntryForm defaultTab={defaultJournalTab} />
+            </TabsContent>
+            
+            <TabsContent value="timeline" className="mt-4">
+              <JournalTimeline />
             </TabsContent>
           </Tabs>
         </div>
