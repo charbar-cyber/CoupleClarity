@@ -17,6 +17,14 @@ export const therapySessionSchema = z.object({
   userNotes: z.string().optional().nullable()
 });
 
+export const insertTherapySessionSchema = therapySessionSchema.omit({ 
+  id: true,
+  reviewedAt: true
+});
+
+export type InsertTherapySession = z.infer<typeof insertTherapySessionSchema>;
+export type TherapySession = z.infer<typeof therapySessionSchema>;
+
 // Preference option types
 export const loveLanguageOptions = ['words_of_affirmation', 'quality_time', 'acts_of_service', 'physical_touch', 'gifts', 'not_sure'] as const;
 export const conflictStyleOptions = ['avoid', 'emotional', 'talk_calmly', 'need_space', 'not_sure'] as const;

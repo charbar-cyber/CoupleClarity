@@ -43,6 +43,11 @@ interface SessionStore extends session.Store {
 }
 
 export interface IStorage {
+  // Therapy Sessions
+  createTherapySession(therapySession: InsertTherapySession): Promise<TherapySession>;
+  getTherapySession(id: number): Promise<TherapySession | null>;
+  getTherapySessions(partnershipId: number): Promise<TherapySession[]>;
+  updateTherapySession(id: number, updates: Partial<TherapySession>): Promise<TherapySession | null>;
   // User operations
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
@@ -264,6 +269,9 @@ export class MemStorage implements IStorage {
   private exerciseTemplateIdCounter: number;
   sessionStore: session.Store;
 
+  private therapySessions: Map<number, TherapySession>;
+  private therapySessionIdCounter: number;
+
   constructor() {
     // Initialize memory session store
     const MemoryStore = createMemoryStore(session);
@@ -295,6 +303,7 @@ export class MemStorage implements IStorage {
     this.exerciseSteps = new Map();
     this.exerciseResponses = new Map();
     this.exerciseTemplates = new Map();
+    this.therapySessions = new Map();
     this.userIdCounter = 1;
     this.messageIdCounter = 1;
     this.partnershipIdCounter = 1;
@@ -318,6 +327,7 @@ export class MemStorage implements IStorage {
     this.exerciseStepIdCounter = 1;
     this.exerciseResponseIdCounter = 1;
     this.exerciseTemplateIdCounter = 1;
+    this.therapySessionIdCounter = 1;
     
     // Create default users with hashed passwords
     // The hash of 'password' using our algorithm
@@ -2097,6 +2107,54 @@ export class MemStorage implements IStorage {
   async getUserResponseForStep(stepId: number, userId: number): Promise<ExerciseResponse | undefined> {
     return Array.from(this.exerciseResponses.values())
       .find(response => response.stepId === stepId && response.userId === userId);
+  }
+
+  // Therapy Session operations
+  async createTherapySession(therapySession: InsertTherapySession): Promise<TherapySession> {
+    const id = this.therapySessionIdCounter++;
+    const now = new Date();
+    
+    const newTherapySession: TherapySession = {
+      ...therapySession,
+      id,
+      createdAt: now,
+      isReviewed: therapySession.isReviewed || false,
+      reviewedAt: null,
+      userNotes: therapySession.userNotes || null,
+      audioUrl: therapySession.audioUrl || null
+    };
+    
+    this.therapySessions.set(id, newTherapySession);
+    return newTherapySession;
+  }
+  
+  async getTherapySession(id: number): Promise<TherapySession | null> {
+    const session = this.therapySessions.get(id);
+    return session || null;
+  }
+  
+  async getTherapySessions(partnershipId: number): Promise<TherapySession[]> {
+    return Array.from(this.therapySessions.values())
+      .filter(session => session.partnershipId === partnershipId)
+      .sort((a, b) => {
+        // Sort by createdAt in descending order (newest first)
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+  }
+  
+  async updateTherapySession(id: number, updates: Partial<TherapySession>): Promise<TherapySession | null> {
+    const session = await this.getTherapySession(id);
+    if (!session) {
+      return null;
+    }
+    
+    const updatedSession = {
+      ...session,
+      ...updates
+    };
+    
+    this.therapySessions.set(id, updatedSession);
+    return updatedSession;
   }
 }
 
