@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow, format } from "date-fns";
 import { 
   PencilIcon, 
@@ -17,9 +17,11 @@ import {
   HeartHandshake,
   Shield,
   HelpCircle,
-  Loader2
+  Loader2,
+  Reply
 } from "lucide-react";
 import { type JournalEntry } from "@shared/schema";
+import { useAuth } from "@/hooks/use-auth";
 
 import {
   Card,
@@ -50,6 +52,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useToast } from "@/hooks/use-toast";
 import { JournalEntryForm } from "./journal-entry-form";
+import { JournalResponseForm } from "./journal-response-form";
 
 interface JournalTimelineProps {
   limit?: number;
@@ -60,7 +63,10 @@ export function JournalTimeline({ limit }: JournalTimelineProps) {
   const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isRespondDialogOpen, setIsRespondDialogOpen] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   // Query to fetch all journal entries
   const {
@@ -342,7 +348,8 @@ export function JournalTimeline({ limit }: JournalTimelineProps) {
                       </Tooltip>
                     </TooltipProvider>
 
-                    {entry.isShared && !entry.hasPartnerResponse && (
+                    {/* For entry owner: ability to mark as resolved */}
+                    {entry.isShared && !entry.hasPartnerResponse && entry.userId === user?.id && (
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -356,6 +363,28 @@ export function JournalTimeline({ limit }: JournalTimelineProps) {
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent>Mark this entry as resolved</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+                    
+                    {/* For partner: ability to respond to entry */}
+                    {entry.isShared && !entry.hasPartnerResponse && entry.userId !== user?.id && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedEntry(entry);
+                                setIsRespondDialogOpen(true);
+                              }}
+                            >
+                              <Reply className="h-4 w-4 mr-1" />
+                              Respond
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Respond to this journal entry</TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
                     )}
