@@ -20,7 +20,7 @@ export function JournalSection() {
   const [defaultJournalTab, setDefaultJournalTab] = useState<"private" | "shared">("private");
   
   return (
-    <Card className="w-full">
+    <Card id="journal-section" className="w-full">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-2xl font-bold">Journal</CardTitle>
         <Dialog open={isNewEntryDialogOpen} onOpenChange={setIsNewEntryDialogOpen}>

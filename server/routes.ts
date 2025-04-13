@@ -2630,10 +2630,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const oneWeekAgo = new Date();
       oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 
-      const entries = await storage.getJournalEntriesByUserId(req.user.id, {
-        startDate: oneWeekAgo,
-        limit: 5
-      });
+      // Get the user's journal entries
+      const allEntries = await storage.getUserJournalEntries(req.user.id);
+      
+      // Filter entries from the past week and limit to 5
+      const entries = allEntries
+        .filter(entry => new Date(entry.createdAt) >= oneWeekAgo)
+        .slice(0, 5);
 
       res.json({
         count: entries.length,

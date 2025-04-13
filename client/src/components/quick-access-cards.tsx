@@ -63,9 +63,16 @@ export function QuickAccessCards({ userId, partnerId }: QuickAccessCardsProps) {
     }
   });
 
-  // Navigate to journal entry form
+  // Navigate to journal entry form in the home page
   const handleNewJournalEntry = () => {
-    setLocation("/journal/new");
+    setLocation("/");
+    // Scroll to journal section with a small delay to ensure the page has loaded
+    setTimeout(() => {
+      const journalSection = document.getElementById('journal-section');
+      if (journalSection) {
+        journalSection.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, 100);
   };
 
   // Navigate to response form for a shared entry
