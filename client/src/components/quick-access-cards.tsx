@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { journalSectionRef } from "./journal-section";
 import { 
   PenSquare, 
   ListTodo, 
@@ -65,10 +66,14 @@ export function QuickAccessCards({ userId, partnerId }: QuickAccessCardsProps) {
 
   // Directly open new journal entry dialog
   const handleNewJournalEntry = () => {
+    // First navigate to the home page
     setLocation("/");
-    // Create and dispatch a custom event to trigger the journal form to open
-    const openJournalEvent = new CustomEvent('openJournalForm');
-    document.dispatchEvent(openJournalEvent);
+    
+    // Then use the ref to open the dialog with a longer delay to ensure navigation completes
+    setTimeout(() => {
+      console.log("Opening journal dialog via ref");
+      journalSectionRef.openNewEntryDialog();
+    }, 300);
   };
 
   // Navigate to response form for a shared entry
@@ -222,7 +227,13 @@ export function QuickAccessCards({ userId, partnerId }: QuickAccessCardsProps) {
       </Card>
 
       {/* Send an Appreciation */}
-      <Card className="hover:bg-accent/5 transition-colors cursor-pointer border">
+      <Card 
+        className="hover:bg-accent/5 transition-colors cursor-pointer border"
+        onClick={(e) => {
+          e.stopPropagation();
+          if (partnerId) handleSendAppreciation();
+        }}
+      >
         <CardContent className="p-6">
           <div className="flex justify-between items-start mb-3">
             <div className="h-10 w-10 rounded-full bg-rose-100 flex items-center justify-center">

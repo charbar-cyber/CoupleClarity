@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { PlusCircle } from "lucide-react";
@@ -14,18 +14,32 @@ import { JournalEntryForm } from "./journal-entry-form";
 import { JournalEntriesList } from "./journal-entries-list";
 import { JournalTimeline } from "./journal-timeline";
 
+// Export the ref object to use in other components
+export const journalSectionRef = {
+  openNewEntryDialog: () => {},
+};
+
 export function JournalSection() {
   const [activeTab, setActiveTab] = useState<"write" | "read" | "timeline">("read");
   const [isNewEntryDialogOpen, setIsNewEntryDialogOpen] = useState(false);
   const [defaultJournalTab, setDefaultJournalTab] = useState<"private" | "shared">("private");
   
+  // Expose a function to open the dialog
+  // This overwrites the empty function in the ref
+  journalSectionRef.openNewEntryDialog = () => {
+    console.log("Opening journal entry dialog programmatically");
+    setIsNewEntryDialogOpen(true);
+  };
+  
   // Listen for the custom event to open the journal form
   useEffect(() => {
     const handleOpenJournalForm = () => {
+      console.log("Journal form open event received");
       setIsNewEntryDialogOpen(true);
     };
     
     document.addEventListener('openJournalForm', handleOpenJournalForm);
+    console.log("Journal form event listener attached");
     
     return () => {
       document.removeEventListener('openJournalForm', handleOpenJournalForm);
