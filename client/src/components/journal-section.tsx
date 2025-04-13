@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { PlusCircle } from "lucide-react";
@@ -14,36 +14,33 @@ import { JournalEntryForm } from "./journal-entry-form";
 import { JournalEntriesList } from "./journal-entries-list";
 import { JournalTimeline } from "./journal-timeline";
 
-// Export the ref object to use in other components
-export const journalSectionRef = {
-  openNewEntryDialog: () => {},
-};
+// Create a simple global variable that any component can access
+if (typeof window !== 'undefined') {
+  // @ts-ignore
+  window.openJournalDialog = false;
+}
 
 export function JournalSection() {
   const [activeTab, setActiveTab] = useState<"write" | "read" | "timeline">("read");
   const [isNewEntryDialogOpen, setIsNewEntryDialogOpen] = useState(false);
   const [defaultJournalTab, setDefaultJournalTab] = useState<"private" | "shared">("private");
   
-  // Expose a function to open the dialog
-  // This overwrites the empty function in the ref
-  journalSectionRef.openNewEntryDialog = () => {
-    console.log("Opening journal entry dialog programmatically");
-    setIsNewEntryDialogOpen(true);
-  };
-  
-  // Listen for the custom event to open the journal form
+  // Use an interval to check the global variable
   useEffect(() => {
-    const handleOpenJournalForm = () => {
-      console.log("Journal form open event received");
-      setIsNewEntryDialogOpen(true);
-    };
+    const intervalId = setInterval(() => {
+      // @ts-ignore
+      if (typeof window !== 'undefined' && window.openJournalDialog === true) {
+        // If the flag is set, open the dialog and reset the flag
+        console.log("Global flag set - opening journal dialog");
+        // Reset the flag first to prevent infinite loops
+        // @ts-ignore
+        window.openJournalDialog = false;
+        // Set the dialog to open
+        setIsNewEntryDialogOpen(true);
+      }
+    }, 50);
     
-    document.addEventListener('openJournalForm', handleOpenJournalForm);
-    console.log("Journal form event listener attached");
-    
-    return () => {
-      document.removeEventListener('openJournalForm', handleOpenJournalForm);
-    };
+    return () => clearInterval(intervalId);
   }, []);
   
   return (

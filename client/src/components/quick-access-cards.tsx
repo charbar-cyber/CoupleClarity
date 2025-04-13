@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { journalSectionRef } from "./journal-section";
 import { 
   PenSquare, 
   ListTodo, 
@@ -69,10 +68,11 @@ export function QuickAccessCards({ userId, partnerId }: QuickAccessCardsProps) {
     // First navigate to the home page
     setLocation("/");
     
-    // Then use the ref to open the dialog with a longer delay to ensure navigation completes
+    // Then use the global flag to signal the journal component to open the dialog
     setTimeout(() => {
-      console.log("Opening journal dialog via ref");
-      journalSectionRef.openNewEntryDialog();
+      console.log("Setting global flag to open journal dialog");
+      // @ts-ignore
+      window.openJournalDialog = true;
     }, 300);
   };
 
