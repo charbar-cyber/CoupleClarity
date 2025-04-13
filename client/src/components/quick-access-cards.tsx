@@ -97,7 +97,7 @@ export function QuickAccessCards({ userId, partnerId }: QuickAccessCardsProps) {
           <p className="text-sm text-muted-foreground mb-3">
             Express yourself or share thoughts with your partner
           </p>
-          <Button className="mt-auto" variant="default">
+          <Button className="mt-auto" variant="default" onClick={handleNewJournalEntry}>
             Start Writing
           </Button>
         </CardContent>
