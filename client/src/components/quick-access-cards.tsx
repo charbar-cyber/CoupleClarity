@@ -63,16 +63,12 @@ export function QuickAccessCards({ userId, partnerId }: QuickAccessCardsProps) {
     }
   });
 
-  // Navigate to journal entry form in the home page
+  // Directly open new journal entry dialog
   const handleNewJournalEntry = () => {
     setLocation("/");
-    // Scroll to journal section with a small delay to ensure the page has loaded
-    setTimeout(() => {
-      const journalSection = document.getElementById('journal-section');
-      if (journalSection) {
-        journalSection.scrollIntoView({ behavior: 'smooth' });
-      }
-    }, 100);
+    // Create and dispatch a custom event to trigger the journal form to open
+    const openJournalEvent = new CustomEvent('openJournalForm');
+    document.dispatchEvent(openJournalEvent);
   };
 
   // Navigate to response form for a shared entry
@@ -88,7 +84,13 @@ export function QuickAccessCards({ userId, partnerId }: QuickAccessCardsProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
       {/* New Journal Entry - Primary CTA */}
-      <Card className="bg-gradient-to-br from-primary/20 to-primary/5 hover:from-primary/30 hover:to-primary/10 transition-colors cursor-pointer border-primary/20" onClick={handleNewJournalEntry}>
+      <Card 
+        className="bg-gradient-to-br from-primary/20 to-primary/5 hover:from-primary/30 hover:to-primary/10 transition-colors cursor-pointer border-primary/20" 
+        onClick={(e) => {
+          e.stopPropagation(); // Just in case
+          handleNewJournalEntry();
+        }}
+      >
         <CardContent className="p-6 flex flex-col items-center text-center">
           <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
             <PenSquare className="h-6 w-6 text-primary" />
@@ -97,14 +99,27 @@ export function QuickAccessCards({ userId, partnerId }: QuickAccessCardsProps) {
           <p className="text-sm text-muted-foreground mb-3">
             Express yourself or share thoughts with your partner
           </p>
-          <Button className="mt-auto" variant="default" onClick={handleNewJournalEntry}>
+          <Button 
+            className="mt-auto" 
+            variant="default" 
+            onClick={(e) => {
+              e.stopPropagation(); // Prevent card click from interfering
+              handleNewJournalEntry();
+            }}
+          >
             Start Writing
           </Button>
         </CardContent>
       </Card>
 
       {/* Your Reflections This Week */}
-      <Card className="hover:bg-accent/5 transition-colors cursor-pointer border">
+      <Card 
+        className="hover:bg-accent/5 transition-colors cursor-pointer border"
+        onClick={(e) => {
+          e.stopPropagation();
+          handleNewJournalEntry();
+        }}
+      >
         <CardContent className="p-6">
           <div className="flex justify-between items-start mb-3">
             <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
@@ -118,7 +133,14 @@ export function QuickAccessCards({ userId, partnerId }: QuickAccessCardsProps) {
               ? `You've written ${recentJournals.count} reflections this week`
               : "No reflections yet this week. Start your first one!"}
           </p>
-          <Button variant="ghost" className="w-full justify-between" onClick={handleNewJournalEntry}>
+          <Button 
+            variant="ghost" 
+            className="w-full justify-between" 
+            onClick={(e) => {
+              e.stopPropagation(); // Prevent card click from interfering
+              handleNewJournalEntry();
+            }}
+          >
             Continue Journaling
             <ArrowRight className="h-4 w-4 ml-2" />
           </Button>
@@ -149,7 +171,10 @@ export function QuickAccessCards({ userId, partnerId }: QuickAccessCardsProps) {
             <Button 
               variant="ghost" 
               className="w-full justify-between"
-              onClick={() => handleRespond(partnerActivity.latestEntry.id)}
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent card click from interfering
+                handleRespond(partnerActivity.latestEntry.id);
+              }}
             >
               Respond to Entry
               <ArrowRight className="h-4 w-4 ml-2" />
@@ -159,7 +184,13 @@ export function QuickAccessCards({ userId, partnerId }: QuickAccessCardsProps) {
       </Card>
 
       {/* Insights (based on emotion trends) */}
-      <Card className="hover:bg-accent/5 transition-colors cursor-pointer border md:col-span-2">
+      <Card 
+        className="hover:bg-accent/5 transition-colors cursor-pointer border md:col-span-2"
+        onClick={(e) => {
+          e.stopPropagation();
+          handleNewJournalEntry();
+        }}
+      >
         <CardContent className="p-6">
           <div className="flex justify-between items-start mb-3">
             <div className="h-10 w-10 rounded-full bg-violet-100 flex items-center justify-center">
@@ -176,7 +207,14 @@ export function QuickAccessCards({ userId, partnerId }: QuickAccessCardsProps) {
           <p className="text-sm text-muted-foreground mb-3">
             {emotionTrends?.insight || "Continue journaling to receive emotional insights"}
           </p>
-          <Button variant="ghost" className="w-full justify-between" onClick={handleNewJournalEntry}>
+          <Button 
+            variant="ghost" 
+            className="w-full justify-between" 
+            onClick={(e) => {
+              e.stopPropagation(); // Prevent card click from interfering
+              handleNewJournalEntry();
+            }}
+          >
             Explore Patterns
             <ArrowRight className="h-4 w-4 ml-2" />
           </Button>
@@ -198,7 +236,10 @@ export function QuickAccessCards({ userId, partnerId }: QuickAccessCardsProps) {
           <Button 
             variant="ghost" 
             className="w-full justify-between"
-            onClick={handleSendAppreciation}
+            onClick={(e) => {
+              e.stopPropagation(); // Prevent card click from interfering
+              handleSendAppreciation();
+            }}
             disabled={!partnerId}
           >
             Express Gratitude

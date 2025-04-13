@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { PlusCircle } from "lucide-react";
@@ -18,6 +18,19 @@ export function JournalSection() {
   const [activeTab, setActiveTab] = useState<"write" | "read" | "timeline">("read");
   const [isNewEntryDialogOpen, setIsNewEntryDialogOpen] = useState(false);
   const [defaultJournalTab, setDefaultJournalTab] = useState<"private" | "shared">("private");
+  
+  // Listen for the custom event to open the journal form
+  useEffect(() => {
+    const handleOpenJournalForm = () => {
+      setIsNewEntryDialogOpen(true);
+    };
+    
+    document.addEventListener('openJournalForm', handleOpenJournalForm);
+    
+    return () => {
+      document.removeEventListener('openJournalForm', handleOpenJournalForm);
+    };
+  }, []);
   
   return (
     <Card id="journal-section" className="w-full">
