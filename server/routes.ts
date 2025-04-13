@@ -2660,7 +2660,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get partnership info
-      const partnership = await storage.getPartnershipByUserId(req.user.id);
+      const partnership = await storage.getPartnershipByUser(req.user.id);
       if (!partnership) {
         return res.status(404).json({ error: "Partnership not found" });
       }
@@ -2668,10 +2668,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const partnerId = partnership.user1Id === req.user.id ? partnership.user2Id : partnership.user1Id;
 
       // Get shared entries from partner that user hasn't responded to
-      const sharedEntries = await storage.getSharedJournalEntriesByUserId(partnerId, req.user.id);
+      const sharedEntries = await storage.getSharedJournalEntries(partnerId, req.user.id);
       
       // Count unread entries (those without a response)
-      const unreadEntries = sharedEntries.filter(entry => !entry.hasPartnerResponse);
+      const unreadEntries = sharedEntries.filter((entry: { hasPartnerResponse: boolean }) => !entry.hasPartnerResponse);
 
       res.json({
         unreadCount: unreadEntries.length,
@@ -2698,9 +2698,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const twoWeeksAgo = new Date();
       twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
       
-      const entries = await storage.getJournalEntriesByUserId(req.user.id, {
-        startDate: twoWeeksAgo
-      });
+      // Get the user's journal entries
+      const allEntries = await storage.getUserJournalEntries(req.user.id);
+      
+      // Filter entries from the past two weeks
+      const entries = allEntries.filter((entry: { createdAt: Date | string }) => new Date(entry.createdAt) >= twoWeeksAgo);
 
       // If we have no entries, return default insight
       if (entries.length === 0) {
