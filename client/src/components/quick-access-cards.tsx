@@ -63,14 +63,9 @@ export function QuickAccessCards({ userId, partnerId }: QuickAccessCardsProps) {
     }
   });
 
-  // Directly navigate to the journal section's write tab
+  // Navigate to the dedicated new journal entry page
   const handleNewJournalEntry = () => {
-    // Create a custom URL with tab parameter
-    const url = new URL("/", window.location.origin);
-    url.searchParams.set("journal", "write");
-    
-    // Navigate to the URL with the journal parameter
-    window.location.href = url.toString();
+    setLocation("/journal/new");
   };
 
   // Navigate to response form for a shared entry
