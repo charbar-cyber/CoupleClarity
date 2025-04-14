@@ -63,17 +63,14 @@ export function QuickAccessCards({ userId, partnerId }: QuickAccessCardsProps) {
     }
   });
 
-  // Directly open new journal entry dialog
+  // Directly navigate to the journal section's write tab
   const handleNewJournalEntry = () => {
-    // First navigate to the home page
-    setLocation("/");
+    // Create a custom URL with tab parameter
+    const url = new URL("/", window.location.origin);
+    url.searchParams.set("journal", "write");
     
-    // Then use the global flag to signal the journal component to open the dialog
-    setTimeout(() => {
-      console.log("Setting global flag to open journal dialog");
-      // @ts-ignore
-      window.openJournalDialog = true;
-    }, 300);
+    // Navigate to the URL with the journal parameter
+    window.location.href = url.toString();
   };
 
   // Navigate to response form for a shared entry

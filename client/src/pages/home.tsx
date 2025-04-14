@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import WelcomeCard from "@/components/welcome-card";
@@ -10,6 +10,7 @@ import MessageTimeline from "@/components/message-timeline";
 import EmotionalInsights from "@/components/emotional-insights";
 import WeeklyCheckIn from "@/components/weekly-check-in";
 import LoveLanguageAnalysis from "@/components/love-language-analysis";
+import { JournalSection, JOURNAL_TABS } from "@/components/journal-section";
 import { apiRequest, getQueryFn, queryClient } from "@/lib/queryClient";
 import { TransformationResponse, User } from "@shared/schema";
 import { useMutation, useQuery } from "@tanstack/react-query";

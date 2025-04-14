@@ -20,8 +20,15 @@ if (typeof window !== 'undefined') {
   window.openJournalDialog = false;
 }
 
-export function JournalSection() {
-  const [activeTab, setActiveTab] = useState<"write" | "read" | "timeline">("read");
+// Export these tab values so they can be referenced from other components
+export const JOURNAL_TABS = {
+  READ: "read",
+  WRITE: "write", 
+  TIMELINE: "timeline"
+} as const;
+
+export function JournalSection({initialTab}: {initialTab?: "read" | "write" | "timeline"}) {
+  const [activeTab, setActiveTab] = useState<"write" | "read" | "timeline">(initialTab || "read");
   const [isNewEntryDialogOpen, setIsNewEntryDialogOpen] = useState(false);
   const [defaultJournalTab, setDefaultJournalTab] = useState<"private" | "shared">("private");
   
@@ -87,6 +94,7 @@ export function JournalSection() {
           </div>
           
           <Tabs 
+            value={activeTab}
             defaultValue={activeTab} 
             onValueChange={(value) => setActiveTab(value as "write" | "read" | "timeline")}
           >
