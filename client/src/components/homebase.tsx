@@ -456,29 +456,12 @@ function InvitePartnerCard() {
       </p>
       
       <div className="flex flex-col gap-3 w-full">
+        {/* Primary option: Generate Invitation Link */}
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button 
                 variant="default" 
-                className="w-full" 
-                onClick={() => setIsEmailDialogOpen(true)}
-              >
-                <Mail className="mr-2 h-4 w-4" />
-                Invite via Email
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Send an invitation email to your partner</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-        
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button 
-                variant="outline" 
                 className="w-full" 
                 onClick={handleGenerateLink}
                 disabled={generateInviteLinkMutation.isPending}
@@ -497,11 +480,12 @@ function InvitePartnerCard() {
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Create a link you can share directly with your partner</p>
+              <p><strong>Recommended:</strong> Create a link you can share directly with your partner</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
 
+        {/* Secondary option: Connect Existing Account */}
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -516,6 +500,25 @@ function InvitePartnerCard() {
             </TooltipTrigger>
             <TooltipContent>
               <p>Connect with a partner who already has a CoupleClarity account</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        
+        {/* Email invitation (less prominent) */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="outline" 
+                className="w-full" 
+                onClick={() => setIsEmailDialogOpen(true)}
+              >
+                <Mail className="mr-2 h-4 w-4" />
+                Invite via Email (Alternative)
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Email delivery may be unreliable - use direct link sharing instead</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
