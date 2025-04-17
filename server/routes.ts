@@ -1762,11 +1762,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Inviter not found" });
       }
       
-      // Check if a partnership already exists
+      // Check if an active partnership already exists
       const existingPartnership = await storage.getPartnershipByUsers(invite.fromUserId, req.user.id);
       
       if (existingPartnership) {
-        return res.status(400).json({ error: "Partnership already exists between these users" });
+        // If the partnership is already active, just return success
+        if (existingPartnership.status === "active") {
+          return res.status(200).json({ 
+            message: "You are already connected with this partner",
+            partnerName: `${inviter.firstName} ${inviter.lastName}`,
+            partnership: existingPartnership
+          });
+        }
+        
+        // If it's pending or other status, update it to active
+        const updatedPartnership = await storage.updatePartnership(existingPartnership.id, {
+          ...existingPartnership,
+          status: "active",
+          updatedAt: new Date()
+        });
+        
+        // Notify the partner of the connection
+        const client = clients.get(invite.fromUserId);
+        if (client && client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify({
+            type: 'connection_accepted',
+            data: {
+              userId: req.user.id,
+              partnerName: `${req.user.firstName} ${req.user.lastName}`,
+              timestamp: new Date()
+            }
+          }));
+        }
+        
+        return res.status(200).json({ 
+          message: "Successfully reconnected with partner",
+          partnerName: `${inviter.firstName} ${inviter.lastName}`,
+          partnership: updatedPartnership
+        });
       }
       
       // Mark the invite as accepted
@@ -1834,7 +1867,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if a partnership already exists between these users
       const existingPartnership = await storage.getPartnershipByUsers(req.user.id, partnerUser.id);
       if (existingPartnership) {
-        return res.status(400).json({ error: "A partnership already exists with this user" });
+        // If partnership exists but is not active, update it
+        if (existingPartnership.status !== "active") {
+          const updatedPartnership = await storage.updatePartnership(existingPartnership.id, {
+            ...existingPartnership,
+            status: "active",
+            updatedAt: new Date()
+          });
+          
+          return res.status(200).json({
+            success: true,
+            message: "Successfully reconnected with partner",
+            partnership: updatedPartnership
+          });
+        }
+        
+        return res.status(200).json({ 
+          success: true,
+          message: "You are already connected with this partner",
+          partnership: existingPartnership
+        });
       }
       
       // Create partnership

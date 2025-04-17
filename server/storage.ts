@@ -69,6 +69,7 @@ export interface IStorage {
   getPartnershipsForUser(userId: number): Promise<Partnership[]>;
   updatePartnershipStatus(id: number, status: string): Promise<Partnership>;
   updatePartnershipProfile(id: number, profileData: Partial<InsertPartnership>): Promise<Partnership>;
+  updatePartnership(id: number, partnershipData: Partial<Partnership>): Promise<Partnership>;
   
   // Milestone operations
   createMilestone(milestone: InsertMilestone): Promise<Milestone>;
@@ -636,6 +637,22 @@ export class MemStorage implements IStorage {
     const updatedPartnership = {
       ...partnership,
       ...profileData
+    };
+    
+    this.partnerships.set(id, updatedPartnership);
+    return updatedPartnership;
+  }
+  
+  async updatePartnership(id: number, partnershipData: Partial<Partnership>): Promise<Partnership> {
+    const partnership = await this.getPartnership(id);
+    if (!partnership) {
+      throw new Error(`Partnership with id ${id} not found`);
+    }
+    
+    const updatedPartnership = {
+      ...partnership,
+      ...partnershipData,
+      updatedAt: new Date()
     };
     
     this.partnerships.set(id, updatedPartnership);
