@@ -97,29 +97,35 @@ function isAuthenticated(req: Request, res: Response, next: NextFunction) {
 export async function registerRoutes(app: Express): Promise<Server> {
   // Debug endpoint to list all users (for development only)
   app.get('/api/debug/list-users', (req, res) => {
-    const users = Array.from(storage.users.values()).map(user => ({
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      displayName: user.displayName
-    }));
-    res.json(users);
+    // Get all users using the storage interface
+    storage.getAllUsers().then(users => {
+      const sanitizedUsers = users.map(user => ({
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        displayName: user.displayName
+      }));
+      res.json(sanitizedUsers);
+    }).catch(error => {
+      console.error('Error listing users:', error);
+      res.status(500).json({ error: 'Failed to list users' });
+    });
   });
   
   // Debug endpoint to reset all users (for development only)
   app.post('/api/debug/reset-users', (req, res) => {
-    // Clear all users
-    storage.users.clear();
-    
-    // Reset user counter
-    storage.userIdCounter = 1;
-    
-    // Return success message
-    res.json({ 
-      success: true, 
-      message: 'All users have been removed from the system.' 
+    // Use the storage interface to reset users
+    storage.resetUsers().then(() => {
+      // Return success message
+      res.json({ 
+        success: true, 
+        message: 'All users have been removed from the system.' 
+      });
+    }).catch(error => {
+      console.error('Error resetting users:', error);
+      res.status(500).json({ error: 'Failed to reset users' });
     });
   });
   // Set up authentication

@@ -53,10 +53,12 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
+  getAllUsers(): Promise<User[]>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(userId: number, userData: Partial<User>): Promise<User>;
   updateUserPassword(userId: number, newPassword: string): Promise<User>;
   updateUserAvatar(userId: number, avatarUrl: string): Promise<User>;
+  resetUsers(): Promise<void>;
   createPasswordResetToken(email: string): Promise<{token: string, userId: number} | null>;
   getPasswordResetToken(token: string): Promise<{userId: number, expiresAt: Date} | null>;
   invalidatePasswordResetToken(token: string): Promise<void>;
@@ -805,6 +807,17 @@ export class MemStorage implements IStorage {
     this.users.set(userId, updatedUser);
     
     return updatedUser;
+  }
+  
+  async resetUsers(): Promise<void> {
+    // Clear all users
+    this.users.clear();
+    
+    // Reset the user ID counter
+    this.userIdCounter = 1;
+    
+    console.log('All users have been reset. User counter reset to 1.');
+    return;
   }
   
   async updateUser(userId: number, userData: Partial<User>): Promise<User> {
