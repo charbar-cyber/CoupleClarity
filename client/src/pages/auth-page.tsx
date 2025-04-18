@@ -528,7 +528,7 @@ export default function AuthPage() {
                 <TabsContent value="login" className="space-y-4">
                   <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="login-username">Username</Label>
+                      <Label htmlFor="login-username">Username or Email</Label>
                       <Input id="login-username" {...loginForm.register("username")} />
                       {loginForm.formState.errors.username && (
                         <p className="text-sm text-destructive">
