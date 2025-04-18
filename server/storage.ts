@@ -281,6 +281,9 @@ export class MemStorage implements IStorage {
 
   private therapySessions: Map<number, TherapySession>;
   private therapySessionIdCounter: number;
+  
+  private emotionalExpressions: Map<number, EmotionalExpression>;
+  private emotionalExpressionIdCounter: number;
 
   constructor() {
     // Initialize memory session store
@@ -314,6 +317,7 @@ export class MemStorage implements IStorage {
     this.exerciseResponses = new Map();
     this.exerciseTemplates = new Map();
     this.therapySessions = new Map();
+    this.emotionalExpressions = new Map();
     this.userIdCounter = 1;
     this.messageIdCounter = 1;
     this.partnershipIdCounter = 1;
@@ -338,6 +342,7 @@ export class MemStorage implements IStorage {
     this.exerciseResponseIdCounter = 1;
     this.exerciseTemplateIdCounter = 1;
     this.therapySessionIdCounter = 1;
+    this.emotionalExpressionIdCounter = 1;
     
     // Create default users with hashed passwords
     // The hash of 'password' using our algorithm
@@ -2196,6 +2201,49 @@ export class MemStorage implements IStorage {
     
     this.therapySessions.set(id, updatedSession);
     return updatedSession;
+  }
+
+  // Emotional Expression operations
+  async createEmotionalExpression(expression: InsertEmotionalExpression): Promise<EmotionalExpression> {
+    const id = this.emotionalExpressionIdCounter++;
+    const now = new Date();
+    
+    const emotionalExpression: EmotionalExpression = {
+      ...expression,
+      id,
+      createdAt: now,
+      aiProcessed: expression.aiProcessed || false,
+      aiInsight: expression.aiInsight || null,
+      tags: expression.tags || []
+    };
+    
+    this.emotionalExpressions.set(id, emotionalExpression);
+    return emotionalExpression;
+  }
+
+  async getUserEmotionalExpressions(userId: number, limit?: number): Promise<EmotionalExpression[]> {
+    const expressions = Array.from(this.emotionalExpressions.values())
+      .filter(expr => expr.userId === userId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    
+    return limit ? expressions.slice(0, limit) : expressions;
+  }
+
+  async getEmotionalExpression(id: number): Promise<EmotionalExpression | null> {
+    return this.emotionalExpressions.get(id) || null;
+  }
+
+  async updateEmotionalExpression(id: number, updates: Partial<EmotionalExpression>): Promise<EmotionalExpression | null> {
+    const expression = this.emotionalExpressions.get(id);
+    if (!expression) return null;
+    
+    const updatedExpression = {
+      ...expression,
+      ...updates
+    };
+    
+    this.emotionalExpressions.set(id, updatedExpression);
+    return updatedExpression;
   }
 }
 
