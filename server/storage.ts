@@ -2246,6 +2246,11 @@ export class MemStorage implements IStorage {
     this.emotionalExpressions.set(id, updatedExpression);
     return updatedExpression;
   }
+  
+  async deleteEmotionalExpression(id: number): Promise<boolean> {
+    if (!this.emotionalExpressions.has(id)) return false;
+    return this.emotionalExpressions.delete(id);
+  }
 }
 
 export const storage = new MemStorage();
