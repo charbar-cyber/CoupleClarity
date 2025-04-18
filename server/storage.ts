@@ -24,6 +24,7 @@ import {
   exerciseResponses, type ExerciseResponse, type InsertExerciseResponse,
   exerciseTemplates, type ExerciseTemplate, type InsertExerciseTemplate,
   type TherapySession, type InsertTherapySession,
+  emotionalExpressions, type EmotionalExpression, type InsertEmotionalExpression,
   exerciseTypeOptions, exerciseStatusOptions,
   conflictStatusOptions,
   memoryTypes,

@@ -23,8 +23,10 @@ import {
   analyzeLoveLanguage,
   analyzeJournalEntry,
   generateJournalResponse,
+  analyzeEmotionPatterns,
   type JournalAnalysisResponse,
-  type JournalResponseGenerationResult
+  type JournalResponseGenerationResult,
+  type EmotionPatternAnalysisResponse
 } from "./openai";
 import * as anthropic from "./anthropic";
 import { hashPassword, setupAuth } from "./auth";
@@ -2869,6 +2871,138 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error analyzing emotion trends:", error);
       res.status(500).json({ error: "Failed to analyze emotion trends" });
+    }
+  });
+
+  // Emotional expressions CRUD endpoints
+  app.post('/api/emotional-expressions', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+
+      const { emotion, context, intensity, relatedItemId, relatedItemType, tags } = req.body;
+
+      if (!emotion || !context) {
+        return res.status(400).json({ error: 'Emotion and context are required' });
+      }
+
+      const newExpression = await storage.createEmotionalExpression({
+        userId: req.user.id,
+        emotion,
+        context,
+        intensity: intensity || 5,
+        relatedItemId: relatedItemId || null,
+        relatedItemType: relatedItemType || null,
+        tags: tags || [],
+        aiProcessed: false
+      });
+
+      res.status(201).json(newExpression);
+    } catch (error) {
+      console.error('Error creating emotional expression:', error);
+      res.status(500).json({ error: 'Failed to create emotional expression' });
+    }
+  });
+
+  app.get('/api/emotional-expressions', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      const expressions = await storage.getUserEmotionalExpressions(req.user.id, limit);
+      
+      res.json(expressions);
+    } catch (error) {
+      console.error('Error fetching emotional expressions:', error);
+      res.status(500).json({ error: 'Failed to fetch emotional expressions' });
+    }
+  });
+
+  app.get('/api/emotional-expressions/:id', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+
+      const expressionId = parseInt(req.params.id);
+      const expression = await storage.getEmotionalExpression(expressionId);
+      
+      if (!expression) {
+        return res.status(404).json({ error: 'Emotional expression not found' });
+      }
+
+      if (expression.userId !== req.user.id) {
+        return res.status(403).json({ error: 'Not authorized to access this emotional expression' });
+      }
+      
+      res.json(expression);
+    } catch (error) {
+      console.error('Error fetching emotional expression:', error);
+      res.status(500).json({ error: 'Failed to fetch emotional expression' });
+    }
+  });
+
+  app.put('/api/emotional-expressions/:id', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+
+      const expressionId = parseInt(req.params.id);
+      const expression = await storage.getEmotionalExpression(expressionId);
+      
+      if (!expression) {
+        return res.status(404).json({ error: 'Emotional expression not found' });
+      }
+
+      if (expression.userId !== req.user.id) {
+        return res.status(403).json({ error: 'Not authorized to update this emotional expression' });
+      }
+      
+      const { emotion, context, intensity, tags, aiProcessed, aiInsight } = req.body;
+      
+      const updatedExpression = await storage.updateEmotionalExpression(expressionId, {
+        emotion: emotion || expression.emotion,
+        context: context || expression.context,
+        intensity: intensity !== undefined ? intensity : expression.intensity,
+        tags: tags || expression.tags,
+        aiProcessed: aiProcessed !== undefined ? aiProcessed : expression.aiProcessed,
+        aiInsight: aiInsight !== undefined ? aiInsight : expression.aiInsight
+      });
+      
+      res.json(updatedExpression);
+    } catch (error) {
+      console.error('Error updating emotional expression:', error);
+      res.status(500).json({ error: 'Failed to update emotional expression' });
+    }
+  });
+
+  app.delete('/api/emotional-expressions/:id', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+
+      const expressionId = parseInt(req.params.id);
+      const expression = await storage.getEmotionalExpression(expressionId);
+      
+      if (!expression) {
+        return res.status(404).json({ error: 'Emotional expression not found' });
+      }
+
+      if (expression.userId !== req.user.id) {
+        return res.status(403).json({ error: 'Not authorized to delete this emotional expression' });
+      }
+      
+      await storage.deleteEmotionalExpression(expressionId);
+      
+      res.status(204).end();
+    } catch (error) {
+      console.error('Error deleting emotional expression:', error);
+      res.status(500).json({ error: 'Failed to delete emotional expression' });
     }
   });
 

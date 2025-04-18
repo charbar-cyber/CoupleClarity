@@ -4,6 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PieChart, Pie, BarChart, Bar, Cell, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { Loader2 } from "lucide-react";
+import EmotionalExpressionsTracker from "./emotional-expressions-tracker";
+import EmotionalPatternsInsights from "./emotional-patterns-insights";
 
 interface EmotionalInsightsProps {
   userId?: number;
@@ -236,37 +238,46 @@ export default function EmotionalInsights({ userId }: EmotionalInsightsProps) {
   };
   
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>Emotional Insights</CardTitle>
-        <CardDescription>
-          Patterns and trends in your emotional expressions
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Tabs defaultValue="themes" onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="themes">Themes</TabsTrigger>
-            <TabsTrigger value="trends">Trends</TabsTrigger>
-            <TabsTrigger value="insights">Insights</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="themes" className="mt-4">
-            <h3 className="text-sm font-medium mb-2">Most Common Emotions</h3>
-            <EmotionPieChart />
-          </TabsContent>
-          
-          <TabsContent value="trends" className="mt-4">
-            <h3 className="text-sm font-medium mb-2">Emotional Patterns Over Time</h3>
-            <EmotionTimeline />
-          </TabsContent>
-          
-          <TabsContent value="insights" className="mt-4">
-            <h3 className="text-sm font-medium mb-2">What This Means For Your Relationship</h3>
-            <EmotionInsights />
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
+    <div className="space-y-8">
+      {/* Basic emotional insights card */}
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle>Emotional Insights</CardTitle>
+          <CardDescription>
+            Patterns and trends in your emotional expressions
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="themes" onValueChange={setActiveTab}>
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="themes">Themes</TabsTrigger>
+              <TabsTrigger value="trends">Trends</TabsTrigger>
+              <TabsTrigger value="insights">Insights</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="themes" className="mt-4">
+              <h3 className="text-sm font-medium mb-2">Most Common Emotions</h3>
+              <EmotionPieChart />
+            </TabsContent>
+            
+            <TabsContent value="trends" className="mt-4">
+              <h3 className="text-sm font-medium mb-2">Emotional Patterns Over Time</h3>
+              <EmotionTimeline />
+            </TabsContent>
+            
+            <TabsContent value="insights" className="mt-4">
+              <h3 className="text-sm font-medium mb-2">What This Means For Your Relationship</h3>
+              <EmotionInsights />
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+      
+      {/* Advanced emotion tracking */}
+      <EmotionalExpressionsTracker />
+      
+      {/* Advanced emotion pattern analysis */}
+      <EmotionalPatternsInsights />
+    </div>
   );
 }
