@@ -5,7 +5,7 @@ import "./index.css";
 // Initialize theme from localStorage or use light as default
 function initializeTheme() {
   const storedTheme = localStorage.getItem('theme');
-  
+
   if (storedTheme === 'dark') {
     document.documentElement.classList.add('dark');
   } else if (storedTheme === 'system') {
@@ -20,5 +20,10 @@ function initializeTheme() {
 
 // Run theme initialization before rendering the app
 initializeTheme();
+
+window.addEventListener('unhandledrejection', event => {
+  console.error('Unhandled promise rejection:', event.reason);
+  event.preventDefault();
+});
 
 createRoot(document.getElementById("root")!).render(<App />);
