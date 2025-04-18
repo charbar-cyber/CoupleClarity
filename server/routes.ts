@@ -95,6 +95,18 @@ function isAuthenticated(req: Request, res: Response, next: NextFunction) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Debug endpoint to list all users (for development only)
+  app.get('/api/debug/list-users', (req, res) => {
+    const users = Array.from(storage.users.values()).map(user => ({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      displayName: user.displayName
+    }));
+    res.json(users);
+  });
   // Set up authentication
   setupAuth(app);
   
