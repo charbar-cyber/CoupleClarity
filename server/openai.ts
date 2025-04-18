@@ -50,6 +50,35 @@ export interface JournalAnalysisResponse {
   emotions: string[];
 }
 
+// Interface for advanced emotion pattern analysis
+export interface EmotionPatternAnalysisResponse {
+  dominantEmotions: Array<{
+    emotion: string;
+    frequency: number;
+    intensity: number;
+    description: string;
+  }>;
+  emotionTrends: {
+    overall: 'improving' | 'declining' | 'fluctuating' | 'stable';
+    description: string;
+    recentShift: string | null;
+  };
+  patterns: Array<{
+    name: string;
+    description: string;
+    emotions: string[];
+    triggers: string[];
+    suggestedStrategies: string[];
+  }>;
+  relationshipInsights: {
+    communicationStyle: string;
+    emotionalDynamics: string;
+    growthAreas: string[];
+    strengths: string[];
+  };
+  personalizedRecommendations: string[];
+}
+
 // Interface for journal response generation result
 export interface JournalResponseGenerationResult {
   response: string;
@@ -620,6 +649,193 @@ export async function generateJournalResponse(
     // Provide a fallback response in case of an error
     return {
       response: "I appreciate you sharing this with me. It helps me understand your perspective better. I'm here for you and value your thoughts and feelings."
+    };
+  }
+}
+
+/**
+ * Analyzes a collection of journal entries and emotional data to identify patterns,
+ * trends, and provide relationship insights
+ * @param journalEntries Array of recent journal entries with emotions data
+ * @param emotionalExpressions Array of recorded emotional expressions and their contexts
+ * @param partnerData Optional data about partner's emotional patterns
+ * @returns Comprehensive analysis of emotion patterns with insights
+ */
+export async function analyzeEmotionPatterns(
+  journalEntries: Array<{
+    title: string;
+    content: string;
+    emotions?: string[];
+    emotionalScore?: number;
+    createdAt: Date;
+  }>,
+  emotionalExpressions: Array<{
+    emotion: string;
+    context: string;
+    intensity?: number;
+    date: Date;
+  }>,
+  partnerData?: {
+    dominantEmotions?: string[];
+    recentExpressions?: Array<{
+      emotion: string;
+      date: Date;
+    }>;
+  }
+): Promise<EmotionPatternAnalysisResponse> {
+  try {
+    // Format the journal entries data
+    const formattedJournalEntries = journalEntries
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()) // newest first
+      .map(entry => ({
+        title: entry.title,
+        content: entry.content.substring(0, 500) + (entry.content.length > 500 ? "..." : ""), // truncate long content
+        emotions: entry.emotions || [],
+        emotionalScore: entry.emotionalScore || 5,
+        date: entry.createdAt.toISOString().split('T')[0]
+      }));
+
+    // Format emotional expressions data
+    const formattedExpressions = emotionalExpressions
+      .sort((a, b) => b.date.getTime() - a.date.getTime()) // newest first
+      .map(expr => ({
+        emotion: expr.emotion,
+        context: expr.context.substring(0, 100) + (expr.context.length > 100 ? "..." : ""), // truncate long context
+        intensity: expr.intensity || 5,
+        date: expr.date.toISOString().split('T')[0]
+      }));
+
+    // Construct the prompt for the OpenAI API
+    const systemPrompt = `You are an expert in relationship psychology and emotional intelligence analysis. 
+Your task is to analyze a user's emotional patterns across their journal entries and emotional expressions.
+Identify patterns, trends, and provide relationship insights based on the following data:
+
+JOURNAL ENTRIES (newest first):
+${JSON.stringify(formattedJournalEntries, null, 2)}
+
+EMOTIONAL EXPRESSIONS (newest first):
+${JSON.stringify(formattedExpressions, null, 2)}
+
+${partnerData ? `PARTNER EMOTIONAL DATA:
+${JSON.stringify(partnerData, null, 2)}` : ''}
+
+Respond with a JSON object containing:
+1. "dominantEmotions": An array of objects, each with:
+   - "emotion": Name of the emotion
+   - "frequency": Number from 0-10 representing how frequently it appears
+   - "intensity": Number from 0-10 representing the average intensity
+   - "description": Brief description of how this emotion manifests
+2. "emotionTrends": Object containing:
+   - "overall": The overall trend ("improving", "declining", "fluctuating", or "stable")
+   - "description": Description of the emotional trend over time
+   - "recentShift": Any significant recent shift in emotional patterns, or null if none
+3. "patterns": Array of objects describing emotional patterns, each with:
+   - "name": Short descriptive name of the pattern
+   - "description": Detailed description of the pattern
+   - "emotions": Array of emotions involved in this pattern
+   - "triggers": Array of likely triggers for this pattern
+   - "suggestedStrategies": Array of strategies to address this pattern
+4. "relationshipInsights": Object containing:
+   - "communicationStyle": Description of the user's communication style
+   - "emotionalDynamics": Description of emotional dynamics in the relationship
+   - "growthAreas": Array of areas for growth in emotional intelligence
+   - "strengths": Array of emotional strengths demonstrated
+5. "personalizedRecommendations": Array of personalized recommendations for improving emotional intelligence and communication in the relationship`;
+
+    // Call the OpenAI API
+    // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: "Please analyze these emotional patterns with your relationship psychology expertise." }
+      ],
+      response_format: { type: "json_object" }
+    });
+
+    // Parse the response
+    const result = JSON.parse(response.choices[0].message.content || "{}");
+    
+    // Default values if missing
+    if (!result.dominantEmotions || !Array.isArray(result.dominantEmotions) || result.dominantEmotions.length === 0) {
+      result.dominantEmotions = [{
+        emotion: "neutral",
+        frequency: 5,
+        intensity: 5,
+        description: "A balanced emotional state that doesn't lean strongly positive or negative."
+      }];
+    }
+    
+    if (!result.emotionTrends) {
+      result.emotionTrends = {
+        overall: "stable",
+        description: "Your emotional patterns have remained relatively stable over the analyzed period.",
+        recentShift: null
+      };
+    }
+    
+    if (!result.patterns || !Array.isArray(result.patterns) || result.patterns.length === 0) {
+      result.patterns = [{
+        name: "Baseline Pattern",
+        description: "Your typical emotional responses show a balanced approach to relationship situations.",
+        emotions: ["neutral"],
+        triggers: ["everyday interactions"],
+        suggestedStrategies: ["Continue regular journaling to build more emotional awareness"]
+      }];
+    }
+    
+    if (!result.relationshipInsights) {
+      result.relationshipInsights = {
+        communicationStyle: "Your communication style is still being analyzed as more data is collected.",
+        emotionalDynamics: "The emotional dynamics in your relationship are still being analyzed.",
+        growthAreas: ["Emotional awareness", "Communication clarity"],
+        strengths: ["Willingness to reflect", "Desire for growth"]
+      };
+    }
+    
+    if (!result.personalizedRecommendations || !Array.isArray(result.personalizedRecommendations) || result.personalizedRecommendations.length === 0) {
+      result.personalizedRecommendations = [
+        "Continue journaling regularly to build more data for analysis",
+        "Practice identifying and naming emotions when they arise",
+        "Use the emotion transformation tools when communicating about sensitive topics"
+      ];
+    }
+    
+    return result as EmotionPatternAnalysisResponse;
+  } catch (error) {
+    console.error("Error analyzing emotion patterns:", error);
+    
+    // Provide fallback values in case of an error
+    return {
+      dominantEmotions: [{
+        emotion: "neutral",
+        frequency: 5,
+        intensity: 5,
+        description: "A balanced emotional state that doesn't lean strongly positive or negative."
+      }],
+      emotionTrends: {
+        overall: "stable",
+        description: "Your emotional patterns appear stable based on the available data.",
+        recentShift: null
+      },
+      patterns: [{
+        name: "Basic Communication Pattern",
+        description: "Your typical approach to relationship communication.",
+        emotions: ["neutral"],
+        triggers: ["everyday interactions"],
+        suggestedStrategies: ["Continue using the app to build more data for analysis"]
+      }],
+      relationshipInsights: {
+        communicationStyle: "Your communication style is still being analyzed.",
+        emotionalDynamics: "The emotional dynamics in your relationship are still being analyzed.",
+        growthAreas: ["Emotional awareness", "Communication clarity"],
+        strengths: ["Willingness to reflect", "Desire for growth"]
+      },
+      personalizedRecommendations: [
+        "Continue journaling regularly to build more data for analysis",
+        "Practice identifying and naming emotions when they arise",
+        "Use the emotion transformation tools when communicating about sensitive topics"
+      ]
     };
   }
 }
