@@ -50,7 +50,7 @@ export interface EmotionPatternAnalysisResponse {
 }
 
 export default function EmotionalPatternsInsights() {
-  const { data, isLoading, error } = useQuery<EmotionalPatternAnalysisResponse>({
+  const { data, isLoading, error } = useQuery<EmotionPatternAnalysisResponse>({
     queryKey: ['/api/emotions/patterns'],
     queryFn: async () => {
       const res = await apiRequest('GET', '/api/emotions/patterns');
@@ -165,7 +165,7 @@ export default function EmotionalPatternsInsights() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {data.dominantEmotions.slice(0, 3).map((emotion, index) => (
+                  {data.dominantEmotions.slice(0, 3).map((emotion: any, index: number) => (
                     <div key={index}>
                       <div className="flex justify-between items-center mb-1">
                         <Badge className={getEmotionColor(emotion.emotion)}>
@@ -189,7 +189,7 @@ export default function EmotionalPatternsInsights() {
               </CardHeader>
               <CardContent>
                 <ul className="space-y-2">
-                  {data.personalizedRecommendations.map((recommendation, index) => (
+                  {data.personalizedRecommendations.map((recommendation: string, index: number) => (
                     <li key={index} className="flex items-start gap-2">
                       <ChevronRight className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
                       <span>{recommendation}</span>
@@ -212,7 +212,7 @@ export default function EmotionalPatternsInsights() {
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
-                {data.dominantEmotions.map((emotion, index) => (
+                {data.dominantEmotions.map((emotion: any, index: number) => (
                   <div key={index}>
                     <div className="flex justify-between items-center mb-1">
                       <div className="flex items-center gap-2">
@@ -253,7 +253,7 @@ export default function EmotionalPatternsInsights() {
               ) : (
                 <ScrollArea className="h-[400px] pr-4">
                   <Accordion type="single" collapsible className="w-full">
-                    {data.patterns.map((pattern, index) => (
+                    {data.patterns.map((pattern: any, index: number) => (
                       <AccordionItem key={index} value={`pattern-${index}`}>
                         <AccordionTrigger>{pattern.name}</AccordionTrigger>
                         <AccordionContent>
@@ -263,7 +263,7 @@ export default function EmotionalPatternsInsights() {
                             <div>
                               <h4 className="text-sm font-medium mb-1">Associated Emotions:</h4>
                               <div className="flex flex-wrap gap-1">
-                                {pattern.emotions.map((emotion, idx) => (
+                                {pattern.emotions.map((emotion: string, idx: number) => (
                                   <Badge key={idx} className={getEmotionColor(emotion)}>
                                     {emotion}
                                   </Badge>
@@ -274,7 +274,7 @@ export default function EmotionalPatternsInsights() {
                             <div>
                               <h4 className="text-sm font-medium mb-1">Common Triggers:</h4>
                               <ul className="list-disc list-inside text-sm">
-                                {pattern.triggers.map((trigger, idx) => (
+                                {pattern.triggers.map((trigger: string, idx: number) => (
                                   <li key={idx}>{trigger}</li>
                                 ))}
                               </ul>
@@ -283,7 +283,7 @@ export default function EmotionalPatternsInsights() {
                             <div>
                               <h4 className="text-sm font-medium mb-1">Strategies:</h4>
                               <ul className="list-disc list-inside text-sm">
-                                {pattern.suggestedStrategies.map((strategy, idx) => (
+                                {pattern.suggestedStrategies.map((strategy: string, idx: number) => (
                                   <li key={idx}>{strategy}</li>
                                 ))}
                               </ul>
@@ -324,7 +324,7 @@ export default function EmotionalPatternsInsights() {
                   <div>
                     <h3 className="font-medium mb-1">Strengths</h3>
                     <ul className="list-disc list-inside text-sm">
-                      {data.relationshipInsights.strengths.map((strength, index) => (
+                      {data.relationshipInsights.strengths.map((strength: string, index: number) => (
                         <li key={index}>{strength}</li>
                       ))}
                     </ul>
@@ -333,7 +333,7 @@ export default function EmotionalPatternsInsights() {
                   <div>
                     <h3 className="font-medium mb-1">Growth Areas</h3>
                     <ul className="list-disc list-inside text-sm">
-                      {data.relationshipInsights.growthAreas.map((area, index) => (
+                      {data.relationshipInsights.growthAreas.map((area: string, index: number) => (
                         <li key={index}>{area}</li>
                       ))}
                     </ul>
