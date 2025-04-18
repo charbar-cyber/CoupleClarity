@@ -49,6 +49,12 @@ export interface IStorage {
   getTherapySession(id: number): Promise<TherapySession | null>;
   getTherapySessions(partnershipId: number): Promise<TherapySession[]>;
   updateTherapySession(id: number, updates: Partial<TherapySession>): Promise<TherapySession | null>;
+  
+  // Emotional Expressions
+  createEmotionalExpression(expression: InsertEmotionalExpression): Promise<EmotionalExpression>;
+  getUserEmotionalExpressions(userId: number, limit?: number): Promise<EmotionalExpression[]>;
+  getEmotionalExpression(id: number): Promise<EmotionalExpression | null>;
+  updateEmotionalExpression(id: number, updates: Partial<EmotionalExpression>): Promise<EmotionalExpression | null>;
   // User operations
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;

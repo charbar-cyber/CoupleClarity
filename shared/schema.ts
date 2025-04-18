@@ -831,3 +831,26 @@ export const updateAvatarSchema = z.object({
 });
 
 export type UpdateAvatarInput = z.infer<typeof updateAvatarSchema>;
+
+// Emotional expressions table for tracking emotional patterns
+export const emotionalExpressions = pgTable("emotional_expressions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  emotion: text("emotion").notNull(),
+  context: text("context").notNull(),
+  intensity: integer("intensity").default(5),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  relatedItemId: integer("related_item_id"),
+  relatedItemType: text("related_item_type"),
+  aiProcessed: boolean("ai_processed").default(false),
+  aiInsight: text("ai_insight"),
+  tags: text("tags").array()
+});
+
+export const insertEmotionalExpressionSchema = createInsertSchema(emotionalExpressions).omit({
+  id: true,
+  createdAt: true
+});
+
+export type InsertEmotionalExpression = z.infer<typeof insertEmotionalExpressionSchema>;
+export type EmotionalExpression = typeof emotionalExpressions.$inferSelect;

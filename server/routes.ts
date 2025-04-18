@@ -2872,6 +2872,125 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Advanced emotion patterns analysis endpoint
+  app.get('/api/emotions/patterns', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      // Get user's journal entries to analyze emotion patterns
+      const oneMonthAgo = new Date();
+      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+      
+      // Get the user's journal entries
+      const allEntries = await storage.getUserJournalEntries(req.user.id);
+      
+      // Filter entries from the past month
+      const journalEntries = allEntries
+        .filter((entry: { createdAt: Date | string }) => new Date(entry.createdAt) >= oneMonthAgo)
+        .map((entry: any) => ({
+          title: entry.title || '',
+          content: entry.content || '',
+          emotions: entry.emotions || [],
+          emotionalScore: entry.emotionalScore || 5,
+          createdAt: new Date(entry.createdAt)
+        }));
+
+      // Get the user's tracked emotional expressions
+      const emotionalExpressions = await storage.getUserEmotionalExpressions(req.user.id);
+      
+      // Format emotional expressions for analysis
+      const formattedExpressions = emotionalExpressions.map(expr => ({
+        emotion: expr.emotion || 'neutral',
+        context: expr.context || '',
+        intensity: expr.intensity || 5,
+        date: new Date(expr.createdAt)
+      }));
+
+      // Get partnership info to include partner data if available
+      const partnership = await storage.getPartnershipByUser(req.user.id);
+      let partnerData = undefined;
+      
+      if (partnership && partnership.status === 'active') {
+        const partnerId = partnership.user1Id === req.user.id ? partnership.user2Id : partnership.user1Id;
+        
+        // Get partner's dominant emotions
+        const partnerExpressions = await storage.getUserEmotionalExpressions(partnerId);
+        
+        // Count partner's emotions
+        const emotionCounts: Record<string, number> = {};
+        partnerExpressions.forEach(expr => {
+          const emotion = expr.emotion || 'neutral';
+          emotionCounts[emotion] = (emotionCounts[emotion] || 0) + 1;
+        });
+        
+        // Get top 3 emotions
+        const sortedEmotions = Object.entries(emotionCounts)
+          .sort(([, countA], [, countB]) => countB - countA)
+          .slice(0, 3)
+          .map(([emotion]) => emotion);
+          
+        // Get partner's recent expressions
+        const twoWeeksAgo = new Date();
+        twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+        
+        const recentPartnerExpressions = partnerExpressions
+          .filter(expr => new Date(expr.createdAt) >= twoWeeksAgo)
+          .map(expr => ({
+            emotion: expr.emotion || 'neutral',
+            date: new Date(expr.createdAt)
+          }));
+          
+        partnerData = {
+          dominantEmotions: sortedEmotions,
+          recentExpressions: recentPartnerExpressions
+        };
+      }
+
+      // If we have no data, return default insights
+      if (journalEntries.length === 0 && formattedExpressions.length === 0) {
+        return res.json({
+          dominantEmotions: [{
+            emotion: "neutral",
+            frequency: 5,
+            intensity: 5,
+            description: "Not enough data to analyze emotional patterns yet."
+          }],
+          emotionTrends: {
+            overall: "stable",
+            description: "Start expressing emotions to see trends.",
+            recentShift: null
+          },
+          patterns: [],
+          relationshipInsights: {
+            communicationStyle: "Not enough data yet",
+            emotionalDynamics: "Continue using the app to generate insights",
+            growthAreas: ["Emotional awareness", "Communication"],
+            strengths: ["Desire to improve"]
+          },
+          personalizedRecommendations: [
+            "Log your emotions regularly",
+            "Journal about relationship experiences",
+            "Use the emotion transformation tools"
+          ]
+        });
+      }
+
+      // Analyze emotion patterns using AI
+      const patternAnalysis = await analyzeEmotionPatterns(
+        journalEntries,
+        formattedExpressions,
+        partnerData
+      );
+
+      res.json(patternAnalysis);
+    } catch (error) {
+      console.error("Error analyzing emotion patterns:", error);
+      res.status(500).json({ error: "Failed to analyze emotion patterns" });
+    }
+  });
+
   app.get('/api/journal', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
     try {
       if (!req.user) {
