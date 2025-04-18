@@ -4,6 +4,176 @@ import fs from "fs";
 import path from "path";
 import { promisify } from "util";
 
+// Helper function to create mock emotion analysis when API key is not available
+function createMockEmotionAnalysis(emotionalExpressions: Array<{
+  emotion: string;
+  context: string;
+  intensity?: number;
+  date: Date;
+}>): EmotionPatternAnalysisResponse {
+  // Count emotions to find dominant ones
+  const emotionCounts: Record<string, {count: number, totalIntensity: number}> = {};
+  emotionalExpressions.forEach(expr => {
+    if (!emotionCounts[expr.emotion]) {
+      emotionCounts[expr.emotion] = { count: 0, totalIntensity: 0 };
+    }
+    emotionCounts[expr.emotion].count += 1;
+    emotionCounts[expr.emotion].totalIntensity += expr.intensity || 5;
+  });
+  
+  // Convert to array and sort by frequency
+  const dominantEmotions = Object.entries(emotionCounts).map(([emotion, data]) => ({
+    emotion,
+    frequency: (data.count / emotionalExpressions.length) * 10, // Scale to 0-10
+    intensity: data.count > 0 ? data.totalIntensity / data.count : 5,
+    description: getEmotionDescription(emotion)
+  })).sort((a, b) => b.frequency - a.frequency).slice(0, 3); // Top 3 emotions
+  
+  // Determine overall trend based on emotions
+  const positiveEmotions = ['happy', 'joyful', 'grateful', 'excited', 'content', 'love', 'loved', 'hopeful'];
+  const negativeEmotions = ['sad', 'angry', 'frustrated', 'anxious', 'worried', 'stressed', 'disappointed'];
+  
+  let positiveCount = 0;
+  let negativeCount = 0;
+  
+  emotionalExpressions.forEach(expr => {
+    if (positiveEmotions.includes(expr.emotion.toLowerCase())) positiveCount++;
+    if (negativeEmotions.includes(expr.emotion.toLowerCase())) negativeCount++;
+  });
+  
+  const totalEmotions = emotionalExpressions.length;
+  const positiveRatio = totalEmotions > 0 ? positiveCount / totalEmotions : 0.5;
+  
+  let overallTrend: 'improving' | 'declining' | 'fluctuating' | 'stable' = 'stable';
+  let trendDescription = "Your emotional patterns appear relatively stable.";
+  
+  if (positiveRatio > 0.6) {
+    overallTrend = 'improving';
+    trendDescription = "Your emotions show a positive trend, with more positive emotions than negative ones.";
+  } else if (positiveRatio < 0.4) {
+    overallTrend = 'declining';
+    trendDescription = "Your emotions show more negative experiences lately, which may indicate some challenges.";
+  } else if (Math.abs(positiveCount - negativeCount) < 3 && totalEmotions > 5) {
+    overallTrend = 'fluctuating';
+    trendDescription = "Your emotions show some fluctuation between positive and negative experiences.";
+  }
+  
+  // Generate patterns based on emotions
+  const patterns: Array<{
+    name: string;
+    description: string;
+    emotions: string[];
+    triggers: string[];
+    suggestedStrategies: string[];
+  }> = [];
+  
+  if (positiveCount > 0 && dominantEmotions.some(e => positiveEmotions.includes(e.emotion.toLowerCase()))) {
+    patterns.push({
+      name: "Positive Connection Pattern",
+      description: "You experience positive emotions like gratitude and happiness in your relationship, especially during quality time together.",
+      emotions: dominantEmotions
+        .filter(e => positiveEmotions.includes(e.emotion.toLowerCase()))
+        .map(e => e.emotion),
+      triggers: ["Quality time together", "Acts of appreciation", "Open communication"],
+      suggestedStrategies: [
+        "Schedule regular quality time together",
+        "Practice expressing appreciation daily",
+        "Continue sharing positive emotions openly"
+      ]
+    });
+  }
+  
+  if (negativeCount > 0 && dominantEmotions.some(e => negativeEmotions.includes(e.emotion.toLowerCase()))) {
+    patterns.push({
+      name: "Stress Response Pattern",
+      description: "You sometimes experience stress or frustration, which may be related to specific relationship dynamics.",
+      emotions: dominantEmotions
+        .filter(e => negativeEmotions.includes(e.emotion.toLowerCase()))
+        .map(e => e.emotion),
+      triggers: ["Miscommunication", "Unmet expectations", "External stressors"],
+      suggestedStrategies: [
+        "Practice the emotion transformation tools when feeling stressed",
+        "Try to identify specific triggers for negative emotions",
+        "Discuss recurring issues with your partner using 'I' statements"
+      ]
+    });
+  }
+  
+  // Create default pattern if none were created
+  if (patterns.length === 0) {
+    patterns.push({
+      name: "General Communication Pattern",
+      description: "Your emotional responses show a balanced approach to relationship situations.",
+      emotions: dominantEmotions.slice(0, 2).map(e => e.emotion),
+      triggers: ["Everyday interactions", "Relationship discussions"],
+      suggestedStrategies: [
+        "Continue tracking your emotions regularly",
+        "Practice expressing needs clearly",
+        "Reflect on patterns in your emotional responses"
+      ]
+    });
+  }
+  
+  return {
+    dominantEmotions,
+    emotionTrends: {
+      overall: overallTrend,
+      description: trendDescription,
+      recentShift: null
+    },
+    patterns,
+    relationshipInsights: {
+      communicationStyle: "Based on your emotional expressions, you tend to communicate in a " + 
+        (positiveRatio > 0.6 ? "positive and open" : positiveRatio < 0.4 ? "careful and protective" : "balanced") + 
+        " way with your partner.",
+      emotionalDynamics: "Your emotional patterns show " + 
+        (totalEmotions < 5 ? "that you're just beginning to track your emotions" : 
+        "a mix of emotional responses to different relationship situations"),
+      growthAreas: [
+        "Continued emotional awareness",
+        "Communication during challenging moments",
+        positiveRatio < 0.5 ? "Finding moments of joy and appreciation" : "Maintaining emotional balance"
+      ],
+      strengths: [
+        "Willingness to reflect on emotions",
+        "Emotional self-awareness",
+        positiveRatio > 0.5 ? "Maintaining positive emotional states" : "Acknowledging difficult emotions"
+      ]
+    },
+    personalizedRecommendations: [
+      "Continue tracking your emotions regularly to identify patterns",
+      "Practice using the emotion transformation tools when expressing difficult feelings",
+      "Set aside time for regular check-ins with your partner",
+      positiveRatio < 0.5 ? "Look for opportunities to express appreciation to your partner" : 
+                          "Continue nurturing the positive aspects of your relationship"
+    ]
+  };
+}
+
+// Helper function to get descriptions for emotions
+function getEmotionDescription(emotion: string): string {
+  const descriptions: Record<string, string> = {
+    happy: "A state of joy and contentment that energizes your interactions.",
+    joyful: "A deep sense of delight and happiness in your relationship.",
+    grateful: "Appreciation and thankfulness for aspects of your relationship.",
+    excited: "Enthusiasm and anticipation about experiences with your partner.",
+    content: "A peaceful satisfaction with the current state of your relationship.",
+    love: "A deep feeling of affection and attachment to your partner.",
+    loved: "Feeling appreciated, valued and cherished by your partner.",
+    hopeful: "Optimism about the future of your relationship.",
+    sad: "Feelings of unhappiness or sorrow that may need addressing.",
+    angry: "Frustration or irritation that may indicate unmet needs.",
+    frustrated: "Feeling blocked or unable to achieve desired outcomes in the relationship.",
+    anxious: "Worry or nervousness about aspects of your relationship.",
+    worried: "Concern about specific relationship issues or future outcomes.",
+    stressed: "Feeling pressured or overwhelmed by relationship dynamics.",
+    disappointed: "Unmet expectations or hopes within the relationship."
+  };
+  
+  return descriptions[emotion.toLowerCase()] || 
+    "An emotional state that reflects your experience in the relationship.";
+}
+
 // Interface for response summary
 interface ResponseSummary {
   summary: string;
@@ -742,6 +912,14 @@ Respond with a JSON object containing:
    - "strengths": Array of emotional strengths demonstrated
 5. "personalizedRecommendations": Array of personalized recommendations for improving emotional intelligence and communication in the relationship`;
 
+    // For testing without API calls
+    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.trim() === "") {
+      console.log("Using mock emotion pattern analysis due to missing OpenAI API key");
+      // Create a mock response based on the emotional expressions
+      const result = createMockEmotionAnalysis(emotionalExpressions);
+      return result;
+    }
+    
     // Call the OpenAI API
     // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
     const response = await openai.chat.completions.create({
