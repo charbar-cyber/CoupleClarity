@@ -780,6 +780,10 @@ export class MemStorage implements IStorage {
     return user;
   }
   
+  async getAllUsers(): Promise<User[]> {
+    return Array.from(this.users.values());
+  }
+  
   // Password reset operations
   private passwordResetTokens: Map<string, { userId: number, expiresAt: Date }> = new Map();
   
