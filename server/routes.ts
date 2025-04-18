@@ -107,6 +107,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }));
     res.json(users);
   });
+  
+  // Debug endpoint to reset all users (for development only)
+  app.post('/api/debug/reset-users', (req, res) => {
+    // Clear all users
+    storage.users.clear();
+    
+    // Reset user counter
+    storage.userIdCounter = 1;
+    
+    // Return success message
+    res.json({ 
+      success: true, 
+      message: 'All users have been removed from the system.' 
+    });
+  });
   // Set up authentication
   setupAuth(app);
   
