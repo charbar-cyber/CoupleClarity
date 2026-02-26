@@ -276,16 +276,12 @@ export interface TherapySessionResult {
   };
 }
 
-// Initialize OpenAI client
-// Ensure API key is provided
-if (!process.env.OPENAI_API_KEY) {
-  console.error('WARNING: OPENAI_API_KEY environment variable is not set');
+// Initialize OpenAI client only if API key is available
+const hasOpenAIKey = !!process.env.OPENAI_API_KEY;
+if (!hasOpenAIKey) {
+  console.warn('WARNING: OPENAI_API_KEY environment variable is not set. AI features will be unavailable.');
 }
-
-// Initialize OpenAI client
-const openai = new OpenAI({ 
-  apiKey: process.env.OPENAI_API_KEY 
-});
+const openai = hasOpenAIKey ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
 
 /**
  * Transforms an emotional message into empathetic communication
@@ -296,9 +292,22 @@ export async function transformEmotionalMessage(
   rawMessage: string,
   context?: string
 ): Promise<TransformationResponse> {
+  if (!openai) {
+    console.warn('OpenAI API key not available. Emotional message transformation unavailable.');
+    return {
+      transformedMessage: "I'm feeling some emotions about our situation and would like to talk about it in a constructive way. Can we find some time to discuss this together?",
+      communicationElements: ["Expressing feelings", "Requesting conversation"],
+      deliveryTips: [
+        "Choose a calm moment for this conversation",
+        "Use a gentle tone of voice",
+        "Be open to hearing their perspective"
+      ]
+    };
+  }
+
   try {
     // Construct the prompt for the OpenAI API
-    const systemPrompt = `You are an expert in relationship communication and emotional intelligence. 
+    const systemPrompt = `You are an expert in relationship communication and emotional intelligence.
 Your task is to help transform raw emotional expressions into empathetic, constructive communication.
 Focus on using "I" statements, non-blaming language, expressing needs clearly, and suggesting solutions.
 Given the information below, transform the raw message into empathetic communication that promotes connection and understanding.
@@ -314,7 +323,7 @@ Respond with a JSON object containing:
 
     // Call the OpenAI API
     // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-    const response = await openai.chat.completions.create({
+    const response = await openai!.chat.completions.create({
       model: "gpt-4o",
       messages: [
         { role: "system", content: systemPrompt },
@@ -359,10 +368,15 @@ export async function summarizeResponse(
   originalMessage: string,
   partnerResponse: string
 ): Promise<string> {
+  if (!openai) {
+    console.warn('OpenAI API key not available. Response summarization unavailable.');
+    return "The response shows some understanding of the message. It could be improved by acknowledging the feelings more directly and offering specific ways to address the concerns.";
+  }
+
   try {
     // Construct the prompt for the OpenAI API
     const prompt = `You are an expert in relationship communication and emotional intelligence.
-Your task is to analyze a partner's response to a transformed emotional message and 
+Your task is to analyze a partner's response to a transformed emotional message and
 provide a summary of the effectiveness and suggestions for improvement.
 
 Original message: ${originalMessage}
@@ -376,7 +390,7 @@ Respond with a JSON object containing:
 
     // Call the OpenAI API
     // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-    const openaiResponse = await openai.chat.completions.create({
+    const openaiResponse = await openai!.chat.completions.create({
       model: "gpt-4o",
       messages: [
         { role: "system", content: prompt },
@@ -422,6 +436,19 @@ export async function transformConflictMessage(
   impact: string,
   request: string
 ): Promise<ConflictTransformationResponse> {
+  if (!openai) {
+    console.warn('OpenAI API key not available. Conflict message transformation unavailable.');
+    return {
+      transformedMessage: `I'd like to talk about ${topic}. When ${situation}, I feel ${feelings}. This has affected me by ${impact}. I'm hoping that we can ${request}.`,
+      communicationElements: ["Structured approach", "Clear request", "Expressing feelings"],
+      deliveryTips: [
+        "Choose a calm moment for this conversation",
+        "Listen actively to your partner's response",
+        "Be open to compromise and finding solutions together"
+      ]
+    };
+  }
+
   try {
     // Construct the prompt for the OpenAI API
     const systemPrompt = `You are an expert in relationship communication and conflict resolution.
@@ -442,7 +469,7 @@ Respond with a JSON object containing:
 
     // Call the OpenAI API
     // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-    const response = await openai.chat.completions.create({
+    const response = await openai!.chat.completions.create({
       model: "gpt-4o",
       messages: [
         { role: "system", content: systemPrompt },
@@ -485,6 +512,13 @@ Respond with a JSON object containing:
  * @returns Transcription text and duration
  */
 export async function transcribeAudio(audioFilePath: string): Promise<AudioTranscriptionResponse> {
+  if (!openai) {
+    console.warn('OpenAI API key not available. Audio transcription unavailable.');
+    return {
+      text: "Audio transcription is currently unavailable. Please type your message instead.",
+    };
+  }
+
   try {
     // Check if file exists
     if (!fs.existsSync(audioFilePath)) {
@@ -495,7 +529,7 @@ export async function transcribeAudio(audioFilePath: string): Promise<AudioTrans
     const audioReadStream = fs.createReadStream(audioFilePath);
 
     // Call OpenAI Whisper API to transcribe audio
-    const transcription = await openai.audio.transcriptions.create({
+    const transcription = await openai!.audio.transcriptions.create({
       file: audioReadStream,
       model: "whisper-1", // Using the Whisper model for transcription
     });
@@ -527,6 +561,14 @@ export async function transcribeAudio(audioFilePath: string): Promise<AudioTrans
  * @returns URL of the generated image
  */
 export async function generateAvatar(prompt: string): Promise<AvatarGenerationResponse> {
+  if (!openai) {
+    console.warn('OpenAI API key not available. Avatar generation unavailable.');
+    return {
+      imageUrl: "",
+      error: "Avatar generation is currently unavailable. Please try again later."
+    };
+  }
+
   try {
     // Enhance the prompt to ensure a high-quality avatar
     const enhancedPrompt = `Create a high-quality, professional and visually appealing profile picture/avatar that represents: ${prompt}. 
@@ -534,7 +576,7 @@ export async function generateAvatar(prompt: string): Promise<AvatarGenerationRe
     Make it suitable for a profile picture on a relationship app - warm, approachable, and positive.`;
 
     // Generate the image with DALL-E 3
-    const response = await openai.images.generate({
+    const response = await openai!.images.generate({
       model: "dall-e-3", // Using DALL-E 3 for highest quality
       prompt: enhancedPrompt,
       n: 1, // Generate one image
@@ -579,6 +621,23 @@ export async function analyzeLoveLanguage(
     challengeAreas?: string;
   }
 ): Promise<LoveLanguageAnalysisResponse> {
+  if (!openai) {
+    console.warn('OpenAI API key not available. Love language analysis unavailable.');
+    return {
+      analysisText: `Your primary love language is ${formatLoveLanguage(loveLanguage)}. Understanding this preference can help you and your partner connect more meaningfully.`,
+      personalizedTips: [
+        "Pay attention to how your partner naturally expresses love",
+        "Clearly communicate what actions make you feel most appreciated",
+        "Be open to receiving love in different forms"
+      ],
+      appUsageSuggestions: [
+        "Use the Appreciation Log to record moments when your partner speaks your love language",
+        "Try the Weekly Check-in feature to maintain regular communication about your needs",
+        "Use the Emotional Expression tool to clearly communicate your feelings and needs"
+      ]
+    };
+  }
+
   try {
     // Construct the prompt for the OpenAI API
     const systemPrompt = `You are an expert relationship coach and love language specialist.
@@ -599,7 +658,7 @@ export async function analyzeLoveLanguage(
 
     // Call the OpenAI API
     // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-    const response = await openai.chat.completions.create({
+    const response = await openai!.chat.completions.create({
       model: "gpt-4o",
       messages: [
         { role: "system", content: systemPrompt },
@@ -704,6 +763,18 @@ export async function generateTherapySession(
   partnerEntries: Array<{title: string, content: string, emotions?: string[], date: Date}>,
   conflictThreads: Array<{topic: string, messages: Array<{author: string, content: string, date: Date}>}>
 ): Promise<TherapySessionResult> {
+  if (!openai) {
+    console.warn('OpenAI API key not available. Therapy session generation unavailable.');
+    return {
+      transcript: "Therapy session generation is currently unavailable. Please try again later when the service is configured.",
+      summary: {
+        emotionalPatterns: ["Service currently unavailable"],
+        coreIssues: ["Service currently unavailable"],
+        recommendations: ["Continue using journal features and try requesting a therapy session again later"]
+      }
+    };
+  }
+
   try {
     // Format entries and conflicts for the prompt
     const userEntriesFormatted = userEntries.map(entry => 
@@ -750,8 +821,8 @@ Respond with a JSON object containing:
 
     // Call the OpenAI API
     // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o", 
+    const response = await openai!.chat.completions.create({
+      model: "gpt-4o",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: "Please generate a therapy session script based on this couple's data." }
@@ -790,6 +861,13 @@ export async function generateJournalResponse(
   journalContent: string,
   responseType: string
 ): Promise<JournalResponseGenerationResult> {
+  if (!openai) {
+    console.warn('OpenAI API key not available. Journal response generation unavailable.');
+    return {
+      response: "I appreciate you sharing this with me. It helps me understand your perspective better. I'm here for you and value your thoughts and feelings."
+    };
+  }
+
   try {
     // Construct the prompt for the OpenAI API
     const systemPrompt = `You are an expert in relationship psychology and emotional intelligence.
@@ -811,7 +889,7 @@ export async function generateJournalResponse(
 
     // Call the OpenAI API
     // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-    const response = await openai.chat.completions.create({
+    const response = await openai!.chat.completions.create({
       model: "gpt-4o",
       messages: [
         { role: "system", content: systemPrompt },
@@ -865,6 +943,11 @@ export async function analyzeEmotionPatterns(
     }>;
   }
 ): Promise<EmotionPatternAnalysisResponse> {
+  if (!openai) {
+    console.warn('OpenAI API key not available. Emotion pattern analysis unavailable.');
+    return createMockEmotionAnalysis(emotionalExpressions);
+  }
+
   try {
     // Format the journal entries data
     const formattedJournalEntries = journalEntries
@@ -924,17 +1007,9 @@ Respond with a JSON object containing:
    - "strengths": Array of emotional strengths demonstrated
 5. "personalizedRecommendations": Array of personalized recommendations for improving emotional intelligence and communication in the relationship`;
 
-    // For testing without API calls
-    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.trim() === "") {
-      console.log("Using mock emotion pattern analysis due to missing OpenAI API key");
-      // Create a mock response based on the emotional expressions
-      const result = createMockEmotionAnalysis(emotionalExpressions);
-      return result;
-    }
-    
     // Call the OpenAI API
     // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-    const response = await openai.chat.completions.create({
+    const response = await openai!.chat.completions.create({
       model: "gpt-4o",
       messages: [
         { role: "system", content: systemPrompt },
@@ -1036,6 +1111,21 @@ export async function analyzeJournalEntry(
   userId: number,
   previousEntries?: PreviousEntry[]
 ): Promise<JournalAnalysisResponse> {
+  if (!openai) {
+    console.warn('OpenAI API key not available. Journal entry analysis unavailable.');
+    return {
+      aiSummary: `This entry discusses feelings about ${title}.`,
+      aiRefinedContent: journalEntry,
+      emotionalInsight: "There appears to be important emotional content in this entry that would benefit from reflection.",
+      emotionalScore: 5,
+      suggestedResponse: "Thank you for sharing this with me. I'd like to understand more about your perspective.",
+      suggestedBoundary: "It's important to communicate openly while respecting each other's feelings.",
+      reflectionPrompt: "How might expressing these feelings help strengthen your relationship?",
+      patternCategory: "reflection",
+      emotions: ["thoughtful", "concerned", "hopeful"]
+    };
+  }
+
   try {
     // Construct the prompt for the OpenAI API
     const systemPrompt = `You are an expert in relationship psychology and emotional intelligence.
@@ -1065,7 +1155,7 @@ export async function analyzeJournalEntry(
 
     // Call the OpenAI API
     // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-    const response = await openai.chat.completions.create({
+    const response = await openai!.chat.completions.create({
       model: "gpt-4o",
       messages: [
         { role: "system", content: systemPrompt },
