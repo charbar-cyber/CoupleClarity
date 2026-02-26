@@ -730,38 +730,7 @@ export default function AuthPage() {
               </Tabs>
             )}
           </CardContent>
-          <CardFooter className="flex justify-center">
-            <div className="text-center">
-              <button 
-                type="button"
-                className="text-xs text-muted-foreground hover:text-destructive transition-colors"
-                onClick={async () => {
-                  if (confirm("WARNING: This will delete ALL user accounts and cannot be undone! Continue?")) {
-                    try {
-                      const response = await fetch('/api/debug/reset-users', {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json'
-                        }
-                      });
-                      
-                      if (response.ok) {
-                        alert("All user accounts have been deleted successfully.");
-                        window.location.reload();
-                      } else {
-                        alert("Failed to reset users. Please try again later.");
-                      }
-                    } catch (error) {
-                      console.error("Error resetting users:", error);
-                      alert("An error occurred while resetting users.");
-                    }
-                  }
-                }}
-              >
-                Reset All User Accounts
-              </button>
-            </div>
-          </CardFooter>
+          <CardFooter />
         </Card>
       </div>
     </div>

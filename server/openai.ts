@@ -4,6 +4,18 @@ import fs from "fs";
 import path from "path";
 import { promisify } from "util";
 
+/**
+ * Safely parse JSON from an AI response, providing a descriptive error on failure.
+ */
+function safeParseJSON(text: string, context: string): any {
+  try {
+    return JSON.parse(text);
+  } catch {
+    console.error(`Failed to parse JSON from ${context}:`, text.slice(0, 200));
+    throw new Error(`AI returned invalid JSON for ${context}`);
+  }
+}
+
 // Helper function to create mock emotion analysis when API key is not available
 function createMockEmotionAnalysis(emotionalExpressions: Array<{
   emotion: string;
@@ -312,8 +324,8 @@ Respond with a JSON object containing:
     });
 
     // Parse the response
-    const result = JSON.parse(response.choices[0].message.content || "{}");
-    
+    const result = safeParseJSON(response.choices[0].message.content || "{}", "emotional message transformation");
+
     return {
       transformedMessage: result.transformedMessage || "I understand you're feeling strong emotions. Let's talk about this together when we're both ready.",
       communicationElements: result.communicationElements || ["Empathetic listening", "Open communication"],
@@ -375,7 +387,7 @@ Respond with a JSON object containing:
 
     // Parse the response
     const content = openaiResponse.choices[0].message.content || "{}";
-    const result = JSON.parse(content) as ResponseSummary;
+    const result = safeParseJSON(content, "response summary") as ResponseSummary;
     
     // Format the summary for display
     const formattedSummary = `
@@ -440,8 +452,8 @@ Respond with a JSON object containing:
     });
 
     // Parse the response
-    const result = JSON.parse(response.choices[0].message.content || "{}");
-    
+    const result = safeParseJSON(response.choices[0].message.content || "{}", "conflict message transformation");
+
     return {
       transformedMessage: result.transformedMessage || `I'd like to talk about ${topic}. When ${situation}, I feel ${feelings}. This has affected me by ${impact}. I'm hoping that we can ${request}.`,
       communicationElements: result.communicationElements || ["Structured approach", "Clear request", "Expressing feelings"],
@@ -597,8 +609,8 @@ export async function analyzeLoveLanguage(
     });
 
     // Parse the response
-    const result = JSON.parse(response.choices[0].message.content || "{}");
-    
+    const result = safeParseJSON(response.choices[0].message.content || "{}", "love language analysis");
+
     return {
       analysisText: result.analysisText || `Your primary love language is ${formatLoveLanguage(loveLanguage)}. This means you especially value ${getLoveLanguageDescription(loveLanguage)} in your relationship.`,
       personalizedTips: result.personalizedTips || [
@@ -749,8 +761,8 @@ Respond with a JSON object containing:
     });
 
     // Parse the response
-    const result = JSON.parse(response.choices[0].message.content || "{}");
-    
+    const result = safeParseJSON(response.choices[0].message.content || "{}", "therapy session generation");
+
     return {
       transcript: result.transcript || "We couldn't generate a therapy session transcript due to insufficient data. Consider sharing more journal entries or resolving some conflict threads together.",
       summary: {
@@ -932,8 +944,8 @@ Respond with a JSON object containing:
     });
 
     // Parse the response
-    const result = JSON.parse(response.choices[0].message.content || "{}");
-    
+    const result = safeParseJSON(response.choices[0].message.content || "{}", "emotion pattern analysis");
+
     // Default values if missing
     if (!result.dominantEmotions || !Array.isArray(result.dominantEmotions) || result.dominantEmotions.length === 0) {
       result.dominantEmotions = [{
@@ -1063,8 +1075,8 @@ export async function analyzeJournalEntry(
     });
 
     // Parse the response
-    const result = JSON.parse(response.choices[0].message.content || "{}");
-    
+    const result = safeParseJSON(response.choices[0].message.content || "{}", "journal entry analysis");
+
     return {
       aiSummary: result.aiSummary || `This entry discusses feelings about ${title}. There are some emotional elements that could benefit from reflection.`,
       aiRefinedContent: result.aiRefinedContent || journalEntry,

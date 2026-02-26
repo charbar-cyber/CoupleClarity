@@ -4,7 +4,7 @@ import Anthropic from '@anthropic-ai/sdk';
 const hasApiKey = !!process.env.ANTHROPIC_API_KEY;
 
 // Only initialize if API key is available
-// the newest Anthropic model is "claude-3-7-sonnet-20250219" which was released February 24, 2025
+// Using Claude Sonnet 4.6 (claude-sonnet-4-6) — latest Anthropic model
 const anthropic = hasApiKey ? new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 }) : null;
@@ -39,7 +39,7 @@ export async function transformMessage(text: string, emotions: string[]): Promis
 
     // This non-null assertion is safe because we've checked if anthropic is null above
     const response = await anthropic!.messages.create({
-      model: 'claude-3-7-sonnet-20250219',
+      model: 'claude-sonnet-4-6',
       max_tokens: 1024,
       messages: [{ role: 'user', content: prompt }],
     });
@@ -96,7 +96,7 @@ export async function analyzeConflict(messages: Array<{text: string, author: str
 
     // This non-null assertion is safe because we've checked if anthropic is null above
     const response = await anthropic!.messages.create({
-      model: 'claude-3-7-sonnet-20250219',
+      model: 'claude-sonnet-4-6',
       max_tokens: 1500,
       system: "You're a relationship expert specializing in conflict resolution. Provide insights and strategies in JSON format with keys: 'insights' and 'strategies' (array).",
       messages: [{ role: 'user', content: prompt }],
@@ -106,7 +106,13 @@ export async function analyzeConflict(messages: Array<{text: string, author: str
     if (response.content && response.content.length > 0) {
       const content = response.content[0];
       if ('text' in content) {
-        const result = JSON.parse(content.text);
+        let result: any;
+        try {
+          result = JSON.parse(content.text);
+        } catch {
+          console.error('Failed to parse Anthropic conflict analysis response as JSON:', content.text.slice(0, 200));
+          throw new Error("Anthropic returned invalid JSON for conflict analysis");
+        }
         return {
           insights: result.insights,
           strategies: result.strategies
@@ -180,7 +186,7 @@ export async function analyzeLoveLanguage(responses: Record<string, string>): Pr
 
     // This non-null assertion is safe because we've checked if anthropic is null above
     const response = await anthropic!.messages.create({
-      model: 'claude-3-7-sonnet-20250219',
+      model: 'claude-sonnet-4-6',
       max_tokens: 1500,
       system: "You're a relationship expert specializing in love languages. Provide analysis in JSON format with keys: 'primaryLanguage', 'secondaryLanguage', 'explanation', and 'suggestions' (array).",
       messages: [{ role: 'user', content: prompt }],
@@ -190,7 +196,13 @@ export async function analyzeLoveLanguage(responses: Record<string, string>): Pr
     if (response.content && response.content.length > 0) {
       const content = response.content[0];
       if ('text' in content) {
-        const result = JSON.parse(content.text);
+        let result: any;
+        try {
+          result = JSON.parse(content.text);
+        } catch {
+          console.error('Failed to parse Anthropic love language response as JSON:', content.text.slice(0, 200));
+          throw new Error("Anthropic returned invalid JSON for love language analysis");
+        }
         return {
           primaryLanguage: result.primaryLanguage,
           secondaryLanguage: result.secondaryLanguage,

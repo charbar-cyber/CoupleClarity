@@ -17,6 +17,7 @@ export async function apiRequest(
     method,
     headers: {
       'Content-Type': 'application/json',
+      'X-Requested-With': 'CoupleClarity',
     },
     body: body ? JSON.stringify(body) : undefined,
     ...options,

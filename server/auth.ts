@@ -4,9 +4,27 @@ import { Express, Request, Response, NextFunction } from "express";
 import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
+import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
 import { User, User as SelectUser } from "@shared/schema";
 import { v4 as uuidv4 } from "uuid";
+
+// Rate limiters for auth endpoints
+export const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 15,                   // 15 attempts per window
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many attempts. Please try again later." },
+});
+
+export const passwordResetLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5,                    // 5 reset requests per hour
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many password reset requests. Please try again later." },
+});
 
 declare global {
   namespace Express {
@@ -31,27 +49,42 @@ export async function comparePasswords(supplied: string, stored: string) {
 
 export function isAuthenticated(req: Request, res: Response, next: NextFunction) {
   if (!req.isAuthenticated()) {
-    return res.status(401).json({ error: "Unauthorized" });
+    return res.status(401).json({ error: "Authentication required" });
   }
   next();
 }
 
 export function setupAuth(app: Express) {
+  const isProduction = process.env.NODE_ENV === "production";
+
+  // Require SESSION_SECRET in production — refuse to start with the default
+  if (!process.env.SESSION_SECRET) {
+    if (isProduction) {
+      throw new Error(
+        "SESSION_SECRET environment variable is required in production. " +
+        "Generate one with: node -e \"console.log(require('crypto').randomBytes(64).toString('hex'))\""
+      );
+    }
+    console.warn(
+      "WARNING: SESSION_SECRET not set — using insecure default. Set SESSION_SECRET before deploying."
+    );
+  }
+
   // Trust first proxy in production environment for secure cookies
   app.set("trust proxy", 1);
 
   // Set up session middleware
   app.use(
     session({
-      secret: process.env.SESSION_SECRET || "couple-clarity-secret-key",
+      secret: process.env.SESSION_SECRET || "couple-clarity-dev-only-secret",
       resave: false,
       saveUninitialized: false,
       store: storage.sessionStore,
       cookie: {
         maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-        sameSite: "lax", // Allows the cookie to be sent with same-site requests and top-level navigation
-        secure: false, // Set to true in production with HTTPS
-        httpOnly: true, // Prevents JavaScript from accessing the cookie
+        sameSite: "lax",
+        secure: isProduction, // HTTPS-only cookies in production
+        httpOnly: true,
       },
     })
   );
@@ -64,29 +97,23 @@ export function setupAuth(app: Express) {
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
-        console.log(`Authentication attempt for identifier: "${username}"`);
         // Try to find user by username or email
         let user = await storage.getUserByUsername(username);
-        
+
         if (!user) {
-          // If no user found by username, try email
           user = await storage.getUserByEmail(username);
         }
-        
+
         if (!user) {
-          console.log(`No user found with username/email: "${username}"`);
           return done(null, false, { message: "Incorrect username or email" });
         }
-        
-        console.log(`User found: ${user.username} (ID: ${user.id}), verifying password...`);
+
         const isPasswordValid = await comparePasswords(password, user.password);
-        
+
         if (!isPasswordValid) {
-          console.log('Password verification failed');
           return done(null, false, { message: "Incorrect password" });
         }
-        
-        console.log('Authentication successful');
+
         return done(null, user);
       } catch (error) {
         console.error('Authentication error:', error);
@@ -111,29 +138,21 @@ export function setupAuth(app: Express) {
   });
 
   // Authentication Routes
-  app.post("/api/login", (req, res, next) => {
-    console.log("Login attempt for username:", req.body.username);
-    
+  app.post("/api/login", authLimiter, (req, res, next) => {
     passport.authenticate("local", (err: Error | null, user: User | false, info: { message: string }) => {
       if (err) {
-        console.error("Login error:", err);
         return next(err);
       }
-      
+
       if (!user) {
-        console.log("Authentication failed:", info?.message || "Unknown reason");
         return res.status(401).json({ error: info?.message || "Authentication failed" });
       }
-      
-      console.log("User authenticated successfully:", user.username);
-      
+
       req.login(user, (err: Error) => {
         if (err) {
-          console.error("Session error:", err);
           return next(err);
         }
-        
-        console.log("Login successful, session created");
+
         return res.json(user);
       });
     })(req, res, next);
@@ -156,7 +175,7 @@ export function setupAuth(app: Express) {
     }
   });
 
-  app.post("/api/register", async (req, res, next) => {
+  app.post("/api/register", authLimiter, async (req, res, next) => {
     try {
       // Check if username or email already exists
       const existingUserByUsername = await storage.getUserByUsername(req.body.username);
@@ -169,16 +188,19 @@ export function setupAuth(app: Express) {
         return res.status(400).json({ error: "Email already exists" });
       }
       
-      // Create a new user with displayName if not provided
+      // Create a new user with explicitly picked fields to prevent mass assignment
       const hashedPassword = await hashPassword(req.body.password);
       const userData = {
-        ...req.body,
+        username: req.body.username,
         password: hashedPassword,
-        displayName: req.body.displayName || `${req.body.firstName} ${req.body.lastName}`
+        firstName: req.body.firstName,
+        lastName: req.body.lastName,
+        email: req.body.email,
+        displayName: req.body.displayName || `${req.body.firstName} ${req.body.lastName}`,
       };
-      
+
       const newUser = await storage.createUser(userData);
-      
+
       // If partner details are provided, create an invite
       if (req.body.partnerEmail && req.body.partnerFirstName) {
         const inviteToken = uuidv4();
@@ -213,7 +235,7 @@ export function setupAuth(app: Express) {
     }
   });
 
-  app.post("/api/register/invite", async (req, res, next) => {
+  app.post("/api/register/invite", authLimiter, async (req, res, next) => {
     try {
       // Verify the invite token
       const invite = await storage.getInviteByToken(req.body.inviteToken);
@@ -285,16 +307,19 @@ export function setupAuth(app: Express) {
         return res.status(400).json({ error: "Email already exists" });
       }
       
-      // Create a new user with displayName if not provided
+      // Create a new user with explicitly picked fields to prevent mass assignment
       const hashedPassword = await hashPassword(req.body.password);
       const userData = {
-        ...req.body,
+        username: req.body.username,
         password: hashedPassword,
-        displayName: req.body.displayName || `${req.body.firstName} ${req.body.lastName}`
+        firstName: req.body.firstName,
+        lastName: req.body.lastName,
+        email: req.body.email,
+        displayName: req.body.displayName || `${req.body.firstName} ${req.body.lastName}`,
       };
-      
+
       const newUser = await storage.createUser(userData);
-      
+
       // Mark the invite as accepted
       await storage.updateInviteAccepted(invite.id);
       
@@ -323,22 +348,22 @@ export function setupAuth(app: Express) {
   // Create a new partner invite
   app.post("/api/invites", isAuthenticated, async (req: Request & { user?: User }, res, next) => {
     try {
-      const { partnerFirstName, partnerLastName, partnerEmail, fromUserId } = req.body;
-      
+      const { partnerFirstName, partnerLastName, partnerEmail } = req.body;
+
       if (!partnerFirstName || !partnerLastName || !partnerEmail) {
         return res.status(400).json({ error: "Missing required fields" });
       }
-      
+
       if (!req.user) {
         return res.status(401).json({ error: "User not authenticated" });
       }
-      
+
       // Generate a unique token for the invite
       const inviteToken = uuidv4();
-      
-      // Create the invite in the database
+
+      // Create the invite in the database — always use the authenticated user's ID
       const invite = await storage.createInvite({
-        fromUserId: fromUserId || req.user.id,  // Use the authenticated user's ID if not explicitly provided
+        fromUserId: req.user.id,
         partnerFirstName,
         partnerLastName,
         partnerEmail,
@@ -432,7 +457,7 @@ export function setupAuth(app: Express) {
   });
 
   // Password reset request - initiate
-  app.post("/api/forgot-password", async (req, res, next) => {
+  app.post("/api/forgot-password", passwordResetLimiter, async (req, res, next) => {
     try {
       const { email } = req.body;
       
@@ -440,37 +465,28 @@ export function setupAuth(app: Express) {
         return res.status(400).json({ error: "Email is required" });
       }
       
-      console.log(`Password reset requested for email: ${email}`);
-      
       // Generate and store a password reset token
       const tokenData = await storage.createPasswordResetToken(email);
-      
+
       if (!tokenData) {
-        console.log(`No user found with email: ${email}`);
-        // We return success even if email not found to prevent user enumeration
+        // Return success even if email not found to prevent user enumeration
         return res.status(200).json({
           message: "If your email exists in our system, you will receive a password reset link"
         });
       }
-      
+
       // Get the user for email sending
       const user = await storage.getUser(tokenData.userId);
       if (!user) {
-        console.error(`User with ID ${tokenData.userId} not found!`);
         return res.status(500).json({ error: "Unexpected error occurred" });
       }
-      
-      // Send the password reset email (this will log to console in development)
+
+      // Send the password reset email
       const { emailService } = require('./email-service');
       await emailService.sendPasswordResetEmail(user, tokenData.token);
-      
-      // In development mode, we'll include the token in the response for easier testing
-      const isDevelopment = process.env.NODE_ENV !== 'production';
-      
+
       res.status(200).json({
-        message: "If your email exists in our system, you will receive a password reset link",
-        // Only include token in development, remove in production
-        ...(isDevelopment && { token: tokenData.token })
+        message: "If your email exists in our system, you will receive a password reset link"
       });
     } catch (error) {
       console.error("Password reset error:", error);

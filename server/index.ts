@@ -6,6 +6,31 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// CSRF protection for state-changing API requests.
+// Browsers enforce the same-origin policy on requests with non-simple headers
+// or content types. Cross-origin requests with Content-Type: application/json
+// or custom headers like X-Requested-With trigger a CORS preflight that we
+// don't allow, so an attacker's page cannot forge these requests.
+// We accept the request if it has EITHER:
+//   1. The custom X-Requested-With header (set by apiRequest), OR
+//   2. Content-Type: application/json (set by direct fetch calls in the app), OR
+//   3. Content-Type: multipart/form-data (file uploads)
+app.use("/api", (req, res, next) => {
+  const safeMethods = ["GET", "HEAD", "OPTIONS"];
+  if (safeMethods.includes(req.method)) {
+    return next();
+  }
+  const contentType = req.headers["content-type"] || "";
+  const hasJsonContentType = contentType.includes("application/json");
+  const hasMultipart = contentType.startsWith("multipart/form-data");
+  const hasCsrfHeader = req.headers["x-requested-with"] === "CoupleClarity";
+
+  if (hasCsrfHeader || hasJsonContentType || hasMultipart) {
+    return next();
+  }
+  return res.status(403).json({ error: "Forbidden: missing required request headers" });
+});
+
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;

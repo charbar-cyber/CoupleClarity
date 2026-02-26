@@ -4,3 +4,20 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+
+# Secrets and credentials
+.env
+.env.*
+.env.local
+cookie.txt
+*.pem
+
+# Uploads (user-generated content)
+uploads/
+
+# Attached assets
+attached_assets/
+
+# Temporary and build artifacts
+tmp/
+*.log
