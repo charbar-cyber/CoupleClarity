@@ -1,7 +1,5 @@
-import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Waves } from "lucide-react";
 
 interface WelcomeScreenProps {
   onStart: () => void;
@@ -13,14 +11,18 @@ export function WelcomeScreen({ onStart }: WelcomeScreenProps) {
       <Card className="w-full max-w-md mx-auto shadow-lg border-primary/10">
         <CardHeader className="text-center space-y-2">
           <div className="flex justify-center mb-4">
-            <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-              <Waves className="h-8 w-8 text-primary" />
-            </div>
+            <img
+              src="/assets/logo-icon.png"
+              alt="CoupleClarity Logo"
+              className="h-20 w-auto"
+            />
           </div>
           <CardTitle className="text-3xl font-bold tracking-tight">
-            <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-              CoupleClarity
-            </span>
+            <img
+              src="/assets/logo-text.png"
+              alt="CoupleClarity"
+              className="h-10 w-auto mx-auto"
+            />
           </CardTitle>
           <CardDescription className="text-lg">
             Helping couples communicate with empathy, clarity, and intention.
