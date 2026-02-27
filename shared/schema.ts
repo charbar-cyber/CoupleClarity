@@ -2,7 +2,21 @@ import { pgTable, text, serial, integer, boolean, timestamp } from "drizzle-orm/
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Therapy Session Schema
+// Therapy Sessions table
+export const therapySessions = pgTable("therapy_sessions", {
+  id: serial("id").primaryKey(),
+  partnershipId: integer("partnership_id").notNull().references(() => partnerships.id),
+  transcript: text("transcript").notNull(),
+  emotionalPatterns: text("emotional_patterns").array().notNull(),
+  coreIssues: text("core_issues").array().notNull(),
+  recommendations: text("recommendations").array().notNull(),
+  audioUrl: text("audio_url"),
+  isReviewed: boolean("is_reviewed").default(false).notNull(),
+  reviewedAt: timestamp("reviewed_at"),
+  userNotes: text("user_notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const therapySessionSchema = z.object({
   id: z.number().optional(),
   partnershipId: z.number(),
@@ -17,7 +31,7 @@ export const therapySessionSchema = z.object({
   userNotes: z.string().optional().nullable()
 });
 
-export const insertTherapySessionSchema = therapySessionSchema.omit({ 
+export const insertTherapySessionSchema = therapySessionSchema.omit({
   id: true,
   reviewedAt: true
 });
@@ -62,6 +76,15 @@ export const insertUserSchema = createInsertSchema(users).pick({
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+
+// Password reset tokens
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  token: text("token").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
 
 export const partnerships = pgTable("partnerships", {
   id: serial("id").primaryKey(),
