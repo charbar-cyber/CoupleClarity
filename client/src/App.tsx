@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { ThemeProvider } from "@/hooks/use-theme";
 import { AnimationProvider } from "@/hooks/use-animations";
+import LandingPage from "@/pages/landing-page";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import History from "@/pages/history";
@@ -28,9 +29,10 @@ import StyleGuide from "@/components/style-guide";
 import Header from "./components/header";
 import Footer from "./components/footer";
 import { ProtectedRoute } from "@/components/protected-route";
+import { Loader2 } from "lucide-react";
 
 function Router() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   
   return (
     <div className="flex flex-col min-h-screen">
@@ -49,7 +51,18 @@ function Router() {
           <StyleGuide />
         </Route>
         <ProtectedRoute path="/onboarding" component={OnboardingPage} />
-        <ProtectedRoute path="/" component={Home} />
+        <Route path="/">
+          {() => {
+            if (isLoading) {
+              return (
+                <div className="flex items-center justify-center min-h-screen">
+                  <Loader2 className="h-8 w-8 animate-spin text-border" />
+                </div>
+              );
+            }
+            return user ? <Home /> : <LandingPage />;
+          }}
+        </Route>
         <ProtectedRoute path="/history" component={History} />
         <ProtectedRoute path="/dashboard" component={Dashboard} />
         <ProtectedRoute path="/messages/:id" component={MessageThreadPage} />

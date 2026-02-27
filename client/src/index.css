@@ -49,6 +49,21 @@
   .couple-btn-accent {
     @apply bg-accent-coral text-white hover:bg-accent-coral/90 rounded-md px-4 py-2 font-medium;
   }
+
+  .landing-cta-btn {
+    background-color: #FF9190;
+    color: white;
+    font-weight: 600;
+  }
+  .landing-cta-btn:hover {
+    background-color: #e87e7d;
+  }
+  .landing-gradient-text {
+    background: linear-gradient(135deg, #5E72EB 0%, #FF9190 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
 }
 
 @layer base {

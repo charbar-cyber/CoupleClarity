@@ -10,7 +10,14 @@ export default {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      fontFamily: {
+        landing: ['"DM Sans"', 'system-ui', 'sans-serif'],
+      },
       colors: {
+        brand: {
+          blue: "#5E72EB",
+          coral: "#FF9190",
+        },
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         card: {
