@@ -8,7 +8,6 @@ workflows:
         - appstore_credentials      # APP_STORE_CONNECT_KEY_IDENTIFIER
                                      # APP_STORE_CONNECT_ISSUER_ID
                                      # APP_STORE_CONNECT_PRIVATE_KEY
-        - certificate_credentials   # CERTIFICATE_PRIVATE_KEY
       vars:
         BUNDLE_ID: "com.coupleclarity.app"
         XCODE_WORKSPACE: "App.xcworkspace"
