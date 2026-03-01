@@ -9,6 +9,7 @@ import { DirectMessageChat } from "@/components/direct-message-chat";
 import { useAuth } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { User } from "@shared/schema";
+import { apiUrl } from "@/lib/config";
 
 export default function DirectMessagePage() {
   const [, navigate] = useLocation();
@@ -22,7 +23,7 @@ export default function DirectMessagePage() {
     queryKey: ["/api/users", partnerId],
     queryFn: async () => {
       if (!partnerId) throw new Error("Partner ID is required");
-      const res = await fetch(`/api/users/${partnerId}`);
+      const res = await fetch(apiUrl(`/api/users/${partnerId}`));
       if (!res.ok) throw new Error("Failed to fetch partner information");
       return res.json();
     },

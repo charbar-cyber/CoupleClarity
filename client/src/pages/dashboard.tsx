@@ -4,6 +4,7 @@ import PartnerDashboard from "@/components/partner-dashboard";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { apiUrl } from "@/lib/config";
 
 export default function Dashboard() {
   const { toast } = useToast();
@@ -21,7 +22,7 @@ export default function Dashboard() {
   const { data: userData } = useQuery({
     queryKey: ['/api/users', activeUserId],
     queryFn: async () => {
-      const res = await fetch(`/api/users/${activeUserId}`);
+      const res = await fetch(apiUrl(`/api/users/${activeUserId}`));
       if (!res.ok) throw new Error('Failed to fetch user data');
       return res.json();
     }
@@ -31,7 +32,7 @@ export default function Dashboard() {
   const { data: partnerships = [] } = useQuery({
     queryKey: ['/api/users', activeUserId, 'partnerships'],
     queryFn: async () => {
-      const res = await fetch(`/api/users/${activeUserId}/partnerships`);
+      const res = await fetch(apiUrl(`/api/users/${activeUserId}/partnerships`));
       if (!res.ok) throw new Error('Failed to fetch partnerships');
       return res.json();
     }

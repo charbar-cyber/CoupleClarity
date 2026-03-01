@@ -82,8 +82,8 @@ export function setupAuth(app: Express) {
       store: storage.sessionStore,
       cookie: {
         maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-        sameSite: "lax",
-        secure: isProduction, // HTTPS-only cookies in production
+        sameSite: isProduction ? "none" : "lax", // "none" required for Capacitor cross-origin
+        secure: isProduction, // HTTPS-only cookies in production (required for SameSite=None)
         httpOnly: true,
       },
     })

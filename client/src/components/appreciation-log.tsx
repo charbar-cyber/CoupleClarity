@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, Heart, PlusCircle } from "lucide-react";
+import { apiUrl } from '@/lib/config';
 
 // Define the appreciation schema
 const appreciationSchema = z.object({
@@ -50,7 +51,7 @@ export default function AppreciationLog({ userId, partnerId }: AppreciationLogPr
   const { data: appreciations, isLoading } = useQuery({
     queryKey: ['/api/appreciations'],
     queryFn: async () => {
-      const res = await fetch('/api/appreciations');
+      const res = await fetch(apiUrl('/api/appreciations'));
       if (!res.ok) throw new Error('Failed to fetch appreciation log');
       return res.json() as Promise<Appreciation[]>;
     },
@@ -68,7 +69,7 @@ export default function AppreciationLog({ userId, partnerId }: AppreciationLogPr
   // Mutation for adding a new appreciation
   const addAppreciationMutation = useMutation({
     mutationFn: async (data: AppreciationFormValues) => {
-      const res = await fetch('/api/appreciations', {
+      const res = await fetch(apiUrl('/api/appreciations'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

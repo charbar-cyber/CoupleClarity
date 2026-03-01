@@ -32,6 +32,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { apiRequest } from "@/lib/queryClient";
+import { apiUrl } from '@/lib/config';
 import { JournalEntryForm } from "./journal-entry-form";
 import { useToast } from "@/hooks/use-toast";
 
@@ -55,7 +56,7 @@ export function JournalEntriesList({ limit = 10 }: JournalEntriesListProps) {
   } = useQuery<JournalEntry[]>({
     queryKey: ["/api/journal", { isPrivate: true, limit }],
     queryFn: async () => {
-      const res = await fetch(`/api/journal?isPrivate=true&limit=${limit}`, {
+      const res = await fetch(apiUrl(`/api/journal?isPrivate=true&limit=${limit}`), {
         credentials: "include",
       });
       
@@ -75,7 +76,7 @@ export function JournalEntriesList({ limit = 10 }: JournalEntriesListProps) {
   } = useQuery<JournalEntry[]>({
     queryKey: ["/api/journal/shared", { limit }],
     queryFn: async () => {
-      const res = await fetch(`/api/journal/shared?limit=${limit}`, {
+      const res = await fetch(apiUrl(`/api/journal/shared?limit=${limit}`), {
         credentials: "include",
       });
       

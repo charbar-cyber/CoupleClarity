@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { MessageSquare } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { apiUrl, wsUrl } from '@/lib/config';
 
 interface DirectMessageButtonProps {
   partnerId: number;
@@ -19,7 +20,7 @@ export function DirectMessageButton({ partnerId, compact = false }: DirectMessag
   const { data: unreadData } = useQuery<{ count: number }>({
     queryKey: ["/api/direct-messages/unread/count"],
     queryFn: async () => {
-      const res = await fetch("/api/direct-messages/unread/count");
+      const res = await fetch(apiUrl("/api/direct-messages/unread/count"));
       if (!res.ok) throw new Error("Failed to fetch unread count");
       return res.json();
     },
@@ -28,9 +29,7 @@ export function DirectMessageButton({ partnerId, compact = false }: DirectMessag
   
   // Setup WebSocket to listen for new messages
   useEffect(() => {
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
-    const socket = new WebSocket(wsUrl);
+    const socket = new WebSocket(wsUrl('/ws'));
     
     socket.onopen = () => {
       setWsConnected(true);

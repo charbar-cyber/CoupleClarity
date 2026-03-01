@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Mic, Square, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiUrl } from "@/lib/config";
 
 interface VoiceRecorderProps {
   onTranscript: (transcript: string) => void;
@@ -83,7 +84,7 @@ export function VoiceRecorder({ onTranscript, isTranscribing = false }: VoiceRec
       const formData = new FormData();
       formData.append('audio', audioBlob, 'recording.wav');
       
-      const response = await fetch('/api/transcribe', {
+      const response = await fetch(apiUrl('/api/transcribe'), {
         method: 'POST',
         body: formData,
       });

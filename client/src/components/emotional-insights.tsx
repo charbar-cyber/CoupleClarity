@@ -6,6 +6,7 @@ import { PieChart, Pie, BarChart, Bar, Cell, XAxis, YAxis, Tooltip, Legend, Resp
 import { Loader2 } from "lucide-react";
 import EmotionalExpressionsTracker from "./emotional-expressions-tracker";
 import EmotionalPatternsInsights from "./emotional-patterns-insights";
+import { apiUrl } from '@/lib/config';
 
 interface EmotionalInsightsProps {
   userId?: number;
@@ -53,7 +54,7 @@ export default function EmotionalInsights({ userId }: EmotionalInsightsProps) {
     queryKey: ['/api/emotions/analytics', userId],
     queryFn: async () => {
       try {
-        const res = await fetch('/api/emotions/analytics' + (userId ? `?userId=${userId}` : ''));
+        const res = await fetch(apiUrl('/api/emotions/analytics' + (userId ? `?userId=${userId}` : '')));
         if (!res.ok) throw new Error('Failed to fetch emotion analytics');
         return res.json();
       } catch (error) {

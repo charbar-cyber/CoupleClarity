@@ -1,9 +1,18 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { apiUrl } from "./config";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
     throw new Error(`${res.status}: ${text}`);
+  }
+}
+
+function handle401() {
+  queryClient.setQueryData(["/api/user"], null);
+  queryClient.clear();
+  if (window.location.pathname !== "/auth") {
+    window.location.href = "/auth";
   }
 }
 
@@ -13,7 +22,7 @@ export async function apiRequest(
   body?: any,
   options?: RequestInit
 ): Promise<Response> {
-  const res = await fetch(url, {
+  const res = await fetch(apiUrl(url), {
     method,
     headers: {
       'Content-Type': 'application/json',
@@ -23,6 +32,10 @@ export async function apiRequest(
     ...options,
     credentials: "include",
   });
+
+  if (res.status === 401) {
+    handle401();
+  }
 
   await throwIfResNotOk(res);
   return res;
@@ -42,12 +55,15 @@ export function getQueryFn<T>(options?: QueryFnOptions): QueryFunction<T> {
   const unauthorizedBehavior = options?.on401 || "throw";
   
   return async ({ queryKey }) => {
-    const res = await fetch(queryKey[0] as string, {
+    const res = await fetch(apiUrl(queryKey[0] as string), {
       credentials: "include",
     });
 
-    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-      return null as any;
+    if (res.status === 401) {
+      if (unauthorizedBehavior === "returnNull") {
+        return null as any;
+      }
+      handle401();
     }
 
     await throwIfResNotOk(res);

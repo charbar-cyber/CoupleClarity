@@ -53,6 +53,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useToast } from "@/hooks/use-toast";
 import { JournalEntryForm } from "./journal-entry-form";
 import { JournalResponseForm } from "./journal-response-form";
+import { apiUrl } from "@/lib/config";
 
 interface JournalTimelineProps {
   limit?: number;
@@ -77,7 +78,7 @@ export function JournalTimeline({ limit }: JournalTimelineProps) {
   } = useQuery<JournalEntry[]>({
     queryKey: ["/api/journal", { limit }],
     queryFn: async () => {
-      const res = await fetch(`/api/journal?limit=${limit || ""}`, {
+      const res = await fetch(apiUrl(`/api/journal?limit=${limit || ""}`), {
         credentials: "include",
       });
       
@@ -96,7 +97,7 @@ export function JournalTimeline({ limit }: JournalTimelineProps) {
   } = useQuery<JournalEntry[]>({
     queryKey: ["/api/journal/shared", { limit }],
     queryFn: async () => {
-      const res = await fetch(`/api/journal/shared?limit=${limit || ""}`, {
+      const res = await fetch(apiUrl(`/api/journal/shared?limit=${limit || ""}`), {
         credentials: "include",
       });
       
@@ -126,7 +127,7 @@ export function JournalTimeline({ limit }: JournalTimelineProps) {
   // Handle marking an entry as resolved
   const handleMarkResolved = async (entryId: number) => {
     try {
-      await fetch(`/api/journal/${entryId}/mark-resolved`, {
+      await fetch(apiUrl(`/api/journal/${entryId}/mark-resolved`), {
         method: "POST",
         credentials: "include",
       });

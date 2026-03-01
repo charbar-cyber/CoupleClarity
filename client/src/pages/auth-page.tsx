@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { apiUrl } from "@/lib/config";
 
 // Login schema
 const loginSchema = z.object({
@@ -88,7 +89,7 @@ export default function AuthPage() {
       // Fetch invite details
       const fetchInvite = async () => {
         try {
-          const response = await fetch(`/api/invites/${inviteToken}`);
+          const response = await fetch(apiUrl(`/api/invites/${inviteToken}`));
           
           if (response.ok) {
             const data = await response.json();
@@ -187,7 +188,7 @@ export default function AuthPage() {
         onSuccess: async () => {
           try {
             // Connect with partner using the invitation token
-            const response = await fetch('/api/partnerships/connect-by-token', {
+            const response = await fetch(apiUrl('/api/partnerships/connect-by-token'), {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -195,7 +196,7 @@ export default function AuthPage() {
               body: JSON.stringify({ inviteToken }),
               credentials: 'include'
             });
-            
+
             if (response.ok) {
               const data = await response.json();
               console.log("Successfully connected with partner:", data);
@@ -223,7 +224,7 @@ export default function AuthPage() {
       loginMutation.mutate(data);
     }
   };
-  
+
   const onRegisterSubmit = (data: RegistrationFormValues) => {
     const { confirmPassword, ...registrationData } = data;
     registerMutation.mutate(registrationData);
@@ -236,7 +237,7 @@ export default function AuthPage() {
       console.log("Submitting invite registration data:", { ...registrationData, password: "****" });
       
       // Use the register with invite endpoint 
-      const response = await fetch('/api/register/invite', {
+      const response = await fetch(apiUrl('/api/register/invite'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -286,7 +287,7 @@ export default function AuthPage() {
       }
       
       // Connect with partner using the invitation token
-      const response = await fetch('/api/partnerships/connect-by-token', {
+      const response = await fetch(apiUrl('/api/partnerships/connect-by-token'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -294,7 +295,7 @@ export default function AuthPage() {
         body: JSON.stringify({ inviteToken }),
         credentials: 'include'
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         console.log("Successfully connected with partner:", data);

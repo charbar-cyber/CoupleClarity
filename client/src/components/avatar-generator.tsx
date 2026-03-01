@@ -13,6 +13,7 @@ import { Loader2, RefreshCw, Upload, ImageIcon, Sparkles } from 'lucide-react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useAuth } from '@/hooks/use-auth';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { apiUrl } from '@/lib/config';
 
 // Schema for the avatar prompt
 const avatarFormSchema = z.object({
@@ -80,7 +81,7 @@ export function AvatarGenerator() {
   const uploadAvatarMutation = useMutation({
     mutationFn: async (formData: FormData) => {
       setIsUploading(true);
-      const res = await fetch('/api/avatar/upload', {
+      const res = await fetch(apiUrl('/api/avatar/upload'), {
         method: 'POST',
         body: formData,
         credentials: 'include',

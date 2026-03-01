@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { wsUrl } from '@/lib/config';
 
 export type WebSocketMessage = {
   type: string;
@@ -20,11 +21,8 @@ export function useWebSocket(): UseWebSocketReturn {
   const socketRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    // Create WebSocket connection using the appropriate protocol based on the page URL
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
-    
-    const socket = new WebSocket(wsUrl);
+    // Create WebSocket connection
+    const socket = new WebSocket(wsUrl('/ws'));
     socketRef.current = socket;
 
     // Connection opened

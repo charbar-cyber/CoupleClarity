@@ -24,6 +24,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatPreference } from "@/lib/utils";
+import { apiUrl } from "@/lib/config";
 import AppreciationLog from "./appreciation-log";
 import { QuickAccessCards } from "./quick-access-cards";
 
@@ -40,7 +41,7 @@ export default function Homebase({ userId, partnerId, userName, partnerName }: H
     queryKey: ['/api/user/preferences'],
     queryFn: async () => {
       try {
-        const res = await fetch('/api/user/preferences');
+        const res = await fetch(apiUrl('/api/user/preferences'));
         if (!res.ok) {
           if (res.status === 404) return null;
           throw new Error('Failed to fetch user preferences');
@@ -60,7 +61,7 @@ export default function Homebase({ userId, partnerId, userName, partnerName }: H
       if (!partnerId) return null;
       
       try {
-        const res = await fetch(`/api/users/${partnerId}/preferences`);
+        const res = await fetch(apiUrl(`/api/users/${partnerId}/preferences`));
         if (!res.ok) {
           if (res.status === 404) return null;
           throw new Error('Failed to fetch partner preferences');
@@ -94,7 +95,7 @@ export default function Homebase({ userId, partnerId, userName, partnerName }: H
     queryKey: ['/api/relationship'],
     queryFn: async () => {
       try {
-        const res = await fetch('/api/relationship');
+        const res = await fetch(apiUrl('/api/relationship'));
         if (!res.ok) throw new Error('Failed to fetch relationship data');
         return res.json();
       } catch (error) {
@@ -343,7 +344,7 @@ function InvitePartnerCard() {
     mutationFn: async (email: string) => {
       setIsCheckingEmail(true);
       try {
-        const res = await fetch(`/api/users/check-email/${encodeURIComponent(email)}`);
+        const res = await fetch(apiUrl(`/api/users/check-email/${encodeURIComponent(email)}`));
         if (!res.ok) {
           throw new Error('Failed to check user email');
         }

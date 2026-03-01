@@ -5,6 +5,7 @@ import { z } from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { wsUrl } from "@/lib/config";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -60,7 +61,7 @@ export default function ConflictThreadCreateForm({
       });
       
       // Broadcast new thread via WebSocket
-      const socket = new WebSocket(`${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`);
+      const socket = new WebSocket(wsUrl('/ws'));
       socket.onopen = () => {
         socket.send(JSON.stringify({
           type: 'new_conflict_thread',

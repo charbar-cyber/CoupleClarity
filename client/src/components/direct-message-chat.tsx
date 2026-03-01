@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { SendHorizontal, Check } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { apiUrl, wsUrl } from "@/lib/config";
 
 interface DirectMessageChatProps {
   partner: User;
@@ -27,7 +28,7 @@ export function DirectMessageChat({ partner }: DirectMessageChatProps) {
   const { data: messages, isLoading } = useQuery<DirectMessage[]>({
     queryKey: ["/api/direct-messages", partner.id],
     queryFn: async () => {
-      const res = await fetch(`/api/direct-messages/${partner.id}`);
+      const res = await fetch(apiUrl(`/api/direct-messages/${partner.id}`));
       if (!res.ok) throw new Error("Failed to fetch direct messages");
       return res.json();
     },
@@ -36,7 +37,7 @@ export function DirectMessageChat({ partner }: DirectMessageChatProps) {
   // Send message mutation
   const sendMessageMutation = useMutation({
     mutationFn: async (messageText: string) => {
-      const res = await fetch("/api/direct-messages", {
+      const res = await fetch(apiUrl("/api/direct-messages"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -85,7 +86,7 @@ export function DirectMessageChat({ partner }: DirectMessageChatProps) {
   // Mark message as read mutation
   const markAsReadMutation = useMutation({
     mutationFn: async (messageId: number) => {
-      const res = await fetch(`/api/direct-messages/${messageId}/read`, {
+      const res = await fetch(apiUrl(`/api/direct-messages/${messageId}/read`), {
         method: "PATCH",
       });
       if (!res.ok) throw new Error("Failed to mark message as read");
@@ -101,9 +102,7 @@ export function DirectMessageChat({ partner }: DirectMessageChatProps) {
   
   // Setup WebSocket connection
   useEffect(() => {
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
-    const socket = new WebSocket(wsUrl);
+    const socket = new WebSocket(wsUrl('/ws'));
     wsRef.current = socket;
     
     socket.onopen = () => {

@@ -12,6 +12,7 @@ import {
   TrendingUp, 
   ArrowRight
 } from "lucide-react";
+import { apiUrl } from '@/lib/config';
 
 interface QuickAccessCardsProps {
   userId?: number;
@@ -25,7 +26,7 @@ export function QuickAccessCards({ userId, partnerId }: QuickAccessCardsProps) {
   const { data: recentJournals } = useQuery({
     queryKey: ['/api/journal/recent'],
     queryFn: async () => {
-      const res = await fetch('/api/journal/recent');
+      const res = await fetch(apiUrl('/api/journal/recent'));
       if (!res.ok) throw new Error('Failed to fetch recent journals');
       return res.json();
     }
@@ -36,7 +37,7 @@ export function QuickAccessCards({ userId, partnerId }: QuickAccessCardsProps) {
     queryKey: ['/api/journal/partner-activity'],
     queryFn: async () => {
       if (!partnerId) return null;
-      const res = await fetch('/api/journal/partner-activity');
+      const res = await fetch(apiUrl('/api/journal/partner-activity'));
       if (!res.ok) throw new Error('Failed to fetch partner activity');
       return res.json();
     },
@@ -48,7 +49,7 @@ export function QuickAccessCards({ userId, partnerId }: QuickAccessCardsProps) {
     queryKey: ['/api/emotions/trends'],
     queryFn: async () => {
       try {
-        const res = await fetch('/api/emotions/trends');
+        const res = await fetch(apiUrl('/api/emotions/trends'));
         if (!res.ok) throw new Error('Failed to fetch emotion trends');
         return res.json();
       } catch (error) {

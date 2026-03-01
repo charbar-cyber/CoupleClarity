@@ -18,6 +18,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Loader2, ChevronRight, CheckCircle2, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiUrl } from "@/lib/config";
 
 const checkInFormSchema = z.object({
   responses: z.array(
@@ -55,7 +56,7 @@ export default function WeeklyCheckIn({ userId }: WeeklyCheckInProps) {
     queryKey: ['/api/check-in/latest', userId],
     queryFn: async () => {
       try {
-        const res = await fetch(`/api/check-in/latest${userId ? `?userId=${userId}` : ''}`);
+        const res = await fetch(apiUrl(`/api/check-in/latest${userId ? `?userId=${userId}` : ''}`));
         if (res.status === 404) {
           return { needsNewCheckIn: true, currentWeek: new Date() };
         }
@@ -78,7 +79,7 @@ export default function WeeklyCheckIn({ userId }: WeeklyCheckInProps) {
     queryKey: ['/api/check-in/prompts', userId],
     queryFn: async () => {
       try {
-        const res = await fetch(`/api/check-in/prompts${userId ? `?userId=${userId}` : ''}`);
+        const res = await fetch(apiUrl(`/api/check-in/prompts${userId ? `?userId=${userId}` : ''}`));
         if (!res.ok) throw new Error('Failed to fetch check-in prompts');
         return res.json();
       } catch (error) {
@@ -117,7 +118,7 @@ export default function WeeklyCheckIn({ userId }: WeeklyCheckInProps) {
       // Include userId in request body if available
       const payload = userId ? { ...data, userId } : data;
       
-      const res = await fetch('/api/check-in/responses', {
+      const res = await fetch(apiUrl('/api/check-in/responses'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

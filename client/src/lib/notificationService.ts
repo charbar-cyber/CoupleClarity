@@ -1,3 +1,5 @@
+import { apiUrl } from '@/lib/config';
+
 // Helper functions for push notification setup and management
 
 // Check if the browser supports service workers and push notifications
@@ -64,7 +66,7 @@ export const subscribeToPushNotifications = async (publicVapidKey: string) => {
     });
     
     // Send subscription to server
-    await fetch('/api/notifications/subscribe', {
+    await fetch(apiUrl('/api/notifications/subscribe'), {
       method: 'POST',
       body: JSON.stringify(subscription),
       headers: {
@@ -87,7 +89,7 @@ export const unsubscribeFromPushNotifications = async () => {
     
     if (subscription) {
       // Remove subscription from server
-      await fetch('/api/notifications/unsubscribe', {
+      await fetch(apiUrl('/api/notifications/unsubscribe'), {
         method: 'POST',
         body: JSON.stringify(subscription),
         headers: {

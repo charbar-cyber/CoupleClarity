@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { apiUrl } from "@/lib/config";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 import { useLocation, Link } from "wouter";
@@ -45,7 +46,7 @@ export function ResetPasswordForm() {
   // Validate token with the server
   const validateToken = async (token: string) => {
     try {
-      const res = await fetch(`/api/reset-password/${token}`);
+      const res = await fetch(apiUrl(`/api/reset-password/${token}`));
       const data = await res.json();
       setIsTokenValid(data.valid);
     } catch (error) {

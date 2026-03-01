@@ -49,6 +49,7 @@ import {
 import { UserPreferences } from "@shared/schema";
 import { ChangePasswordForm } from "@/components/change-password-form";
 import { ChangeUsernameForm } from "@/components/change-username-form";
+import { apiUrl } from "@/lib/config";
 
 // Theme options
 type Theme = "light" | "dark" | "system";
@@ -83,7 +84,7 @@ export default function SettingsPage() {
   // Get partnerships
   const { data: partnerships = [], isLoading: partnershipsLoading } = useQuery({
     queryKey: ["/api/users", user?.id, "partnerships"],
-    queryFn: () => fetch(`/api/users/${user?.id}/partnerships`).then(res => res.json()),
+    queryFn: () => fetch(apiUrl(`/api/users/${user?.id}/partnerships`)).then(res => res.json()),
     enabled: !!user?.id,
   });
   

@@ -15,6 +15,7 @@ import {
   Clock, Gift, MessageCircleHeart, HandHeart, Book
 } from "lucide-react";
 import { JournalSection } from "./journal-section";
+import { apiUrl } from "@/lib/config";
 
 // Message and response interfaces
 interface Message {
@@ -69,7 +70,7 @@ export default function PartnerDashboard({ userId, partnerId, partnerName = "Par
   const { data: sharedMessages = [], refetch: refetchSharedMessages } = useQuery({
     queryKey: ['/api/partners', partnerId, 'shared-messages'],
     queryFn: async () => {
-      const res = await fetch(`/api/partners/${partnerId}/shared-messages`);
+      const res = await fetch(apiUrl(`/api/partners/${partnerId}/shared-messages`));
       if (!res.ok) throw new Error('Failed to fetch shared messages');
       return res.json();
     }
@@ -79,7 +80,7 @@ export default function PartnerDashboard({ userId, partnerId, partnerName = "Par
   const { data: partnerPreferences } = useQuery({
     queryKey: ['/api/users', partnerId, 'preferences'],
     queryFn: async () => {
-      const res = await fetch(`/api/users/${partnerId}/preferences`);
+      const res = await fetch(apiUrl(`/api/users/${partnerId}/preferences`));
       if (!res.ok) {
         if (res.status === 404) return null;
         throw new Error('Failed to fetch partner preferences');
@@ -165,7 +166,7 @@ export default function PartnerDashboard({ userId, partnerId, partnerName = "Par
     queryFn: async () => {
       if (!currentMessageId) return [];
       
-      const res = await fetch(`/api/messages/${currentMessageId}/responses`);
+      const res = await fetch(apiUrl(`/api/messages/${currentMessageId}/responses`));
       if (!res.ok) throw new Error('Failed to fetch responses');
       return res.json();
     },

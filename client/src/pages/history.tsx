@@ -21,6 +21,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import { apiUrl } from "@/lib/config";
 
 const formSchema = z.object({
   title: z.string().min(2, "Title must be at least 2 characters").max(100),
@@ -59,7 +60,7 @@ export default function History() {
     queryKey: [`/api/partnerships/${partnershipId}/memories/search`, searchQuery],
     queryFn: async () => {
       if (!searchQuery.trim()) return [];
-      const response = await fetch(`/api/partnerships/${partnershipId}/memories/search?q=${encodeURIComponent(searchQuery)}`);
+      const response = await fetch(apiUrl(`/api/partnerships/${partnershipId}/memories/search?q=${encodeURIComponent(searchQuery)}`));
       if (!response.ok) throw new Error("Search failed");
       return response.json();
     },

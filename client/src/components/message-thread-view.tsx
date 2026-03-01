@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiUrl } from "@/lib/config";
 import { useAuth } from "@/hooks/use-auth";
 import { format } from "date-fns";
 
@@ -26,7 +27,7 @@ export default function MessageThreadView({ messageId, onBack }: MessageThreadVi
   const { data: messageData, isLoading: isMessageLoading, error: messageError } = useQuery({
     queryKey: ['/api/messages', messageId],
     queryFn: async () => {
-      const res = await fetch(`/api/messages/${messageId}`);
+      const res = await fetch(apiUrl(`/api/messages/${messageId}`));
       if (!res.ok) throw new Error('Failed to fetch message');
       return res.json();
     },
