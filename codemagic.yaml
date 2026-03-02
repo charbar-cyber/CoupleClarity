@@ -15,7 +15,6 @@ workflows:
         APP_STORE_APP_ID: 6759870857
       xcode: latest
       node: 22
-      cocoapods: default
     triggering:
       events:
         - push
@@ -32,9 +31,6 @@ workflows:
 
       - name: Sync Capacitor iOS project
         script: npx cap sync ios
-
-      - name: Install CocoaPods dependencies
-        script: cd ios/App && pod install
 
       - name: Set up code signing on Xcode project
         script: xcode-project use-profiles
