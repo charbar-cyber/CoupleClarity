@@ -3,13 +3,13 @@ workflows:
     name: iOS Release
     max_build_duration: 120
     instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: codemagic
     environment:
-      groups:
-        - appstore_credentials      # APP_STORE_CONNECT_KEY_IDENTIFIER
-                                     # APP_STORE_CONNECT_ISSUER_ID
-                                     # APP_STORE_CONNECT_PRIVATE_KEY
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.coupleclarity.app
       vars:
-        BUNDLE_ID: "com.coupleclarity.app"
         XCODE_WORKSPACE: "App.xcworkspace"
         XCODE_SCHEME: "App"
         APP_STORE_APP_ID: 6759870857
@@ -24,18 +24,6 @@ workflows:
           include: true
           source: true
     scripts:
-      - name: Set up keychain for code signing
-        script: keychain initialize
-
-      - name: Fetch signing files from App Store Connect
-        script: |
-          app-store-connect fetch-signing-files "$BUNDLE_ID" \
-            --type IOS_APP_STORE \
-            --create
-
-      - name: Add certificates to keychain
-        script: keychain add-certificates
-
       - name: Install npm dependencies
         script: npm install --include=dev
 
@@ -71,9 +59,7 @@ workflows:
 
     publishing:
       app_store_connect:
-        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
-        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
-        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+        auth: integration
         submit_to_testflight: true
         submit_to_app_store: false
       email:
