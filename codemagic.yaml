@@ -10,7 +10,7 @@ workflows:
         distribution_type: app_store
         bundle_identifier: com.coupleclarity.app
       vars:
-        XCODE_WORKSPACE: "App.xcworkspace"
+        XCODE_PROJECT: "App.xcodeproj"
         XCODE_SCHEME: "App"
         APP_STORE_APP_ID: 6759870857
       xcode: latest
@@ -45,7 +45,7 @@ workflows:
         script: |
           cd $CM_BUILD_DIR/ios/App
           xcode-project build-ipa \
-            --workspace "$XCODE_WORKSPACE" \
+            --project "$XCODE_PROJECT" \
             --scheme "$XCODE_SCHEME"
 
     artifacts:
