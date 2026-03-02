@@ -14,7 +14,7 @@ workflows:
         XCODE_SCHEME: "App"
         APP_STORE_APP_ID: 6759870857
       xcode: latest
-      node: 18
+      node: 22
       cocoapods: default
     triggering:
       events:
