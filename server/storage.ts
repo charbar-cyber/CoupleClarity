@@ -25,6 +25,8 @@ import {
   exerciseTemplates, type ExerciseTemplate, type InsertExerciseTemplate,
   type TherapySession, type InsertTherapySession,
   emotionalExpressions, type EmotionalExpression, type InsertEmotionalExpression,
+  guidedConversations, type GuidedConversation, type InsertGuidedConversation,
+  guidedConversationTurns, type GuidedConversationTurn, type InsertGuidedConversationTurn,
   exerciseTypeOptions, exerciseStatusOptions,
   conflictStatusOptions,
   memoryTypes,
@@ -227,6 +229,14 @@ export interface IStorage {
   getExerciseStepResponses(stepId: number): Promise<ExerciseResponse[]>;
   getUserResponseForStep(stepId: number, userId: number): Promise<ExerciseResponse | undefined>;
 
+  // Guided conversation operations
+  createGuidedConversation(conversation: InsertGuidedConversation): Promise<GuidedConversation>;
+  getGuidedConversation(id: number): Promise<GuidedConversation | undefined>;
+  getGuidedConversationsByUser(userId: number, status?: string): Promise<GuidedConversation[]>;
+  updateGuidedConversation(id: number, data: Partial<GuidedConversation>): Promise<GuidedConversation>;
+  createGuidedConversationTurn(turn: InsertGuidedConversationTurn): Promise<GuidedConversationTurn>;
+  getGuidedConversationTurns(conversationId: number): Promise<GuidedConversationTurn[]>;
+
   // Session store
   sessionStore: SessionStore;
 }
@@ -287,6 +297,11 @@ export class MemStorage implements IStorage {
   private emotionalExpressions: Map<number, EmotionalExpression>;
   private emotionalExpressionIdCounter: number;
 
+  private guidedConversationsMap: Map<number, GuidedConversation>;
+  private guidedConversationIdCounter: number;
+  private guidedConversationTurnsMap: Map<number, GuidedConversationTurn>;
+  private guidedConversationTurnIdCounter: number;
+
   constructor() {
     // Initialize memory session store
     const MemoryStore = createMemoryStore(session);
@@ -345,7 +360,11 @@ export class MemStorage implements IStorage {
     this.exerciseTemplateIdCounter = 1;
     this.therapySessionIdCounter = 1;
     this.emotionalExpressionIdCounter = 1;
-    
+    this.guidedConversationsMap = new Map();
+    this.guidedConversationIdCounter = 1;
+    this.guidedConversationTurnsMap = new Map();
+    this.guidedConversationTurnIdCounter = 1;
+
     // Create default users with hashed passwords
     // The hash of 'password' using our algorithm
     const hashedPassword = "1b5db04ba4332b716198835c09f9d07d5f3fe242aeee8f324c2bbc506fa1975c5ff25f3787650275c7b808b4fdce36cb48db9fdaff523bc6b75676ffc94dd906.2fa1a8cf45c71b32c2627a9eba6c24be";
@@ -2266,6 +2285,85 @@ export class MemStorage implements IStorage {
   async deleteEmotionalExpression(id: number): Promise<boolean> {
     if (!this.emotionalExpressions.has(id)) return false;
     return this.emotionalExpressions.delete(id);
+  }
+
+  // ─── Guided Conversations ──────────────────────────────────────────
+  async createGuidedConversation(conv: InsertGuidedConversation): Promise<GuidedConversation> {
+    const id = this.guidedConversationIdCounter++;
+    const now = new Date();
+    const gc: GuidedConversation = {
+      id,
+      partnershipId: conv.partnershipId,
+      initiatorId: conv.initiatorId,
+      partnerId: conv.partnerId,
+      conversationType: conv.conversationType,
+      topic: conv.topic ?? null,
+      status: conv.status ?? "awaiting_partner",
+      currentTurnUserId: conv.currentTurnUserId ?? null,
+      currentTurnNumber: conv.currentTurnNumber ?? 1,
+      totalTurns: conv.totalTurns ?? 6,
+      openingPrompt: conv.openingPrompt ?? null,
+      summary: conv.summary ?? null,
+      insightsJson: conv.insightsJson ?? null,
+      createdAt: now,
+      lastActivityAt: now,
+      completedAt: null,
+    };
+    this.guidedConversationsMap.set(id, gc);
+    return gc;
+  }
+
+  async getGuidedConversation(id: number): Promise<GuidedConversation | undefined> {
+    return this.guidedConversationsMap.get(id);
+  }
+
+  async getGuidedConversationsByUser(userId: number, status?: string): Promise<GuidedConversation[]> {
+    const results: GuidedConversation[] = [];
+    const all = Array.from(this.guidedConversationsMap.values());
+    for (const gc of all) {
+      if (gc.initiatorId === userId || gc.partnerId === userId) {
+        if (!status || gc.status === status) {
+          results.push(gc);
+        }
+      }
+    }
+    return results.sort((a, b) => new Date(b.lastActivityAt).getTime() - new Date(a.lastActivityAt).getTime());
+  }
+
+  async updateGuidedConversation(id: number, data: Partial<GuidedConversation>): Promise<GuidedConversation> {
+    const gc = this.guidedConversationsMap.get(id);
+    if (!gc) throw new Error(`Guided conversation ${id} not found`);
+    const updated = { ...gc, ...data, lastActivityAt: new Date() };
+    this.guidedConversationsMap.set(id, updated);
+    return updated;
+  }
+
+  async createGuidedConversationTurn(turn: InsertGuidedConversationTurn): Promise<GuidedConversationTurn> {
+    const id = this.guidedConversationTurnIdCounter++;
+    const gct: GuidedConversationTurn = {
+      id,
+      conversationId: turn.conversationId,
+      turnNumber: turn.turnNumber,
+      userId: turn.userId ?? null,
+      turnType: turn.turnType,
+      content: turn.content,
+      visibleTo: turn.visibleTo ?? "both",
+      metadata: turn.metadata ?? null,
+      createdAt: new Date(),
+    };
+    this.guidedConversationTurnsMap.set(id, gct);
+    return gct;
+  }
+
+  async getGuidedConversationTurns(conversationId: number): Promise<GuidedConversationTurn[]> {
+    const results: GuidedConversationTurn[] = [];
+    const all = Array.from(this.guidedConversationTurnsMap.values());
+    for (const t of all) {
+      if (t.conversationId === conversationId) {
+        results.push(t);
+      }
+    }
+    return results.sort((a, b) => a.turnNumber - b.turnNumber || new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   }
 }
 

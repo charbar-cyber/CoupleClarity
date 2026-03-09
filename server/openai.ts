@@ -1,8 +1,14 @@
 import OpenAI from "openai";
 import { TransformationResponse } from "@shared/schema";
+import type { GuidedConversationTurn } from "@shared/schema";
 import fs from "fs";
 import path from "path";
 import { promisify } from "util";
+import {
+  type PartnerPreferenceProfile,
+  buildPreferenceContext,
+  getConversationTypeDescription,
+} from "./ai-preferences";
 
 /**
  * Safely parse JSON from an AI response, providing a descriptive error on failure.
@@ -1194,4 +1200,226 @@ export async function analyzeJournalEntry(
       emotions: ["thoughtful", "concerned", "hopeful"]
     };
   }
+}
+
+// ─── Guided Conversation AI Functions ──────────────────────────────────
+
+export async function generateConversationPromptOpenAI(
+  conversationType: string,
+  topic: string | null,
+  currentUser: PartnerPreferenceProfile,
+  partner: PartnerPreferenceProfile,
+  previousTurns: GuidedConversationTurn[],
+  turnNumber: number
+): Promise<string> {
+  if (!hasOpenAIKey || !openai) {
+    return getDefaultPrompt(conversationType, currentUser.name, turnNumber);
+  }
+
+  try {
+    const prefContext = buildPreferenceContext(currentUser, partner);
+    const typeDesc = getConversationTypeDescription(conversationType);
+    const previousContext = previousTurns
+      .filter(t => t.turnType === "coached_message" || t.turnType === "ai_prompt")
+      .map(t => `[${t.turnType}] ${t.content}`)
+      .join("\n\n");
+
+    const response = await openai!.chat.completions.create({
+      model: "gpt-4o",
+      max_tokens: 500,
+      messages: [
+        {
+          role: "system",
+          content: `You are a skilled relationship coach facilitating a guided conversation between partners.
+
+CONVERSATION TYPE: ${typeDesc}
+
+PARTNER PROFILES:
+${prefContext}
+
+INSTRUCTIONS:
+- Generate a prompt addressed to ${currentUser.name} for turn ${turnNumber}.
+- Adapt your language to match ${currentUser.name}'s communication style preferences.
+- If their style is "gentle," be softer and more inviting.
+- If their style is "direct," be clear and specific.
+- If their style is "structured," provide a numbered framework.
+- Consider ${partner.name}'s love language when suggesting how to express things.
+- Keep the prompt under 150 words. Be warm but concise.
+- Do NOT include JSON formatting. Return only the prompt text.`
+        },
+        {
+          role: "user",
+          content: `Topic: ${topic || "General relationship growth"}\nTurn number: ${turnNumber}\n\nPrevious conversation:\n${previousContext || "(This is the first turn)"}`
+        }
+      ],
+    });
+
+    return response.choices[0]?.message?.content?.trim() || getDefaultPrompt(conversationType, currentUser.name, turnNumber);
+  } catch (error) {
+    console.error("Error generating conversation prompt (OpenAI):", error);
+    return getDefaultPrompt(conversationType, currentUser.name, turnNumber);
+  }
+}
+
+export interface CoachingResult {
+  coaching: string;
+  coachedMessage: string;
+  emotionalTone: string;
+}
+
+export async function coachResponseOpenAI(
+  rawResponse: string,
+  conversationType: string,
+  speaker: PartnerPreferenceProfile,
+  listener: PartnerPreferenceProfile,
+  previousTurns: GuidedConversationTurn[]
+): Promise<CoachingResult> {
+  if (!hasOpenAIKey || !openai) {
+    return { coaching: "", coachedMessage: rawResponse, emotionalTone: "neutral" };
+  }
+
+  try {
+    const prefContext = buildPreferenceContext(speaker, listener);
+    const typeDesc = getConversationTypeDescription(conversationType);
+
+    const response = await openai!.chat.completions.create({
+      model: "gpt-4o",
+      max_tokens: 800,
+      messages: [
+        {
+          role: "system",
+          content: `You are a relationship communication coach. You help partners communicate more effectively while preserving their authentic voice.
+
+CONVERSATION TYPE: ${typeDesc}
+
+PARTNER PROFILES:
+${prefContext}
+
+YOUR TASK:
+1. Read ${speaker.name}'s raw response below.
+2. Generate private "coaching" feedback only ${speaker.name} will see (2-3 sentences max). Highlight what they did well and suggest one improvement.
+3. Generate a "coachedMessage" — a refined version optimized for ${listener.name}'s reception. Preserve ${speaker.name}'s authentic voice and core meaning. Adjust tone/framing based on ${listener.name}'s communication and conflict style preferences.
+4. Detect the "emotionalTone" (one word: warm, vulnerable, frustrated, hopeful, anxious, grateful, neutral, etc.).
+
+Respond in JSON format: {"coaching": "...", "coachedMessage": "...", "emotionalTone": "..."}`
+        },
+        {
+          role: "user",
+          content: `${speaker.name}'s raw response:\n\n${rawResponse}`
+        }
+      ],
+    });
+
+    const text = response.choices[0]?.message?.content?.trim() || "";
+    const result = safeParseJSON(text, "coachResponse");
+    return {
+      coaching: result.coaching || "",
+      coachedMessage: result.coachedMessage || rawResponse,
+      emotionalTone: result.emotionalTone || "neutral",
+    };
+  } catch (error) {
+    console.error("Error coaching response (OpenAI):", error);
+    return { coaching: "", coachedMessage: rawResponse, emotionalTone: "neutral" };
+  }
+}
+
+export async function generateConversationSummaryOpenAI(
+  conversationType: string,
+  topic: string | null,
+  user1: PartnerPreferenceProfile,
+  user2: PartnerPreferenceProfile,
+  allTurns: GuidedConversationTurn[]
+): Promise<{ summary: string; insights: string }> {
+  if (!hasOpenAIKey || !openai) {
+    return { summary: "Conversation completed.", insights: "[]" };
+  }
+
+  try {
+    const prefContext = buildPreferenceContext(user1, user2);
+    const typeDesc = getConversationTypeDescription(conversationType);
+    const turnsSummary = allTurns
+      .filter(t => t.turnType === "coached_message" || t.turnType === "user_response")
+      .map(t => `[${t.userId === user1.userId ? user1.name : user2.name}] ${t.content}`)
+      .join("\n\n");
+
+    const response = await openai!.chat.completions.create({
+      model: "gpt-4o",
+      max_tokens: 600,
+      messages: [
+        {
+          role: "system",
+          content: `You are a relationship coach summarizing a completed guided conversation.
+
+CONVERSATION TYPE: ${typeDesc}
+TOPIC: ${topic || "General"}
+
+PARTNER PROFILES:
+${prefContext}
+
+Generate a warm, encouraging summary (3-5 sentences) that highlights:
+- Communication strengths observed
+- Growth areas for each partner
+- One specific recommendation
+
+Also generate insights as a JSON array of objects with "type" and "text" keys.
+Types: "strength", "growth_area", "recommendation"
+
+Respond in JSON: {"summary": "...", "insights": [...]}`
+        },
+        {
+          role: "user",
+          content: `Conversation turns:\n\n${turnsSummary}`
+        }
+      ],
+    });
+
+    const text = response.choices[0]?.message?.content?.trim() || "";
+    const result = safeParseJSON(text, "conversationSummary");
+    return {
+      summary: result.summary || "Conversation completed.",
+      insights: JSON.stringify(result.insights || []),
+    };
+  } catch (error) {
+    console.error("Error generating conversation summary (OpenAI):", error);
+    return { summary: "Conversation completed.", insights: "[]" };
+  }
+}
+
+function getDefaultPrompt(conversationType: string, userName: string, turnNumber: number): string {
+  const defaults: Record<string, string[]> = {
+    softened_startup: [
+      `${userName}, think about something that's been on your mind about your relationship. Share it using "I feel... when... because..." — focus on your feelings, not blame.`,
+      `Thank you for sharing. Now, what would you like to see happen differently? Express it as a positive need: "I would love it if..."`,
+      `Reflect on what your partner shared. What resonated with you? What did you learn about their perspective?`,
+    ],
+    appreciation_ritual: [
+      `${userName}, share something specific your partner did recently that you appreciate. Describe the moment: what happened, how it made you feel, and why it mattered.`,
+      `Now share a quality about your partner that you're grateful for. When does this quality shine brightest?`,
+      `Looking ahead, what's one thing you're excited to experience together?`,
+    ],
+    dreams_within_conflict: [
+      `${userName}, think about a recurring disagreement. Instead of the positions, share the dream or value underneath your position. What does this issue represent to you at a deeper level?`,
+      `What experiences in your life shaped this dream or value? Help your partner understand where this comes from.`,
+      `How could you both honor each other's dreams, even if they seem different? What common ground do you see?`,
+    ],
+    weekly_checkin: [
+      `${userName}, what was a highlight of your week? Share a moment that made you smile.`,
+      `Is there anything coming up that's causing you stress? How can your partner support you?`,
+      `On a scale of 1-10, how connected did you feel to your partner this week? What would make it even better?`,
+    ],
+    repair_conversation: [
+      `${userName}, think about a recent moment that created distance between you. Without blaming, describe what happened from your perspective and how it affected you.`,
+      `What do you wish had gone differently? What role did you play, and what would you do differently next time?`,
+      `What do you need from your partner to feel reconnected? Express it as a gentle request.`,
+    ],
+    future_planning: [
+      `${userName}, where do you see your relationship in one year? Share your vision for your life together.`,
+      `What's one dream or goal you'd love to pursue together? Why is this important to you?`,
+      `What practical steps could you take together in the next month toward a shared goal?`,
+    ],
+  };
+
+  const prompts = defaults[conversationType] || defaults.weekly_checkin;
+  const idx = Math.min(Math.floor((turnNumber - 1) / 2), prompts.length - 1);
+  return prompts[idx];
 }

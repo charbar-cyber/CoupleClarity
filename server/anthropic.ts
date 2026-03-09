@@ -1,4 +1,10 @@
 import Anthropic from '@anthropic-ai/sdk';
+import type { GuidedConversationTurn } from "@shared/schema";
+import {
+  type PartnerPreferenceProfile,
+  buildPreferenceContext,
+  getConversationTypeDescription,
+} from "./ai-preferences";
 
 // Check if API key is available
 const hasApiKey = !!process.env.ANTHROPIC_API_KEY;
@@ -220,5 +226,192 @@ export async function analyzeLoveLanguage(responses: Record<string, string>): Pr
       explanation: "There was an issue analyzing your responses.",
       suggestions: ["Consider taking a love languages quiz for more accurate results."]
     };
+  }
+}
+
+// ─── Guided Conversation AI Functions ──────────────────────────────────
+
+export interface CoachingResult {
+  coaching: string;
+  coachedMessage: string;
+  emotionalTone: string;
+}
+
+function extractAnthropicText(response: Anthropic.Message): string {
+  if (response.content && response.content.length > 0) {
+    const content = response.content[0];
+    if ('text' in content) return content.text;
+  }
+  return "";
+}
+
+export async function generateConversationPromptAnthropic(
+  conversationType: string,
+  topic: string | null,
+  currentUser: PartnerPreferenceProfile,
+  partner: PartnerPreferenceProfile,
+  previousTurns: GuidedConversationTurn[],
+  turnNumber: number
+): Promise<string> {
+  if (!hasApiKey || !anthropic) {
+    return `${currentUser.name}, share your thoughts on ${topic || "your relationship"} for this part of the conversation.`;
+  }
+
+  try {
+    const prefContext = buildPreferenceContext(currentUser, partner);
+    const typeDesc = getConversationTypeDescription(conversationType);
+    const previousContext = previousTurns
+      .filter(t => t.turnType === "coached_message" || t.turnType === "ai_prompt")
+      .map(t => `[${t.turnType}] ${t.content}`)
+      .join("\n\n");
+
+    const response = await anthropic!.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 500,
+      system: `You are a skilled relationship coach facilitating a guided conversation between partners.
+
+CONVERSATION TYPE: ${typeDesc}
+
+PARTNER PROFILES:
+${prefContext}
+
+INSTRUCTIONS:
+- Generate a prompt addressed to ${currentUser.name} for turn ${turnNumber}.
+- Adapt your language to match ${currentUser.name}'s communication style preferences.
+- Consider ${partner.name}'s love language when suggesting how to express things.
+- Keep the prompt under 150 words. Be warm but concise.
+- Return only the prompt text, no JSON.`,
+      messages: [
+        {
+          role: 'user',
+          content: `Topic: ${topic || "General relationship growth"}\nTurn number: ${turnNumber}\n\nPrevious conversation:\n${previousContext || "(This is the first turn)"}`
+        }
+      ],
+    });
+
+    return extractAnthropicText(response).trim() || `${currentUser.name}, share your thoughts for this part of the conversation.`;
+  } catch (error) {
+    console.error("Error generating conversation prompt (Anthropic):", error);
+    return `${currentUser.name}, share your thoughts on ${topic || "your relationship"} for this part of the conversation.`;
+  }
+}
+
+export async function coachResponseAnthropic(
+  rawResponse: string,
+  conversationType: string,
+  speaker: PartnerPreferenceProfile,
+  listener: PartnerPreferenceProfile,
+  previousTurns: GuidedConversationTurn[]
+): Promise<CoachingResult> {
+  if (!hasApiKey || !anthropic) {
+    return { coaching: "", coachedMessage: rawResponse, emotionalTone: "neutral" };
+  }
+
+  try {
+    const prefContext = buildPreferenceContext(speaker, listener);
+    const typeDesc = getConversationTypeDescription(conversationType);
+
+    const response = await anthropic!.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 800,
+      system: `You are a relationship communication coach.
+
+CONVERSATION TYPE: ${typeDesc}
+
+PARTNER PROFILES:
+${prefContext}
+
+YOUR TASK:
+1. Read ${speaker.name}'s raw response.
+2. Generate private "coaching" feedback only ${speaker.name} will see (2-3 sentences max).
+3. Generate a "coachedMessage" — a refined version optimized for ${listener.name}'s reception. Preserve ${speaker.name}'s authentic voice.
+4. Detect the "emotionalTone" (one word).
+
+Respond in JSON: {"coaching": "...", "coachedMessage": "...", "emotionalTone": "..."}`,
+      messages: [
+        {
+          role: 'user',
+          content: `${speaker.name}'s raw response:\n\n${rawResponse}`
+        }
+      ],
+    });
+
+    const text = extractAnthropicText(response).trim();
+    let result: any;
+    try {
+      result = JSON.parse(text);
+    } catch {
+      console.error("Failed to parse Anthropic coaching response:", text.slice(0, 200));
+      return { coaching: "", coachedMessage: rawResponse, emotionalTone: "neutral" };
+    }
+    return {
+      coaching: result.coaching || "",
+      coachedMessage: result.coachedMessage || rawResponse,
+      emotionalTone: result.emotionalTone || "neutral",
+    };
+  } catch (error) {
+    console.error("Error coaching response (Anthropic):", error);
+    return { coaching: "", coachedMessage: rawResponse, emotionalTone: "neutral" };
+  }
+}
+
+export async function generateConversationSummaryAnthropic(
+  conversationType: string,
+  topic: string | null,
+  user1: PartnerPreferenceProfile,
+  user2: PartnerPreferenceProfile,
+  allTurns: GuidedConversationTurn[]
+): Promise<{ summary: string; insights: string }> {
+  if (!hasApiKey || !anthropic) {
+    return { summary: "Conversation completed.", insights: "[]" };
+  }
+
+  try {
+    const prefContext = buildPreferenceContext(user1, user2);
+    const typeDesc = getConversationTypeDescription(conversationType);
+    const turnsSummary = allTurns
+      .filter(t => t.turnType === "coached_message" || t.turnType === "user_response")
+      .map(t => `[${t.userId === user1.userId ? user1.name : user2.name}] ${t.content}`)
+      .join("\n\n");
+
+    const response = await anthropic!.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 600,
+      system: `You are a relationship coach summarizing a completed guided conversation.
+
+CONVERSATION TYPE: ${typeDesc}
+TOPIC: ${topic || "General"}
+
+PARTNER PROFILES:
+${prefContext}
+
+Generate a warm summary (3-5 sentences) highlighting communication strengths, growth areas, and one recommendation.
+Also generate insights as a JSON array of objects with "type" and "text" keys.
+Types: "strength", "growth_area", "recommendation"
+
+Respond in JSON: {"summary": "...", "insights": [...]}`,
+      messages: [
+        {
+          role: 'user',
+          content: `Conversation turns:\n\n${turnsSummary}`
+        }
+      ],
+    });
+
+    const text = extractAnthropicText(response).trim();
+    let result: any;
+    try {
+      result = JSON.parse(text);
+    } catch {
+      console.error("Failed to parse Anthropic summary response:", text.slice(0, 200));
+      return { summary: "Conversation completed.", insights: "[]" };
+    }
+    return {
+      summary: result.summary || "Conversation completed.",
+      insights: JSON.stringify(result.insights || []),
+    };
+  } catch (error) {
+    console.error("Error generating conversation summary (Anthropic):", error);
+    return { summary: "Conversation completed.", insights: "[]" };
   }
 }

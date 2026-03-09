@@ -25,6 +25,9 @@ import ResetPasswordPage from "@/pages/reset-password-page";
 import CoupleProfilePage from "@/pages/couple-profile-page";
 import TherapySessionPage from "@/pages/therapy-session-page";
 import NewJournalEntryPage from "@/pages/new-journal-entry-page";
+import GuidedConversationsPage from "@/pages/guided-conversations-page";
+import NewGuidedConversationPage from "@/pages/new-guided-conversation-page";
+import GuidedConversationDetailPage from "@/pages/guided-conversation-detail-page";
 import StyleGuide from "@/components/style-guide";
 import Header from "./components/header";
 import Footer from "./components/footer";
@@ -76,6 +79,9 @@ function Router() {
         <ProtectedRoute path="/messages/direct/:partnerId" component={DirectMessagePage} />
         <ProtectedRoute path="/therapy-sessions" component={TherapySessionPage} />
         <ProtectedRoute path="/journal/new" component={NewJournalEntryPage} />
+        <ProtectedRoute path="/conversations/new" component={NewGuidedConversationPage} />
+        <ProtectedRoute path="/conversations/:id" component={GuidedConversationDetailPage} />
+        <ProtectedRoute path="/conversations" component={GuidedConversationsPage} />
         <Route>
           <NotFound />
         </Route>

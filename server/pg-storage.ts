@@ -27,6 +27,8 @@ import {
   exerciseTemplates, type ExerciseTemplate, type InsertExerciseTemplate,
   therapySessions, type TherapySession, type InsertTherapySession,
   emotionalExpressions, type EmotionalExpression, type InsertEmotionalExpression,
+  guidedConversations, type GuidedConversation, type InsertGuidedConversation,
+  guidedConversationTurns, type GuidedConversationTurn, type InsertGuidedConversationTurn,
   passwordResetTokens,
   memoryTypes,
 } from "@shared/schema";
@@ -1214,5 +1216,67 @@ export class PostgresStorage implements IStorage {
     const [row] = await db.select().from(exerciseResponses)
       .where(and(eq(exerciseResponses.stepId, stepId), eq(exerciseResponses.userId, userId)));
     return row;
+  }
+
+  // ─── Guided Conversations ──────────────────────────────────────────
+  async createGuidedConversation(conv: InsertGuidedConversation): Promise<GuidedConversation> {
+    const [row] = await db.insert(guidedConversations).values({
+      partnershipId: conv.partnershipId,
+      initiatorId: conv.initiatorId,
+      partnerId: conv.partnerId,
+      conversationType: conv.conversationType,
+      topic: conv.topic ?? null,
+      status: conv.status ?? "awaiting_partner",
+      currentTurnUserId: conv.currentTurnUserId ?? null,
+      currentTurnNumber: conv.currentTurnNumber ?? 1,
+      totalTurns: conv.totalTurns ?? 6,
+      openingPrompt: conv.openingPrompt ?? null,
+      summary: conv.summary ?? null,
+      insightsJson: conv.insightsJson ?? null,
+    }).returning();
+    return row;
+  }
+
+  async getGuidedConversation(id: number): Promise<GuidedConversation | undefined> {
+    const [row] = await db.select().from(guidedConversations)
+      .where(eq(guidedConversations.id, id));
+    return row;
+  }
+
+  async getGuidedConversationsByUser(userId: number, status?: string): Promise<GuidedConversation[]> {
+    const conditions = [
+      or(eq(guidedConversations.initiatorId, userId), eq(guidedConversations.partnerId, userId))
+    ];
+    if (status) conditions.push(eq(guidedConversations.status, status));
+    return db.select().from(guidedConversations)
+      .where(and(...conditions))
+      .orderBy(desc(guidedConversations.lastActivityAt));
+  }
+
+  async updateGuidedConversation(id: number, data: Partial<GuidedConversation>): Promise<GuidedConversation> {
+    const [row] = await db.update(guidedConversations)
+      .set({ ...data, lastActivityAt: new Date() })
+      .where(eq(guidedConversations.id, id))
+      .returning();
+    return row;
+  }
+
+  async createGuidedConversationTurn(turn: InsertGuidedConversationTurn): Promise<GuidedConversationTurn> {
+    const [row] = await db.insert(guidedConversationTurns).values({
+      conversationId: turn.conversationId,
+      turnNumber: turn.turnNumber,
+      userId: turn.userId ?? null,
+      turnType: turn.turnType,
+      content: turn.content,
+      visibleTo: turn.visibleTo ?? "both",
+      metadata: turn.metadata ?? null,
+    }).returning();
+    return row;
+  }
+
+  async getGuidedConversationTurns(conversationId: number): Promise<GuidedConversationTurn[]> {
+    return db.select().from(guidedConversationTurns)
+      .where(eq(guidedConversationTurns.conversationId, conversationId))
+      .orderBy(asc(guidedConversationTurns.turnNumber), asc(guidedConversationTurns.createdAt));
   }
 }

@@ -877,3 +877,88 @@ export const insertEmotionalExpressionSchema = createInsertSchema(emotionalExpre
 
 export type InsertEmotionalExpression = z.infer<typeof insertEmotionalExpressionSchema>;
 export type EmotionalExpression = typeof emotionalExpressions.$inferSelect;
+
+// ─── Guided Conversations ─────────────────────────────────────────────
+export const conversationTypeOptions = [
+  'softened_startup', 'dreams_within_conflict', 'appreciation_ritual',
+  'weekly_checkin', 'repair_conversation', 'future_planning'
+] as const;
+
+export const conversationStatusOptions = [
+  'awaiting_partner', 'active', 'paused', 'completed', 'abandoned'
+] as const;
+
+export const turnTypeOptions = [
+  'ai_prompt', 'user_response', 'ai_coaching', 'coached_message', 'ai_reflection'
+] as const;
+
+export const turnVisibilityOptions = [
+  'initiator', 'partner', 'both', 'self'
+] as const;
+
+export const guidedConversations = pgTable("guided_conversations", {
+  id: serial("id").primaryKey(),
+  partnershipId: integer("partnership_id").notNull().references(() => partnerships.id),
+  initiatorId: integer("initiator_id").notNull().references(() => users.id),
+  partnerId: integer("partner_id").notNull().references(() => users.id),
+  conversationType: text("conversation_type").notNull(),
+  topic: text("topic"),
+  status: text("status").default("awaiting_partner").notNull(),
+  currentTurnUserId: integer("current_turn_user_id").references(() => users.id),
+  currentTurnNumber: integer("current_turn_number").default(1).notNull(),
+  totalTurns: integer("total_turns").default(6).notNull(),
+  openingPrompt: text("opening_prompt"),
+  summary: text("summary"),
+  insightsJson: text("insights_json"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  lastActivityAt: timestamp("last_activity_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+});
+
+export const insertGuidedConversationSchema = createInsertSchema(guidedConversations).omit({
+  id: true,
+  createdAt: true,
+  lastActivityAt: true,
+  completedAt: true,
+});
+
+export type InsertGuidedConversation = z.infer<typeof insertGuidedConversationSchema>;
+export type GuidedConversation = typeof guidedConversations.$inferSelect;
+
+export const guidedConversationTurns = pgTable("guided_conversation_turns", {
+  id: serial("id").primaryKey(),
+  conversationId: integer("conversation_id").notNull().references(() => guidedConversations.id),
+  turnNumber: integer("turn_number").notNull(),
+  userId: integer("user_id").references(() => users.id),
+  turnType: text("turn_type").notNull(),
+  content: text("content").notNull(),
+  visibleTo: text("visible_to").default("both").notNull(),
+  metadata: text("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertGuidedConversationTurnSchema = createInsertSchema(guidedConversationTurns).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertGuidedConversationTurn = z.infer<typeof insertGuidedConversationTurnSchema>;
+export type GuidedConversationTurn = typeof guidedConversationTurns.$inferSelect;
+
+// Zod validation schemas for API input
+export const createGuidedConversationSchema = z.object({
+  conversationType: z.enum(conversationTypeOptions),
+  topic: z.string().max(500).optional(),
+});
+
+export const guidedConversationResponseSchema = z.object({
+  content: z.string().min(1, "Response cannot be empty").max(2000, "Response is too long"),
+});
+
+export const guidedConversationAcceptCoachingSchema = z.object({
+  accept: z.boolean(),
+  editedContent: z.string().max(2000).optional(),
+});
+
+export type CreateGuidedConversationInput = z.infer<typeof createGuidedConversationSchema>;
+export type GuidedConversationResponseInput = z.infer<typeof guidedConversationResponseSchema>;

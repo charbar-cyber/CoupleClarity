@@ -19,6 +19,7 @@ import { register as registerJournalRoutes } from "./routes/journal";
 import { register as registerTherapySessionRoutes } from "./routes/therapy-sessions";
 import { registerDirectMessageRoutes } from "./routes/direct-messages";
 import { registerConflictRoutes } from "./routes/conflicts";
+import { registerGuidedConversationRoutes } from "./routes/guided-conversations";
 
 // Extended session interface with passport support
 interface SessionWithPassport {
@@ -227,6 +228,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerTherapySessionRoutes(app, ctx);
   registerDirectMessageRoutes(app, ctx);
   registerConflictRoutes(app, ctx);
+  registerGuidedConversationRoutes(app, ctx);
 
   return httpServer;
 }
