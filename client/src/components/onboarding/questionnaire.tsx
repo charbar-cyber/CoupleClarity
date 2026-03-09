@@ -3,17 +3,19 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { LoveLanguageDiscovery } from "./love-language-discovery";
-import { 
-  loveLanguageOptions, 
-  conflictStyleOptions, 
-  communicationStyleOptions, 
+import { Heart, Shield, MessageCircle, RefreshCw } from "lucide-react";
+import {
+  loveLanguageOptions,
+  conflictStyleOptions,
+  communicationStyleOptions,
   repairStyleOptions,
   onboardingQuestionnaireSchema
 } from "@shared/schema";
@@ -52,20 +54,30 @@ const repairStyleLabels: Record<string, string> = {
   talking: "Just talking it out"
 };
 
+// Step accent colors (Tailwind classes)
+const stepColors = [
+  { bg: "bg-red-50", border: "border-red-200", stripe: "bg-accent-coral", text: "text-accent-coral" },
+  { bg: "bg-blue-50", border: "border-blue-200", stripe: "bg-primary-blue", text: "text-primary-blue" },
+  { bg: "bg-violet-50", border: "border-violet-200", stripe: "bg-violet-500", text: "text-violet-600" },
+  { bg: "bg-emerald-50", border: "border-emerald-200", stripe: "bg-emerald-500", text: "text-emerald-600" },
+];
+
 type OnboardingQuestionnaireProps = {
   onComplete: (data: Partial<QuestionnaireFormValues>) => void;
   onBack?: () => void;
   initialValues?: Partial<QuestionnaireFormValues>;
   isEnhancedFlow?: boolean;
+  totalSteps?: number;
+  globalStepOffset?: number;
 };
 
 type QuestionnaireFormValues = z.infer<typeof onboardingQuestionnaireSchema>;
 
-export function OnboardingQuestionnaire({ onComplete, onBack, initialValues, isEnhancedFlow = false }: OnboardingQuestionnaireProps) {
+export function OnboardingQuestionnaire({ onComplete, onBack, initialValues, isEnhancedFlow = false, totalSteps = 4, globalStepOffset = 0 }: OnboardingQuestionnaireProps) {
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(0);
   const [showLoveLanguageDiscovery, setShowLoveLanguageDiscovery] = useState(false);
-  
+
   const form = useForm<QuestionnaireFormValues>({
     resolver: zodResolver(onboardingQuestionnaireSchema),
     defaultValues: {
@@ -75,40 +87,48 @@ export function OnboardingQuestionnaire({ onComplete, onBack, initialValues, isE
       repairStyle: initialValues?.repairStyle ?? undefined
     }
   });
-  
+
   const steps = [
     {
       title: "Love Language",
       description: "How do you most feel loved in a relationship?",
       field: "loveLanguage" as const,
       options: loveLanguageOptions,
-      optionLabels: loveLanguageLabels
+      optionLabels: loveLanguageLabels,
+      icon: Heart,
     },
     {
       title: "Conflict Style",
       description: "When you're upset, how do you usually respond?",
       field: "conflictStyle" as const,
       options: conflictStyleOptions,
-      optionLabels: conflictStyleLabels
+      optionLabels: conflictStyleLabels,
+      icon: Shield,
     },
     {
       title: "Communication Style",
       description: "What tone of communication feels safest for you during conflict?",
       field: "communicationStyle" as const,
       options: communicationStyleOptions,
-      optionLabels: communicationStyleLabels
+      optionLabels: communicationStyleLabels,
+      icon: MessageCircle,
     },
     {
       title: "Repair Style",
       description: "What helps you reconnect after a disagreement?",
       field: "repairStyle" as const,
       options: repairStyleOptions,
-      optionLabels: repairStyleLabels
+      optionLabels: repairStyleLabels,
+      icon: RefreshCw,
     }
   ];
 
   const currentQuestion = steps[currentStep];
-  
+  const colors = stepColors[currentStep];
+  const globalStep = globalStepOffset + currentStep + 1;
+  const progressPercent = (globalStep / totalSteps) * 100;
+  const StepIcon = currentQuestion.icon;
+
   const savePreferencesMutation = useMutation({
     mutationFn: async (data: QuestionnaireFormValues) => {
       const res = await apiRequest("POST", "/api/user/preferences", data);
@@ -120,7 +140,7 @@ export function OnboardingQuestionnaire({ onComplete, onBack, initialValues, isE
         title: "Preferences saved!",
         description: "Your relationship preferences have been saved.",
       });
-      
+
       // Pass the form data to the parent component
       const values = form.getValues();
       onComplete(values);
@@ -133,24 +153,24 @@ export function OnboardingQuestionnaire({ onComplete, onBack, initialValues, isE
       });
     },
   });
-  
+
   async function handleNext() {
     const field = currentQuestion.field;
     const isValid = await form.trigger(field);
-    
+
     if (isValid) {
       // If on love language step and "not_sure" is selected, show the discovery flow
       if (currentStep === 0 && form.getValues().loveLanguage === 'not_sure') {
         setShowLoveLanguageDiscovery(true);
         return;
       }
-      
+
       if (currentStep < steps.length - 1) {
         setCurrentStep(prev => prev + 1);
       } else {
         // On final step
         const values = form.getValues();
-        
+
         if (isEnhancedFlow) {
           // Just pass the values to the parent component if this is part of the enhanced flow
           onComplete(values);
@@ -161,7 +181,7 @@ export function OnboardingQuestionnaire({ onComplete, onBack, initialValues, isE
       }
     }
   }
-  
+
   function handlePrevious() {
     if (currentStep > 0) {
       setCurrentStep(prev => prev - 1);
@@ -176,10 +196,10 @@ export function OnboardingQuestionnaire({ onComplete, onBack, initialValues, isE
     // Update the form with discovered love language
     form.setValue('loveLanguage', loveLanguage as any);
     setShowLoveLanguageDiscovery(false);
-    
+
     // Proceed to next question
     setCurrentStep(prev => prev + 1);
-    
+
     // Show toast to inform user
     toast({
       title: "Love Language Discovered!",
@@ -196,9 +216,9 @@ export function OnboardingQuestionnaire({ onComplete, onBack, initialValues, isE
   if (showLoveLanguageDiscovery) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-background to-muted p-4">
-        <LoveLanguageDiscovery 
+        <LoveLanguageDiscovery
           onComplete={handleLoveLanguageDiscoveryComplete}
-          onBack={handleLoveLanguageDiscoveryBack} 
+          onBack={handleLoveLanguageDiscoveryBack}
         />
       </div>
     );
@@ -206,70 +226,98 @@ export function OnboardingQuestionnaire({ onComplete, onBack, initialValues, isE
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-background to-muted p-4">
-      <Card className="w-full max-w-md mx-auto shadow-lg border-primary/10">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl">
-            {currentQuestion.title}
-          </CardTitle>
-          <CardDescription className="text-lg">
-            {currentQuestion.description}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form className="space-y-4">
-              <FormField
-                control={form.control}
-                name={currentQuestion.field}
-                render={({ field }) => (
-                  <FormItem className="space-y-3">
-                    <FormControl>
-                      <RadioGroup
-                        onValueChange={field.onChange}
-                        value={field.value}
-                        className="space-y-3"
-                      >
-                        {currentQuestion.options.map((option) => (
-                          <FormItem
-                            key={option}
-                            className="flex items-center space-x-3 space-y-0 border rounded-lg p-4 shadow-sm"
-                          >
-                            <FormControl>
-                              <RadioGroupItem value={option} />
-                            </FormControl>
-                            <FormLabel className="font-normal cursor-pointer w-full">
-                              {currentQuestion.optionLabels[option]}
-                            </FormLabel>
-                          </FormItem>
-                        ))}
-                      </RadioGroup>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </form>
-          </Form>
-        </CardContent>
-        <CardFooter className="flex justify-between">
-          <Button
-            variant="outline"
-            onClick={handlePrevious}
-            disabled={currentStep === 0 && !onBack}
-          >
-            Previous
-          </Button>
-          <Button
-            onClick={handleNext}
-            disabled={savePreferencesMutation.isPending}
-          >
-            {currentStep < steps.length - 1 ? "Next" : "Complete"}
-            {savePreferencesMutation.isPending && (
-              <span className="ml-2 animate-spin">⟳</span>
-            )}
-          </Button>
-        </CardFooter>
-      </Card>
+      <div className="w-full max-w-md mx-auto space-y-3">
+        {/* Progress section */}
+        <div className="space-y-1.5 px-1">
+          <div className="flex justify-between items-center text-sm text-muted-foreground">
+            <span>Step {globalStep} of {totalSteps}</span>
+            <span>{Math.round(progressPercent)}%</span>
+          </div>
+          <Progress value={progressPercent} className="h-2" />
+        </div>
+
+        {/* Card with colored top stripe */}
+        <Card className="w-full shadow-lg border-primary/10 overflow-hidden">
+          <div className={`h-1 ${colors.stripe}`} />
+          <CardHeader className="space-y-3 pb-4">
+            {/* Icon badge */}
+            <div className="flex items-center gap-2">
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium ${colors.bg} ${colors.text}`}>
+                <StepIcon className="h-4 w-4" />
+                {currentQuestion.title}
+              </span>
+            </div>
+            {/* Description only — no bold title */}
+            <p className="text-lg text-foreground/80">
+              {currentQuestion.description}
+            </p>
+          </CardHeader>
+          <CardContent>
+            <Form {...form}>
+              <form className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name={currentQuestion.field}
+                  render={({ field }) => (
+                    <FormItem className="space-y-3">
+                      <FormControl>
+                        <RadioGroup
+                          onValueChange={field.onChange}
+                          value={field.value}
+                          className="space-y-2"
+                        >
+                          {currentQuestion.options.map((option) => {
+                            const isSelected = field.value === option;
+                            return (
+                              <FormItem
+                                key={option}
+                                className={`
+                                  flex items-center space-x-3 space-y-0 border rounded-lg p-4 cursor-pointer
+                                  transition-all duration-200
+                                  ${isSelected
+                                    ? `${colors.border} ${colors.bg} shadow-md`
+                                    : "border-border hover:border-muted-foreground/30 hover:bg-muted/50"
+                                  }
+                                `}
+                              >
+                                <FormControl>
+                                  <RadioGroupItem value={option} />
+                                </FormControl>
+                                <FormLabel className={`cursor-pointer w-full transition-all duration-200 ${isSelected ? "font-medium text-foreground" : "font-normal"}`}>
+                                  {currentQuestion.optionLabels[option]}
+                                </FormLabel>
+                              </FormItem>
+                            );
+                          })}
+                        </RadioGroup>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </form>
+            </Form>
+          </CardContent>
+          <CardFooter className="flex justify-between">
+            <Button
+              variant="outline"
+              onClick={handlePrevious}
+              disabled={currentStep === 0 && !onBack}
+            >
+              Back
+            </Button>
+            <Button
+              onClick={handleNext}
+              disabled={savePreferencesMutation.isPending}
+            >
+              {currentStep < steps.length - 1 ? "Next" : "Continue"}
+              {savePreferencesMutation.isPending && (
+                <span className="ml-2 animate-spin">&#x27F3;</span>
+              )}
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
     </div>
   );
 }

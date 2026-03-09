@@ -2,22 +2,23 @@ import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { 
+import {
   communicationFrequencyOptions,
-  enhancedOnboardingSchema, 
+  enhancedOnboardingSchema,
   type EnhancedOnboardingQuestionnaire
 } from "@shared/schema";
 import { OnboardingQuestionnaire } from "./questionnaire";
-import { Loader2 } from "lucide-react";
+import { Loader2, Target, Clock } from "lucide-react";
 
 // Map from schema values to human-readable labels
 const communicationFrequencyLabels: Record<string, string> = {
@@ -28,29 +29,51 @@ const communicationFrequencyLabels: Record<string, string> = {
   monthly_or_less: "Monthly or less"
 };
 
+// Step config for the two enhanced sub-steps
+const enhancedStepConfig = [
+  {
+    icon: Target,
+    title: "Relationship Goals",
+    stripe: "bg-amber-500",
+    bg: "bg-amber-50",
+    border: "border-amber-200",
+    text: "text-amber-600",
+  },
+  {
+    icon: Clock,
+    title: "Communication Frequency",
+    stripe: "bg-accent-coral",
+    bg: "bg-red-50",
+    border: "border-red-200",
+    text: "text-accent-coral",
+  },
+];
+
 type EnhancedOnboardingProps = {
   onComplete: () => void;
   onBack: () => void;
   initialPreferences?: Partial<EnhancedOnboardingQuestionnaire>;
+  totalSteps?: number;
+  globalStepOffset?: number;
 };
 
-export function EnhancedOnboardingQuestionnaire({ onComplete, onBack, initialPreferences }: EnhancedOnboardingProps) {
+export function EnhancedOnboardingQuestionnaire({ onComplete, onBack, initialPreferences, totalSteps = 6, globalStepOffset = 4 }: EnhancedOnboardingProps) {
   const { toast } = useToast();
-  // If we have initialPreferences with all required love language fields, 
+  // If we have initialPreferences with all required love language fields,
   // start directly at relationship questions to avoid duplicate questions
-  const hasCompletedPreferences = initialPreferences && 
-    initialPreferences.loveLanguage && 
-    initialPreferences.conflictStyle && 
-    initialPreferences.communicationStyle && 
+  const hasCompletedPreferences = initialPreferences &&
+    initialPreferences.loveLanguage &&
+    initialPreferences.conflictStyle &&
+    initialPreferences.communicationStyle &&
     initialPreferences.repairStyle;
-    
-  const [step, setStep] = useState<"preferences" | "relationship" | "complete">(
-    hasCompletedPreferences ? "relationship" : "preferences"
+
+  const [step, setStep] = useState<"preferences" | "goals" | "frequency">(
+    hasCompletedPreferences ? "goals" : "preferences"
   );
   const [preferencesData, setPreferencesData] = useState<Partial<EnhancedOnboardingQuestionnaire>>(
     initialPreferences || {}
   );
-  
+
   // State for challenge selections
   const [selectedChallenges, setSelectedChallenges] = useState<{
     communication: boolean;
@@ -67,7 +90,7 @@ export function EnhancedOnboardingQuestionnaire({ onComplete, onBack, initialPre
     intimacy: false,
     other: false
   });
-  
+
   const [otherChallenge, setOtherChallenge] = useState("");
 
   // Form for relationship-specific questions
@@ -85,7 +108,7 @@ export function EnhancedOnboardingQuestionnaire({ onComplete, onBack, initialPre
   // Handle completion of the preferences step
   const handlePreferencesComplete = (data: Partial<EnhancedOnboardingQuestionnaire>) => {
     setPreferencesData({...preferencesData, ...data});
-    setStep("relationship");
+    setStep("goals");
   };
 
   // Save the complete questionnaire
@@ -116,269 +139,321 @@ export function EnhancedOnboardingQuestionnaire({ onComplete, onBack, initialPre
       ...preferencesData,
       ...data
     } as EnhancedOnboardingQuestionnaire;
-    
+
     saveEnhancedQuestionnaireMutation.mutate(completeData);
   };
 
   if (step === "preferences") {
     return (
-      <OnboardingQuestionnaire 
-        onComplete={handlePreferencesComplete} 
+      <OnboardingQuestionnaire
+        onComplete={handlePreferencesComplete}
         initialValues={initialPreferences}
         isEnhancedFlow={true}
+        totalSteps={totalSteps}
+        globalStepOffset={0}
       />
     );
   }
-  
-  // Handle back button clicks
+
+  // Determine sub-step index (0 = goals, 1 = frequency)
+  const subStepIndex = step === "goals" ? 0 : 1;
+  const config = enhancedStepConfig[subStepIndex];
+  const globalStep = globalStepOffset + subStepIndex + 1;
+  const progressPercent = (globalStep / totalSteps) * 100;
+  const StepIcon = config.icon;
+
+  // Handle back button
   const handleBack = () => {
-    if (step === "relationship" && !hasCompletedPreferences) {
-      // Only go back to preferences if we haven't completed them already
+    if (step === "frequency") {
+      setStep("goals");
+    } else if (!hasCompletedPreferences) {
       setStep("preferences");
     } else {
-      // Otherwise go back to the previous page in the main onboarding flow
       onBack();
     }
   };
 
+  // Handle next from goals step to frequency step
+  const handleGoalsNext = async () => {
+    // Validate goals + challenges fields
+    const goalsValid = await relationshipForm.trigger("relationshipGoals");
+    const challengesValid = await relationshipForm.trigger("challengeAreas");
+    if (goalsValid && challengesValid) {
+      setStep("frequency");
+    }
+  };
+
+  // Challenge checkbox helper
+  const buildChallengeString = (challenges = selectedChallenges, other = otherChallenge) => {
+    const parts: string[] = [];
+    if (challenges.communication) parts.push("Communication breakdowns");
+    if (challenges.emotionalDistance) parts.push("Emotional distance");
+    if (challenges.trust) parts.push("Trust or betrayal");
+    if (challenges.parenting) parts.push("Parenting stress");
+    if (challenges.intimacy) parts.push("Intimacy issues");
+    if (challenges.other && other.trim()) parts.push(other.trim());
+    return parts.join(", ");
+  };
+
+  // Render goals + challenges step
+  if (step === "goals") {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-background to-muted p-4">
+        <div className="w-full max-w-md mx-auto space-y-3">
+          {/* Progress section */}
+          <div className="space-y-1.5 px-1">
+            <div className="flex justify-between items-center text-sm text-muted-foreground">
+              <span>Step {globalStep} of {totalSteps}</span>
+              <span>{Math.round(progressPercent)}%</span>
+            </div>
+            <Progress value={progressPercent} className="h-2" />
+          </div>
+
+          <Card className="w-full shadow-lg border-primary/10 overflow-hidden">
+            <div className={`h-1 ${config.stripe}`} />
+            <CardHeader className="space-y-3 pb-4">
+              <div className="flex items-center gap-2">
+                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium ${config.bg} ${config.text}`}>
+                  <StepIcon className="h-4 w-4" />
+                  {config.title}
+                </span>
+              </div>
+              <p className="text-lg text-foreground/80">
+                Tell us about your goals and challenges
+              </p>
+            </CardHeader>
+            <CardContent>
+              <Form {...relationshipForm}>
+                <form className="space-y-6">
+                  <FormField
+                    control={relationshipForm.control}
+                    name="relationshipGoals"
+                    render={({ field }) => (
+                      <FormItem className="space-y-3">
+                        <FormLabel>What do you hope to build, strengthen, or heal in your relationship?</FormLabel>
+                        <FormDescription>
+                          Share your vision for how you want your relationship to grow
+                        </FormDescription>
+                        <FormControl>
+                          <Textarea
+                            placeholder="E.g., Better communication, more quality time, plan for the future..."
+                            className="resize-none min-h-[100px]"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={relationshipForm.control}
+                    name="challengeAreas"
+                    render={({ field: { onChange, value, ...fieldProps } }) => {
+                      const handleChallengeChange = (updatedChallenges = selectedChallenges, updatedOther = otherChallenge) => {
+                        onChange(buildChallengeString(updatedChallenges, updatedOther));
+                      };
+
+                      const challengeItems = [
+                        { key: "communication" as const, label: "Communication breakdowns" },
+                        { key: "emotionalDistance" as const, label: "Emotional distance" },
+                        { key: "trust" as const, label: "Trust or betrayal" },
+                        { key: "parenting" as const, label: "Parenting stress" },
+                        { key: "intimacy" as const, label: "Intimacy issues" },
+                        { key: "other" as const, label: "Other" },
+                      ];
+
+                      return (
+                        <FormItem className="space-y-3">
+                          <FormLabel>What causes you and your partner to get stuck?</FormLabel>
+                          <FormDescription>
+                            Select all that apply to your relationship
+                          </FormDescription>
+
+                          <div className="space-y-2">
+                            {challengeItems.map(({ key, label }) => {
+                              const isChecked = selectedChallenges[key];
+                              return (
+                                <div
+                                  key={key}
+                                  className={`
+                                    flex items-start space-x-2 p-3 border rounded-lg cursor-pointer
+                                    transition-all duration-200
+                                    ${isChecked
+                                      ? `${config.border} ${config.bg}/60 shadow-sm`
+                                      : "border-border hover:border-muted-foreground/30 hover:bg-muted/50"
+                                    }
+                                  `}
+                                  onClick={() => {
+                                    const newChallenges = {...selectedChallenges, [key]: !isChecked};
+                                    setSelectedChallenges(newChallenges);
+                                    handleChallengeChange(newChallenges, otherChallenge);
+                                  }}
+                                >
+                                  <Checkbox
+                                    id={`challenge-${key}`}
+                                    checked={isChecked}
+                                    onCheckedChange={(checked) => {
+                                      const newChallenges = {...selectedChallenges, [key]: checked === true};
+                                      setSelectedChallenges(newChallenges);
+                                      handleChallengeChange(newChallenges, otherChallenge);
+                                    }}
+                                  />
+                                  <FormLabel
+                                    htmlFor={`challenge-${key}`}
+                                    className={`flex-1 cursor-pointer transition-all duration-200 ${isChecked ? "font-medium" : "font-normal"}`}
+                                  >
+                                    {label}
+                                  </FormLabel>
+                                </div>
+                              );
+                            })}
+
+                            {selectedChallenges.other && (
+                              <div className="ml-6 mt-2">
+                                <Input
+                                  placeholder="Please specify..."
+                                  value={otherChallenge}
+                                  onChange={(e) => {
+                                    const newValue = e.target.value;
+                                    setOtherChallenge(newValue);
+                                    handleChallengeChange(selectedChallenges, newValue);
+                                  }}
+                                  className="w-full"
+                                />
+                              </div>
+                            )}
+                          </div>
+
+                          <FormControl>
+                            <Input
+                              type="hidden"
+                              value={value}
+                              {...fieldProps}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
+                  />
+                </form>
+              </Form>
+            </CardContent>
+            <CardFooter className="flex justify-between">
+              <Button
+                variant="outline"
+                onClick={handleBack}
+              >
+                Back
+              </Button>
+              <Button onClick={handleGoalsNext}>
+                Next
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // Render communication frequency step (step === "frequency")
   return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-background to-muted p-4">
-      <Card className="w-full max-w-md mx-auto shadow-lg border-primary/10">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl">
-            Your Relationship
-          </CardTitle>
-          <CardDescription className="text-lg">
-            Tell us about your goals and challenges
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...relationshipForm}>
-            <form onSubmit={relationshipForm.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={relationshipForm.control}
-                name="relationshipGoals"
-                render={({ field }) => (
-                  <FormItem className="space-y-3">
-                    <FormLabel>What do you hope to build, strengthen, or heal in your relationship?</FormLabel>
-                    <FormDescription>
-                      Share your vision for how you want your relationship to grow
-                    </FormDescription>
-                    <FormControl>
-                      <Textarea
-                        placeholder="E.g., Better communication, more quality time, plan for the future..."
-                        className="resize-none min-h-[100px]"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+      <div className="w-full max-w-md mx-auto space-y-3">
+        {/* Progress section */}
+        <div className="space-y-1.5 px-1">
+          <div className="flex justify-between items-center text-sm text-muted-foreground">
+            <span>Step {globalStep} of {totalSteps}</span>
+            <span>{Math.round(progressPercent)}%</span>
+          </div>
+          <Progress value={progressPercent} className="h-2" />
+        </div>
 
-              <FormField
-                control={relationshipForm.control}
-                name="challengeAreas"
-                render={({ field: { onChange, value, ...fieldProps } }) => {
-                  // Update text field when checkboxes change
-                  const handleChallengeChange = (updatedChallenges = selectedChallenges, updatedOther = otherChallenge) => {
-                    let challenges = [];
-                    if (updatedChallenges.communication) challenges.push("Communication breakdowns");
-                    if (updatedChallenges.emotionalDistance) challenges.push("Emotional distance");
-                    if (updatedChallenges.trust) challenges.push("Trust or betrayal");
-                    if (updatedChallenges.parenting) challenges.push("Parenting stress");
-                    if (updatedChallenges.intimacy) challenges.push("Intimacy issues");
-                    if (updatedChallenges.other && updatedOther.trim()) {
-                      challenges.push(updatedOther.trim());
-                    }
-                    onChange(challenges.join(", "));
-                  };
-
-                  return (
+        <Card className="w-full shadow-lg border-primary/10 overflow-hidden">
+          <div className={`h-1 ${config.stripe}`} />
+          <CardHeader className="space-y-3 pb-4">
+            <div className="flex items-center gap-2">
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium ${config.bg} ${config.text}`}>
+                <StepIcon className="h-4 w-4" />
+                {config.title}
+              </span>
+            </div>
+            <p className="text-lg text-foreground/80">
+              How often do you prefer to have meaningful conversations?
+            </p>
+          </CardHeader>
+          <CardContent>
+            <Form {...relationshipForm}>
+              <form className="space-y-4">
+                <FormField
+                  control={relationshipForm.control}
+                  name="communicationFrequency"
+                  render={({ field }) => (
                     <FormItem className="space-y-3">
-                      <FormLabel>What causes you and your partner to get stuck?</FormLabel>
-                      <FormDescription>
-                        Select all that apply to your relationship
-                      </FormDescription>
-                      
-                      <div className="space-y-2">
-                        <div className="flex items-start space-x-2 p-2 border rounded-md">
-                          <Checkbox 
-                            id="challenge-communication" 
-                            checked={selectedChallenges.communication}
-                            onCheckedChange={(checked) => {
-                              const newChallenges = {...selectedChallenges, communication: checked === true};
-                              setSelectedChallenges(newChallenges);
-                              handleChallengeChange(newChallenges, otherChallenge);
-                            }}
-                          />
-                          <FormLabel htmlFor="challenge-communication" className="font-normal flex-1 cursor-pointer">
-                            Communication breakdowns
-                          </FormLabel>
-                        </div>
-                        
-                        <div className="flex items-start space-x-2 p-2 border rounded-md">
-                          <Checkbox 
-                            id="challenge-emotional" 
-                            checked={selectedChallenges.emotionalDistance}
-                            onCheckedChange={(checked) => {
-                              const newChallenges = {...selectedChallenges, emotionalDistance: checked === true};
-                              setSelectedChallenges(newChallenges);
-                              handleChallengeChange(newChallenges, otherChallenge);
-                            }}
-                          />
-                          <FormLabel htmlFor="challenge-emotional" className="font-normal flex-1 cursor-pointer">
-                            Emotional distance
-                          </FormLabel>
-                        </div>
-                        
-                        <div className="flex items-start space-x-2 p-2 border rounded-md">
-                          <Checkbox 
-                            id="challenge-trust" 
-                            checked={selectedChallenges.trust}
-                            onCheckedChange={(checked) => {
-                              const newChallenges = {...selectedChallenges, trust: checked === true};
-                              setSelectedChallenges(newChallenges);
-                              handleChallengeChange(newChallenges, otherChallenge);
-                            }}
-                          />
-                          <FormLabel htmlFor="challenge-trust" className="font-normal flex-1 cursor-pointer">
-                            Trust or betrayal
-                          </FormLabel>
-                        </div>
-                        
-                        <div className="flex items-start space-x-2 p-2 border rounded-md">
-                          <Checkbox 
-                            id="challenge-parenting" 
-                            checked={selectedChallenges.parenting}
-                            onCheckedChange={(checked) => {
-                              const newChallenges = {...selectedChallenges, parenting: checked === true};
-                              setSelectedChallenges(newChallenges);
-                              handleChallengeChange(newChallenges, otherChallenge);
-                            }}
-                          />
-                          <FormLabel htmlFor="challenge-parenting" className="font-normal flex-1 cursor-pointer">
-                            Parenting stress
-                          </FormLabel>
-                        </div>
-                        
-                        <div className="flex items-start space-x-2 p-2 border rounded-md">
-                          <Checkbox 
-                            id="challenge-intimacy" 
-                            checked={selectedChallenges.intimacy}
-                            onCheckedChange={(checked) => {
-                              const newChallenges = {...selectedChallenges, intimacy: checked === true};
-                              setSelectedChallenges(newChallenges);
-                              handleChallengeChange(newChallenges, otherChallenge);
-                            }}
-                          />
-                          <FormLabel htmlFor="challenge-intimacy" className="font-normal flex-1 cursor-pointer">
-                            Intimacy issues
-                          </FormLabel>
-                        </div>
-                        
-                        <div className="flex items-start space-x-2 p-2 border rounded-md">
-                          <Checkbox 
-                            id="challenge-other" 
-                            checked={selectedChallenges.other}
-                            onCheckedChange={(checked) => {
-                              const newChallenges = {...selectedChallenges, other: checked === true};
-                              setSelectedChallenges(newChallenges);
-                              handleChallengeChange(newChallenges, otherChallenge);
-                            }}
-                          />
-                          <FormLabel htmlFor="challenge-other" className="font-normal flex-1 cursor-pointer">
-                            Other
-                          </FormLabel>
-                        </div>
-                        
-                        {selectedChallenges.other && (
-                          <div className="ml-6 mt-2">
-                            <Input 
-                              placeholder="Please specify..."
-                              value={otherChallenge}
-                              onChange={(e) => {
-                                const newValue = e.target.value;
-                                setOtherChallenge(newValue);
-                                // Pass the current state and updated value to handle the change immediately
-                                handleChallengeChange(selectedChallenges, newValue);
-                              }}
-                              className="w-full"
-                            />
-                          </div>
-                        )}
-                      </div>
-                      
                       <FormControl>
-                        <Input 
-                          type="hidden" 
-                          value={value} 
-                          {...fieldProps}
-                        />
+                        <RadioGroup
+                          onValueChange={field.onChange}
+                          value={field.value}
+                          className="space-y-2"
+                        >
+                          {communicationFrequencyOptions.map((option) => {
+                            const isSelected = field.value === option;
+                            return (
+                              <FormItem
+                                key={option}
+                                className={`
+                                  flex items-center space-x-3 space-y-0 border rounded-lg p-4 cursor-pointer
+                                  transition-all duration-200
+                                  ${isSelected
+                                    ? `${config.border} ${config.bg}/60 shadow-md`
+                                    : "border-border hover:border-muted-foreground/30 hover:bg-muted/50"
+                                  }
+                                `}
+                              >
+                                <FormControl>
+                                  <RadioGroupItem value={option} />
+                                </FormControl>
+                                <FormLabel className={`cursor-pointer w-full transition-all duration-200 ${isSelected ? "font-medium text-foreground" : "font-normal"}`}>
+                                  {communicationFrequencyLabels[option]}
+                                </FormLabel>
+                              </FormItem>
+                            );
+                          })}
+                        </RadioGroup>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
-                  );
-                }}
-              />
-
-              <FormField
-                control={relationshipForm.control}
-                name="communicationFrequency"
-                render={({ field }) => (
-                  <FormItem className="space-y-3">
-                    <FormLabel>How often do you prefer to have meaningful conversations?</FormLabel>
-                    <FormControl>
-                      <RadioGroup
-                        onValueChange={field.onChange}
-                        value={field.value}
-                        className="space-y-3"
-                      >
-                        {communicationFrequencyOptions.map((option) => (
-                          <FormItem
-                            key={option}
-                            className="flex items-center space-x-3 space-y-0 border rounded-lg p-4 shadow-sm"
-                          >
-                            <FormControl>
-                              <RadioGroupItem value={option} />
-                            </FormControl>
-                            <FormLabel className="font-normal cursor-pointer w-full">
-                              {communicationFrequencyLabels[option]}
-                            </FormLabel>
-                          </FormItem>
-                        ))}
-                      </RadioGroup>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </form>
-          </Form>
-        </CardContent>
-        <CardFooter className="flex justify-between">
-          <Button 
-            variant="outline" 
-            onClick={handleBack}
-            disabled={saveEnhancedQuestionnaireMutation.isPending}
-          >
-            Back
-          </Button>
-          <Button 
-            onClick={relationshipForm.handleSubmit(onSubmit)}
-            disabled={saveEnhancedQuestionnaireMutation.isPending}
-          >
-            {saveEnhancedQuestionnaireMutation.isPending ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              "Complete"
-            )}
-          </Button>
-        </CardFooter>
-      </Card>
+                  )}
+                />
+              </form>
+            </Form>
+          </CardContent>
+          <CardFooter className="flex justify-between">
+            <Button
+              variant="outline"
+              onClick={handleBack}
+              disabled={saveEnhancedQuestionnaireMutation.isPending}
+            >
+              Back
+            </Button>
+            <Button
+              onClick={relationshipForm.handleSubmit(onSubmit)}
+              disabled={saveEnhancedQuestionnaireMutation.isPending}
+              className="bg-accent-coral hover:bg-accent-coral/90 text-white"
+            >
+              {saveEnhancedQuestionnaireMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Complete Setup"
+              )}
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
     </div>
   );
 }

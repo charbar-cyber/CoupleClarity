@@ -1,8 +1,10 @@
 import React, { useState } from "react";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Sparkles } from "lucide-react";
 
 type LoveLanguageDiscoveryProps = {
   onComplete: (loveLanguage: string) => void;
@@ -55,6 +57,9 @@ export function LoveLanguageDiscovery({ onComplete, onBack }: LoveLanguageDiscov
     }
   ];
 
+  const totalDiscoverySteps = discoveryQuestions.length;
+  const progressPercent = ((currentQuestionIndex + 1) / totalDiscoverySteps) * 100;
+
   const handleOptionSelect = (value: string) => {
     setSelectedOption(value);
   };
@@ -64,7 +69,7 @@ export function LoveLanguageDiscovery({ onComplete, onBack }: LoveLanguageDiscov
       // Add current answer
       const newAnswers = [...answers, selectedOption];
       setAnswers(newAnswers);
-      
+
       // Move to next question or finish
       if (currentQuestionIndex < discoveryQuestions.length - 1) {
         setCurrentQuestionIndex(prev => prev + 1);
@@ -74,6 +79,18 @@ export function LoveLanguageDiscovery({ onComplete, onBack }: LoveLanguageDiscov
         const loveLanguage = determineLoveLanguage(newAnswers);
         onComplete(loveLanguage);
       }
+    }
+  };
+
+  const handleBack = () => {
+    if (currentQuestionIndex > 0) {
+      setCurrentQuestionIndex(prev => prev - 1);
+      // Restore previous answer
+      const prevAnswers = answers.slice(0, -1);
+      setAnswers(prevAnswers);
+      setSelectedOption(answers[answers.length - 1] || null);
+    } else {
+      onBack();
     }
   };
 
@@ -87,73 +104,100 @@ export function LoveLanguageDiscovery({ onComplete, onBack }: LoveLanguageDiscov
       physical_touch: 0,
       gifts: 0
     };
-    
+
     // Tally the answers
     answerList.forEach(answer => {
       if (counts[answer] !== undefined) {
         counts[answer]++;
       }
     });
-    
+
     // Find the love language with the highest count
     let maxCount = 0;
     let dominantLoveLanguage = "words_of_affirmation"; // Default
-    
+
     Object.entries(counts).forEach(([language, count]) => {
       if (count > maxCount) {
         maxCount = count;
         dominantLoveLanguage = language;
       }
     });
-    
+
     return dominantLoveLanguage;
   };
 
   const currentQuestion = discoveryQuestions[currentQuestionIndex];
 
   return (
-    <Card className="w-full max-w-md mx-auto shadow-lg border-primary/10">
-      <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl">Discover Your Love Language</CardTitle>
-        <CardDescription className="text-lg">
-          {currentQuestion.question}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          <RadioGroup
-            onValueChange={handleOptionSelect}
-            value={selectedOption || ""}
-            className="space-y-3"
-          >
-            {currentQuestion.options.map((option) => (
-              <div
-                key={option.value}
-                className="flex items-center space-x-3 space-y-0 border rounded-lg p-4 shadow-sm"
-              >
-                <RadioGroupItem value={option.value} id={option.value} />
-                <Label htmlFor={option.value} className="font-normal cursor-pointer w-full">
-                  {option.text}
-                </Label>
-              </div>
-            ))}
-          </RadioGroup>
+    <div className="w-full max-w-md mx-auto space-y-3">
+      {/* Progress section */}
+      <div className="space-y-1.5 px-1">
+        <div className="flex justify-between items-center text-sm text-muted-foreground">
+          <span>Discovery {currentQuestionIndex + 1} of {totalDiscoverySteps}</span>
+          <span>{Math.round(progressPercent)}%</span>
         </div>
-      </CardContent>
-      <CardFooter className="flex justify-between">
-        <Button
-          variant="outline"
-          onClick={onBack}
-        >
-          Back
-        </Button>
-        <Button
-          onClick={handleNext}
-          disabled={!selectedOption}
-        >
-          {currentQuestionIndex < discoveryQuestions.length - 1 ? "Next" : "Complete"}
-        </Button>
-      </CardFooter>
-    </Card>
+        <Progress value={progressPercent} className="h-2" />
+      </div>
+
+      <Card className="w-full shadow-lg border-primary/10 overflow-hidden">
+        <div className="h-1 bg-pink-500" />
+        <CardHeader className="space-y-3 pb-4">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-pink-50 text-pink-600">
+              <Sparkles className="h-4 w-4" />
+              Love Language Discovery
+            </span>
+          </div>
+          <p className="text-lg text-foreground/80">
+            {currentQuestion.question}
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <RadioGroup
+              onValueChange={handleOptionSelect}
+              value={selectedOption || ""}
+              className="space-y-2"
+            >
+              {currentQuestion.options.map((option) => {
+                const isSelected = selectedOption === option.value;
+                return (
+                  <div
+                    key={option.value}
+                    className={`
+                      flex items-center space-x-3 space-y-0 border rounded-lg p-4 cursor-pointer
+                      transition-all duration-200
+                      ${isSelected
+                        ? "border-pink-200 bg-pink-50 shadow-md"
+                        : "border-border hover:border-muted-foreground/30 hover:bg-muted/50"
+                      }
+                    `}
+                  >
+                    <RadioGroupItem value={option.value} id={option.value} />
+                    <Label htmlFor={option.value} className={`cursor-pointer w-full transition-all duration-200 ${isSelected ? "font-medium" : "font-normal"}`}>
+                      {option.text}
+                    </Label>
+                  </div>
+                );
+              })}
+            </RadioGroup>
+          </div>
+        </CardContent>
+        <CardFooter className="flex justify-between">
+          <Button
+            variant="outline"
+            onClick={handleBack}
+          >
+            Back
+          </Button>
+          <Button
+            onClick={handleNext}
+            disabled={!selectedOption}
+          >
+            {currentQuestionIndex < discoveryQuestions.length - 1 ? "Next" : "Discover"}
+          </Button>
+        </CardFooter>
+      </Card>
+    </div>
   );
 }

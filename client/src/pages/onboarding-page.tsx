@@ -50,17 +50,21 @@ export default function OnboardingPage() {
     <div>
       {step === "welcome" && <WelcomeScreen onStart={handleStart} />}
       {step === "preferences" && (
-        <OnboardingQuestionnaire 
+        <OnboardingQuestionnaire
           onComplete={handlePreferencesComplete}
           onBack={handleStart}
           isEnhancedFlow={true}
+          totalSteps={6}
+          globalStepOffset={0}
         />
       )}
       {step === "enhanced" && (
-        <EnhancedOnboardingQuestionnaire 
+        <EnhancedOnboardingQuestionnaire
           onComplete={handleEnhancedComplete}
           onBack={handleEnhancedBack}
           initialPreferences={preferencesData}
+          totalSteps={6}
+          globalStepOffset={4}
         />
       )}
     </div>
