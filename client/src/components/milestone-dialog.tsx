@@ -66,7 +66,7 @@ interface MilestoneDialogProps {
     type: string;
     title: string;
     description: string | null;
-    date: string;
+    date: string | Date;
     imageUrl: string | null;
     isPrivate: boolean;
     partnershipId: number;

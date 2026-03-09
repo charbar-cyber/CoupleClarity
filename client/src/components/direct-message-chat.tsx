@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { SendHorizontal, Check } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { apiUrl, wsUrl } from "@/lib/config";
+import { apiRequest } from "@/lib/queryClient";
 
 interface DirectMessageChatProps {
   partner: User;
@@ -28,7 +29,9 @@ export function DirectMessageChat({ partner }: DirectMessageChatProps) {
   const { data: messages, isLoading } = useQuery<DirectMessage[]>({
     queryKey: ["/api/direct-messages", partner.id],
     queryFn: async () => {
-      const res = await fetch(apiUrl(`/api/direct-messages/${partner.id}`));
+      const res = await fetch(apiUrl(`/api/direct-messages/${partner.id}`), {
+        credentials: "include",
+      });
       if (!res.ok) throw new Error("Failed to fetch direct messages");
       return res.json();
     },
@@ -37,17 +40,10 @@ export function DirectMessageChat({ partner }: DirectMessageChatProps) {
   // Send message mutation
   const sendMessageMutation = useMutation({
     mutationFn: async (messageText: string) => {
-      const res = await fetch(apiUrl("/api/direct-messages"), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          recipientId: partner.id,
-          content: messageText,
-        }),
+      const res = await apiRequest("POST", "/api/direct-messages", {
+        recipientId: partner.id,
+        content: messageText,
       });
-      if (!res.ok) throw new Error("Failed to send message");
       return res.json();
     },
     onSuccess: (newMessage) => {
@@ -56,20 +52,6 @@ export function DirectMessageChat({ partner }: DirectMessageChatProps) {
         ["/api/direct-messages", partner.id],
         (oldData: DirectMessage[] = []) => [...oldData, newMessage]
       );
-      
-      // Send WebSocket notification
-      if (wsConnected && wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send(
-          JSON.stringify({
-            type: "new_direct_message",
-            data: {
-              ...newMessage,
-              senderName: user?.displayName,
-              recipientId: partner.id
-            }
-          })
-        );
-      }
       
       // Clear input field
       setMessageText("");
@@ -86,10 +68,7 @@ export function DirectMessageChat({ partner }: DirectMessageChatProps) {
   // Mark message as read mutation
   const markAsReadMutation = useMutation({
     mutationFn: async (messageId: number) => {
-      const res = await fetch(apiUrl(`/api/direct-messages/${messageId}/read`), {
-        method: "PATCH",
-      });
-      if (!res.ok) throw new Error("Failed to mark message as read");
+      const res = await apiRequest("PATCH", `/api/direct-messages/${messageId}/read`);
       return res.json();
     },
     onSuccess: () => {
@@ -107,6 +86,12 @@ export function DirectMessageChat({ partner }: DirectMessageChatProps) {
     
     socket.onopen = () => {
       setWsConnected(true);
+      if (user?.id) {
+        socket.send(JSON.stringify({
+          type: "auth",
+          userId: user.id,
+        }));
+      }
     };
     
     socket.onmessage = (event) => {
@@ -131,7 +116,7 @@ export function DirectMessageChat({ partner }: DirectMessageChatProps) {
     return () => {
       socket.close();
     };
-  }, [queryClient, partner.id, markAsReadMutation]);
+  }, [queryClient, partner.id, markAsReadMutation, user?.id]);
   
   // Mark any unread messages as read when the component mounts
   useEffect(() => {

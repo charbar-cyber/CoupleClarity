@@ -48,13 +48,25 @@ const coupleProfileSchema = z.object({
 
 type CoupleProfileFormValues = z.infer<typeof coupleProfileSchema>;
 
+interface CoupleProfileResponse {
+  partnership: {
+    relationshipType: string | null;
+    privacyLevel: string;
+    anniversaryDate: string | Date | null;
+    meetingStory: string | null;
+    relationshipGoals: string | null;
+    coupleNickname: string | null;
+    sharedPicture: string | null;
+  };
+}
+
 export function CoupleProfileForm() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isDateOpen, setIsDateOpen] = useState(false);
 
   // Fetch current couple profile
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error } = useQuery<CoupleProfileResponse>({
     queryKey: ["/api/partnership/profile"],
     refetchOnWindowFocus: false,
   });

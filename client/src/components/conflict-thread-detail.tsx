@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDate } from "@/lib/utils";
 import { z } from "zod";
+import { apiUrl } from "@/lib/config";
 
 interface ConflictThreadDetailProps {
   threadId: number;
@@ -30,11 +31,25 @@ export default function ConflictThreadDetail({ threadId }: ConflictThreadDetailP
   
   const { data: thread, isLoading: threadLoading } = useQuery<ConflictThread>({
     queryKey: ['/api/conflict-threads', threadId],
+    queryFn: async () => {
+      const res = await fetch(apiUrl(`/api/conflict-threads/${threadId}`), {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to fetch conflict thread");
+      return res.json();
+    },
     retry: false,
   });
   
   const { data: messages, isLoading: messagesLoading } = useQuery<ConflictMessage[]>({
     queryKey: ['/api/conflict-messages', threadId],
+    queryFn: async () => {
+      const res = await fetch(apiUrl(`/api/conflict-threads/${threadId}/messages`), {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to fetch conflict messages");
+      return res.json();
+    },
     refetchInterval: 5000, // Poll for new messages every 5 seconds
   });
 

@@ -46,7 +46,7 @@ export default function ConflictResolutionForm({ threadId }: ConflictResolutionF
       });
       
       // Navigate back to conflict threads page
-      navigate("/conflict-threads");
+      navigate("/conflict");
     },
     onError: (error: Error) => {
       toast({
@@ -103,7 +103,7 @@ export default function ConflictResolutionForm({ threadId }: ConflictResolutionF
           <Button 
             type="button" 
             variant="outline" 
-            onClick={() => navigate(`/conflict-threads/${threadId}`)}
+            onClick={() => navigate(`/conflict/${threadId}`)}
             className="hover:bg-primary-blue/5 hover:text-primary-blue"
           >
             Cancel

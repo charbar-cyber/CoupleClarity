@@ -17,6 +17,8 @@ import { register as registerExerciseRoutes } from "./routes/exercises";
 import { register as registerCheckInRoutes } from "./routes/check-ins";
 import { register as registerJournalRoutes } from "./routes/journal";
 import { register as registerTherapySessionRoutes } from "./routes/therapy-sessions";
+import { registerDirectMessageRoutes } from "./routes/direct-messages";
+import { registerConflictRoutes } from "./routes/conflicts";
 
 // Extended session interface with passport support
 interface SessionWithPassport {
@@ -105,7 +107,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await sendNotification(recipientId, {
         title: `Message from ${data.senderName}`,
         body: data.message.substring(0, 100) + (data.message.length > 100 ? '...' : ''),
-        url: '/direct-message',
+        url: `/messages/direct/${senderId}`,
         type: 'directMessages'
       });
     } catch (error) {
@@ -148,7 +150,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         body: data.updateType === 'new'
           ? `${data.senderName} started a conflict thread about: ${data.topic}`
           : `${data.senderName} added a message to the conflict about: ${data.topic}`,
-        url: `/conflict-threads/${data.threadId}`,
+        url: `/conflict/${data.threadId}`,
         type: notificationType
       });
     } catch (error) {
@@ -223,6 +225,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerCheckInRoutes(app, ctx);
   registerJournalRoutes(app, ctx);
   registerTherapySessionRoutes(app, ctx);
+  registerDirectMessageRoutes(app, ctx);
+  registerConflictRoutes(app, ctx);
 
   return httpServer;
 }

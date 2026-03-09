@@ -26,7 +26,7 @@ export default function Home() {
   const [showHistory, setShowHistory] = useState(false);
   const [transformedResponse, setTransformedResponse] = useState<TransformationResponse | null>(null);
   const [shareWithPartner, setShareWithPartner] = useState(false);
-  const { connected, sendMessage } = useWebSocket();
+  const { connected } = useWebSocket();
   
   // Get user info
   const userId = user?.id;
@@ -61,18 +61,7 @@ export default function Home() {
     onSuccess: (data: TransformationResponse) => {
       setTransformedResponse(data);
       
-      // If message was shared, notify partners via WebSocket
-      if (shareWithPartner && connected && data.messageId) {
-        sendMessage({
-          type: 'new_message',
-          data: {
-            id: data.messageId,
-            transformedMessage: data.transformedMessage,
-            communicationElements: data.communicationElements,
-            deliveryTips: data.deliveryTips
-          }
-        });
-        
+      if (shareWithPartner && data.messageId) {
         toast({
           title: "Message shared",
           description: "Your message has been shared with your partner.",

@@ -56,6 +56,7 @@ export interface IStorage {
   getUserEmotionalExpressions(userId: number, limit?: number): Promise<EmotionalExpression[]>;
   getEmotionalExpression(id: number): Promise<EmotionalExpression | null>;
   updateEmotionalExpression(id: number, updates: Partial<EmotionalExpression>): Promise<EmotionalExpression | null>;
+  deleteEmotionalExpression(id: number): Promise<boolean>;
   // User operations
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
@@ -1367,16 +1368,26 @@ export class MemStorage implements IStorage {
     const now = new Date();
     
     const journalEntry: JournalEntry = {
-      ...entry,
       id,
+      userId: entry.userId,
+      title: entry.title,
+      content: entry.content,
+      rawContent: entry.rawContent,
+      isPrivate: entry.isPrivate ?? true,
+      isShared: entry.isShared ?? false,
+      partnerId: entry.partnerId ?? null,
+      hasPartnerResponse: entry.hasPartnerResponse ?? false,
+      aiSummary: entry.aiSummary ?? null,
+      aiRefinedContent: entry.aiRefinedContent ?? null,
+      emotions: entry.emotions ?? null,
+      emotionalInsight: entry.emotionalInsight ?? null,
+      emotionalScore: entry.emotionalScore ?? null,
+      suggestedResponse: entry.suggestedResponse ?? null,
+      suggestedBoundary: entry.suggestedBoundary ?? null,
+      reflectionPrompt: entry.reflectionPrompt ?? null,
+      patternCategory: entry.patternCategory ?? null,
       createdAt: now,
       updatedAt: now,
-      aiSummary: entry.aiSummary || null,
-      aiRefinedContent: entry.aiRefinedContent || null,
-      emotions: entry.emotions || null,
-      isPrivate: entry.isPrivate !== undefined ? entry.isPrivate : true,
-      isShared: entry.isShared !== undefined ? entry.isShared : false,
-      partnerId: entry.partnerId || null
     };
     
     this.journalEntries.set(id, journalEntry);
@@ -1951,7 +1962,7 @@ export class MemStorage implements IStorage {
       description: exercise.description,
       type: exercise.type,
       status: 'in_progress',
-      currentStep: exercise.currentStep || 1,
+      currentStep: 1,
       currentStepNumber: exercise.currentStepNumber || 1,
       totalSteps: exercise.totalSteps,
       currentUserId: exercise.currentUserId || exercise.initiatorId,
@@ -2210,12 +2221,17 @@ export class MemStorage implements IStorage {
     const now = new Date();
     
     const emotionalExpression: EmotionalExpression = {
-      ...expression,
       id,
+      userId: expression.userId,
+      emotion: expression.emotion,
+      context: expression.context,
+      intensity: expression.intensity ?? 5,
       createdAt: now,
-      aiProcessed: expression.aiProcessed || false,
-      aiInsight: expression.aiInsight || null,
-      tags: expression.tags || []
+      relatedItemId: expression.relatedItemId ?? null,
+      relatedItemType: expression.relatedItemType ?? null,
+      aiProcessed: expression.aiProcessed ?? false,
+      aiInsight: expression.aiInsight ?? null,
+      tags: expression.tags ?? null,
     };
     
     this.emotionalExpressions.set(id, emotionalExpression);

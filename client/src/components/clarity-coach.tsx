@@ -115,21 +115,23 @@ export function ClarityCoach({ journalEntry, onSharePrompt }: ClarityCoachProps)
     
     // Add prompt based on emotional insight if available
     if (entry.emotionalInsight) {
+      const joinedEmotions = entry.emotions?.slice(0, 2).join(" and ") || "that way";
       suggestions.push({
         type: 'prompt',
-        text: `Based on your emotional insight: Would you like to explore why you felt ${entry.emotions?.slice(0, 2).join(" and ")}?`,
+        text: `Based on your emotional insight: Would you like to explore why you felt ${joinedEmotions}?`,
         actionText: "Share reflection prompt",
-        actionHandler: () => onSharePrompt && onSharePrompt(`I've been reflecting on why I felt ${entry.emotions?.slice(0, 2).join(" and ")}. I'd appreciate hearing your perspective.`)
+        actionHandler: () => onSharePrompt && onSharePrompt(`I've been reflecting on why I felt ${joinedEmotions}. I'd appreciate hearing your perspective.`)
       });
     }
     
     // Add reflection prompt if available
     if (entry.reflectionPrompt) {
+      const reflectionPrompt = entry.reflectionPrompt;
       suggestions.push({
         type: 'prompt',
-        text: `Suggested reflection: ${entry.reflectionPrompt}`,
+        text: `Suggested reflection: ${reflectionPrompt}`,
         actionText: "Use this reflection prompt",
-        actionHandler: () => onSharePrompt && onSharePrompt(entry.reflectionPrompt)
+        actionHandler: () => onSharePrompt && onSharePrompt(reflectionPrompt)
       });
     }
 

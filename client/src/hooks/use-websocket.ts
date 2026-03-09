@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { wsUrl } from '@/lib/config';
+import { useAuth } from './use-auth';
 
 export type WebSocketMessage = {
   type: string;
@@ -16,6 +17,7 @@ interface UseWebSocketReturn {
 }
 
 export function useWebSocket(): UseWebSocketReturn {
+  const { user } = useAuth();
   const [connected, setConnected] = useState(false);
   const [messages, setMessages] = useState<WebSocketMessage[]>([]);
   const socketRef = useRef<WebSocket | null>(null);
@@ -29,6 +31,12 @@ export function useWebSocket(): UseWebSocketReturn {
     socket.addEventListener('open', () => {
       console.log('WebSocket connection established');
       setConnected(true);
+      if (user?.id) {
+        socket.send(JSON.stringify({
+          type: 'auth',
+          userId: user.id,
+        }));
+      }
     });
 
     // Listen for messages
@@ -60,7 +68,7 @@ export function useWebSocket(): UseWebSocketReturn {
         socket.close();
       }
     };
-  }, []);
+  }, [user?.id]);
 
   // Function to send messages to the WebSocket server
   const sendMessage = useCallback((message: WebSocketMessage) => {

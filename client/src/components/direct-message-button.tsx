@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { MessageSquare } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { apiUrl, wsUrl } from '@/lib/config';
+import { useAuth } from "@/hooks/use-auth";
 
 interface DirectMessageButtonProps {
   partnerId: number;
@@ -15,12 +16,15 @@ export function DirectMessageButton({ partnerId, compact = false }: DirectMessag
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
   const [wsConnected, setWsConnected] = useState(false);
+  const { user } = useAuth();
   
   // Get unread message count
   const { data: unreadData } = useQuery<{ count: number }>({
     queryKey: ["/api/direct-messages/unread/count"],
     queryFn: async () => {
-      const res = await fetch(apiUrl("/api/direct-messages/unread/count"));
+      const res = await fetch(apiUrl("/api/direct-messages/unread/count"), {
+        credentials: "include",
+      });
       if (!res.ok) throw new Error("Failed to fetch unread count");
       return res.json();
     },
@@ -33,6 +37,12 @@ export function DirectMessageButton({ partnerId, compact = false }: DirectMessag
     
     socket.onopen = () => {
       setWsConnected(true);
+      if (user?.id) {
+        socket.send(JSON.stringify({
+          type: "auth",
+          userId: user.id,
+        }));
+      }
     };
     
     socket.onmessage = (event) => {
@@ -53,7 +63,7 @@ export function DirectMessageButton({ partnerId, compact = false }: DirectMessag
     return () => {
       socket.close();
     };
-  }, [queryClient]);
+  }, [queryClient, user?.id]);
   
   const unreadCount = unreadData?.count || 0;
   

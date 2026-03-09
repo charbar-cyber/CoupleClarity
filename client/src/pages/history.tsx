@@ -23,6 +23,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { apiUrl } from "@/lib/config";
 
+interface RelationshipInfo {
+  partnershipId: number | null;
+}
+
 const formSchema = z.object({
   title: z.string().min(2, "Title must be at least 2 characters").max(100),
   content: z.string().min(10, "Content must be at least 10 characters"),
@@ -40,11 +44,16 @@ export default function History() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
-  const partnershipId = user?.partnerships?.[0]?.id;
+
+  const { data: relationship } = useQuery<RelationshipInfo>({
+    queryKey: ["/api/relationship"],
+    enabled: !!user,
+  });
+
+  const partnershipId = relationship?.partnershipId ?? null;
   
   // Query for fetching memories based on active tab
-  const { data: memories, isLoading } = useQuery({
+  const { data: memories = [], isLoading } = useQuery<Memory[]>({
     queryKey: [
       activeTab === "all" 
         ? `/api/partnerships/${partnershipId}/memories`
@@ -56,7 +65,7 @@ export default function History() {
   });
 
   // Query for search
-  const { data: searchResults, isLoading: isSearching } = useQuery({
+  const { data: searchResults = [], isLoading: isSearching } = useQuery<Memory[]>({
     queryKey: [`/api/partnerships/${partnershipId}/memories/search`, searchQuery],
     queryFn: async () => {
       if (!searchQuery.trim()) return [];
@@ -90,7 +99,10 @@ export default function History() {
   // Mutation for creating new memories
   const createMemoryMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
-      const response = await apiRequest("POST", "/api/memories", values);
+      const response = await apiRequest("POST", "/api/memories", {
+        ...values,
+        description: values.content,
+      });
       return response.json();
     },
     onSuccess: () => {
@@ -107,7 +119,14 @@ export default function History() {
         title: "Memory created",
         description: "Your memory has been saved successfully.",
       });
-      form.reset();
+      form.reset({
+        title: "",
+        content: "",
+        date: new Date().toISOString().split('T')[0],
+        type: "custom",
+        isSignificant: false,
+        partnershipId: partnershipId || 0,
+      });
       setOpenDialog(false);
     },
     onError: (error) => {
@@ -122,9 +141,9 @@ export default function History() {
   // Effect to filter memories based on search query
   useEffect(() => {
     if (searchQuery.trim() !== "") {
-      setFilteredMemories(searchResults || []);
+      setFilteredMemories(searchResults);
     } else {
-      setFilteredMemories(memories || []);
+      setFilteredMemories(memories);
     }
   }, [memories, searchResults, searchQuery]);
 
@@ -390,7 +409,7 @@ export default function History() {
                         </div>
                       </CardHeader>
                       <CardContent>
-                        <p className="text-sm text-neutral-700">{memory.content}</p>
+                        <p className="text-sm text-neutral-700">{memory.description}</p>
                       </CardContent>
                     </Card>
                   ))

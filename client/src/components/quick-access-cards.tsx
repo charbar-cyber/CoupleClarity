@@ -70,13 +70,13 @@ export function QuickAccessCards({ userId, partnerId }: QuickAccessCardsProps) {
   };
 
   // Navigate to response form for a shared entry
-  const handleRespond = (entryId: number) => {
-    setLocation(`/journal/${entryId}/respond`);
+  const handleRespond = (_entryId: number) => {
+    setLocation("/dashboard");
   };
 
   // Navigate to send appreciation form
   const handleSendAppreciation = () => {
-    setLocation("/appreciation/new");
+    setLocation("/");
   };
 
   return (

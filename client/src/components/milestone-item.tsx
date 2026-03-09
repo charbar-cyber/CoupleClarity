@@ -66,13 +66,13 @@ interface MilestoneItemProps {
     type: string;
     title: string;
     description: string | null;
-    date: string;
+    date: string | Date;
     imageUrl: string | null;
     isPrivate: boolean;
-    createdAt: string;
+    createdAt: string | Date;
     partnershipId: number;
   };
-  onOpenEditDialog?: (milestone: any) => void;
+  onOpenEditDialog?: (milestone: MilestoneItemProps["milestone"]) => void;
 }
 
 export function MilestoneItem({ milestone, onOpenEditDialog }: MilestoneItemProps) {

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { journalEntrySchema } from "@shared/schema";
+import { journalEntrySchema, type JournalEntry } from "@shared/schema";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -533,13 +533,26 @@ export function JournalEntryForm({
                 <ClarityCoach 
                   journalEntry={{
                     id: existingEntry?.id || 0,
+                    userId: 0,
                     title: form.getValues('title'),
                     content: form.getValues('content'),
+                    rawContent: form.getValues('content'),
+                    isPrivate: form.getValues('isPrivate'),
+                    isShared: form.getValues('isShared'),
+                    partnerId: null,
+                    hasPartnerResponse: false,
+                    aiSummary: analysis.aiSummary,
+                    aiRefinedContent: analysis.aiRefinedContent,
                     emotions: analysis.emotions,
+                    emotionalInsight: analysis.emotionalInsight,
                     emotionalScore: analysis.emotionalScore,
+                    suggestedResponse: analysis.suggestedResponse,
+                    suggestedBoundary: analysis.suggestedBoundary,
                     reflectionPrompt: analysis.reflectionPrompt,
-                    patternCategory: analysis.patternCategory
-                  }}
+                    patternCategory: analysis.patternCategory,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                  } satisfies JournalEntry}
                   onSharePrompt={handleInsertPrompt}
                 />
               )}

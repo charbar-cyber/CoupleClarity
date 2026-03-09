@@ -428,6 +428,135 @@ export function registerPartnershipRoutes(app: Express, ctx: RouteContext) {
     }
   });
 
+  // ====== Memories API ======
+
+  const verifyPartnershipAccess = async (partnershipId: number, userId: number) => {
+    const partnership = await storage.getPartnership(partnershipId);
+
+    if (!partnership) {
+      return { error: { status: 404, message: "Partnership not found" } };
+    }
+
+    if (partnership.user1Id !== userId && partnership.user2Id !== userId) {
+      return { error: { status: 403, message: "Not authorized to access this partnership" } };
+    }
+
+    return { partnership };
+  };
+
+  app.get('/api/partnerships/:id/memories', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      const partnershipId = parseInt(req.params.id, 10);
+      const access = await verifyPartnershipAccess(partnershipId, req.user!.id);
+
+      if (access.error) {
+        return res.status(access.error.status).json({ error: access.error.message });
+      }
+
+      const memories = await storage.getMemoriesByPartnershipId(partnershipId);
+      res.json(memories);
+    } catch (error) {
+      console.error('Error fetching partnership memories:', error);
+      res.status(500).json({ error: 'Failed to fetch memories' });
+    }
+  });
+
+  app.get('/api/partnerships/:id/memories/significant', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      const partnershipId = parseInt(req.params.id, 10);
+      const access = await verifyPartnershipAccess(partnershipId, req.user!.id);
+
+      if (access.error) {
+        return res.status(access.error.status).json({ error: access.error.message });
+      }
+
+      const memories = await storage.getSignificantMemories(partnershipId);
+      res.json(memories);
+    } catch (error) {
+      console.error('Error fetching significant memories:', error);
+      res.status(500).json({ error: 'Failed to fetch significant memories' });
+    }
+  });
+
+  app.get('/api/partnerships/:id/memories/type/:type', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      const partnershipId = parseInt(req.params.id, 10);
+      const access = await verifyPartnershipAccess(partnershipId, req.user!.id);
+
+      if (access.error) {
+        return res.status(access.error.status).json({ error: access.error.message });
+      }
+
+      const memories = await storage.getMemoriesByType(partnershipId, req.params.type);
+      res.json(memories);
+    } catch (error) {
+      console.error('Error fetching memories by type:', error);
+      res.status(500).json({ error: 'Failed to fetch memories by type' });
+    }
+  });
+
+  app.get('/api/partnerships/:id/memories/search', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      const partnershipId = parseInt(req.params.id, 10);
+      const access = await verifyPartnershipAccess(partnershipId, req.user!.id);
+
+      if (access.error) {
+        return res.status(access.error.status).json({ error: access.error.message });
+      }
+
+      const q = typeof req.query.q === 'string' ? req.query.q : '';
+      const memories = q.trim()
+        ? await storage.searchMemories(partnershipId, q)
+        : await storage.getMemoriesByPartnershipId(partnershipId);
+
+      res.json(memories);
+    } catch (error) {
+      console.error('Error searching memories:', error);
+      res.status(500).json({ error: 'Failed to search memories' });
+    }
+  });
+
+  app.post('/api/memories', isAuthenticated, async (req: Request & { user?: User }, res: Response) => {
+    try {
+      const partnershipId = Number(req.body.partnershipId);
+      const access = await verifyPartnershipAccess(partnershipId, req.user!.id);
+
+      if (access.error) {
+        return res.status(access.error.status).json({ error: access.error.message });
+      }
+
+      const title = typeof req.body.title === 'string' ? req.body.title.trim() : '';
+      const description = typeof req.body.description === 'string'
+        ? req.body.description.trim()
+        : typeof req.body.content === 'string'
+          ? req.body.content.trim()
+          : '';
+
+      if (!title || !description) {
+        return res.status(400).json({ error: 'Title and description are required' });
+      }
+
+      const memory = await storage.createMemory({
+        title,
+        description,
+        type: req.body.type || 'custom',
+        date: req.body.date ? new Date(req.body.date) : new Date(),
+        userId: req.user!.id,
+        partnershipId,
+        linkedItemId: req.body.linkedItemId || null,
+        linkedItemType: req.body.linkedItemType || null,
+        isSignificant: Boolean(req.body.isSignificant),
+        imageUrl: req.body.imageUrl || null,
+        tags: Array.isArray(req.body.tags) ? req.body.tags : [],
+      });
+
+      res.status(201).json(memory);
+    } catch (error) {
+      console.error('Error creating memory:', error);
+      res.status(500).json({ error: 'Failed to create memory' });
+    }
+  });
+
   // ====== Relationship Milestones API ======
 
   // Get milestones

@@ -5,6 +5,18 @@ import { Button } from "@/components/ui/button";
 import { MilestoneItem } from "./milestone-item";
 import { MilestoneDialog } from "./milestone-dialog";
 import { Loader2, Plus, CalendarRange } from "lucide-react";
+import { Milestone } from "@shared/schema";
+
+type MilestoneDialogValue = {
+  id: number;
+  type: string;
+  title: string;
+  description: string | null;
+  date: string | Date;
+  imageUrl: string | null;
+  isPrivate: boolean;
+  partnershipId: number;
+};
 
 // Get milestone type options from schema
 const milestoneTypes = [
@@ -22,16 +34,16 @@ const milestoneTypes = [
 export function MilestoneList() {
   const [selectedType, setSelectedType] = useState("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingMilestone, setEditingMilestone] = useState<any>(null);
+  const [editingMilestone, setEditingMilestone] = useState<MilestoneDialogValue | null>(null);
   
   // Fetch all milestones
-  const { data: allMilestones, isLoading, error } = useQuery({
+  const { data: allMilestones, isLoading, error } = useQuery<Milestone[]>({
     queryKey: ["/api/partnership/milestones"],
     refetchOnWindowFocus: false,
   });
   
   // Handle opening the dialog for editing a milestone
-  const handleOpenEditDialog = (milestone: any) => {
+  const handleOpenEditDialog = (milestone: MilestoneDialogValue) => {
     setEditingMilestone(milestone);
     setIsDialogOpen(true);
   };
@@ -54,7 +66,7 @@ export function MilestoneList() {
   const filteredMilestones = allMilestones
     ? selectedType === "all"
       ? allMilestones
-      : allMilestones.filter((milestone: any) => milestone.type === selectedType)
+      : allMilestones.filter((milestone) => milestone.type === selectedType)
     : [];
   
   // Render loading state
@@ -93,7 +105,7 @@ export function MilestoneList() {
         <MilestoneDialog
           open={isDialogOpen}
           onOpenChange={handleDialogOpenChange}
-          existingMilestone={editingMilestone}
+          existingMilestone={editingMilestone ?? undefined}
         />
       </div>
     );
@@ -128,7 +140,7 @@ export function MilestoneList() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredMilestones.map((milestone: any) => (
+                {filteredMilestones.map((milestone) => (
                   <MilestoneItem
                     key={milestone.id}
                     milestone={milestone}
@@ -145,7 +157,7 @@ export function MilestoneList() {
       <MilestoneDialog
         open={isDialogOpen}
         onOpenChange={handleDialogOpenChange}
-        existingMilestone={editingMilestone}
+        existingMilestone={editingMilestone ?? undefined}
       />
     </div>
   );

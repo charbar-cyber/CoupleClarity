@@ -105,7 +105,7 @@ export default function DetailedConflictCreationForm({ partnerId, partnerName }:
       queryClient.invalidateQueries({ queryKey: ["/api/conflict-threads"] });
       
       // Navigate to the thread detail page
-      navigate(`/conflict-threads/${data.thread.id}`);
+      navigate(`/conflict/${data.thread.id}`);
     },
     onError: (error: Error) => {
       toast({

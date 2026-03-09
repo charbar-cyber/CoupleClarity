@@ -10,6 +10,55 @@ import {
 } from "@shared/schema";
 
 export function registerUserProfileRoutes(app: Express, ctx: RouteContext) {
+  app.get("/api/users/:id", isAuthenticated, async (req, res) => {
+    try {
+      const requesterId = (req.user as Express.User).id;
+      const userId = parseInt(req.params.id, 10);
+      const user = await storage.getUser(userId);
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      if (requesterId !== userId) {
+        const partnership = await storage.getPartnershipByUsers(requesterId, userId);
+        if (!partnership || partnership.status !== "active") {
+          return res.status(403).json({ message: "Not authorized to access this user" });
+        }
+      }
+
+      const { password, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  app.get("/api/users/:id/preferences", isAuthenticated, async (req, res) => {
+    try {
+      const requesterId = (req.user as Express.User).id;
+      const userId = parseInt(req.params.id, 10);
+      if (requesterId !== userId) {
+        const partnership = await storage.getPartnershipByUsers(requesterId, userId);
+        if (!partnership || partnership.status !== "active") {
+          return res.status(403).json({ message: "Not authorized to access these preferences" });
+        }
+      }
+
+      const prefs = await storage.getUserPreferences(userId);
+
+      if (!prefs) {
+        return res.status(404).json({ message: "Preferences not found" });
+      }
+
+      res.json(prefs);
+    } catch (error) {
+      console.error("Error fetching user preferences:", error);
+      res.status(500).json({ message: "Failed to fetch user preferences" });
+    }
+  });
+
   // POST /api/user/ai-model-preference - set preferred AI model
   app.post("/api/user/ai-model-preference", isAuthenticated, async (req, res) => {
     try {

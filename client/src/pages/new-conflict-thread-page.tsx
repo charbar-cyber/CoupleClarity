@@ -73,7 +73,7 @@ export default function NewConflictThreadPage() {
     <div className="container py-8 max-w-3xl mx-auto">
       <div className="mb-6 flex items-center">
         <Button variant="ghost" size="icon" asChild className="mr-2">
-          <Link to="/conflict-threads">
+          <Link to="/conflict">
             <ArrowLeft className="h-5 w-5" />
           </Link>
         </Button>

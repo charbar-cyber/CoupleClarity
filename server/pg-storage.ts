@@ -146,6 +146,13 @@ export class PostgresStorage implements IStorage {
     return row ?? null;
   }
 
+  async deleteEmotionalExpression(id: number): Promise<boolean> {
+    const rows = await db.delete(emotionalExpressions)
+      .where(eq(emotionalExpressions.id, id))
+      .returning({ id: emotionalExpressions.id });
+    return rows.length > 0;
+  }
+
   // ─── Users ─────────────────────────────────────────────────────────
   async getUser(id: number): Promise<User | undefined> {
     const [row] = await db.select().from(users).where(eq(users.id, id));
